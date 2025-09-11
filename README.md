@@ -5,10 +5,6 @@ ClubHub is a backend application designed to streamline the management of studen
 
 Tech Stack: Python, FastAPI, SQLModel (SQLAlchemy + Pydantic), PostgreSQL, JWT for authentication.
 
-Of course. A high-quality `README.md` is just as important as the code itself. It's the front page of your project and the first thing a reviewer will see.
-
-This README is written for the final version of your project but is based on everything we've built and planned so far. It's professional, comprehensive, and ready for your GitHub repository.
-
 -----
 
 ### How to Use This

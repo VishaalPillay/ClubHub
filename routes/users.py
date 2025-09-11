@@ -9,7 +9,7 @@ from database import engine
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
-@router.post("/register", response_model=UserPublic)
+@router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 def register_user(user_create: UserCreate):
     with Session(engine) as session:
         # Check if user already exists
