@@ -1,5 +1,5 @@
-# auth.py
 import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -10,11 +10,13 @@ from passlib.context import CryptContext
 from sqlmodel import Session, select
 
 from models import User
-from database import engine # We need the engine to create a session
+from database import engine
+
+load_dotenv()
 
 # --- Configuration ---
 # Generate a secret key with: i used import secrets and used secrets.token_hex(32) to generate the key
-JWT_SECRET_KEY = "a1eb518db182317f19df9cd18ecee10003a8d2fcf2387a3eb13bc8aa9f12ee20" 
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
