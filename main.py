@@ -9,6 +9,7 @@ from models import User
 
 # Import routers and auth functions
 from routes.users import router as users_router
+from routes.domains import router as domains_router # <-- ADD THIS LINE
 from auth import verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Import the database functions from our new file
@@ -21,8 +22,9 @@ def on_startup():
     # This now calls the function from database.py
     create_db_and_tables()
 
-# Include the users router
+# Include BOTH routers
 app.include_router(users_router)
+app.include_router(domains_router) # <-- ADD THIS LINE
 
 @app.post("/token", tags=["Authentication"])
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):

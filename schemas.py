@@ -28,3 +28,15 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+# Properties to receive via API on domain creation
+class DomainCreate(BaseModel):
+    name: str
+
+# Properties to return to client
+class DomainPublic(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True
