@@ -1,58 +1,45 @@
-# ClubHub
-A role-based REST API for club management built with Python, FastAPI, and PostgreSQL.
+# ClubHub API
+
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-05998b?logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-336791?logo=postgresql&logoColor=white)
+
+## Project Description
 
 ClubHub is a backend application designed to streamline the management of student clubs or small organizations. It features a robust, hierarchical Role-Based Access Control (RBAC) system with three distinct roles: President, Lead, and Member. The API allows for the creation of organizational domains (e.g., Technical, Creative), task assignment, and progress tracking, all governed by strict, role-specific permissions.
 
-Tech Stack: Python, FastAPI, SQLModel (SQLAlchemy + Pydantic), PostgreSQL, JWT for authentication.
-
------
-
-### How to Use This
-
-1.  In the root of your `ClubHub` folder, you should have a file named `README.md`.
-2.  Replace the entire content of that file with the text below.
-3.  Commit this file to your Git repository.
-
------
-
-# ClubHub API
-
-A role-based REST API for managing club activities, members, and tasks using a hierarchical role-based system. This backend is built with Python and FastAPI, designed for clarity, security, and scalability.
-
-This project was developed as a take-home assessment to demonstrate proficiency in modern backend development practices, including database modeling, authentication, authorization, and clean API design.
+This project was developed as a take-home assessment to demonstrate proficiency in modern backend development practices, including database modeling, secure JWT authentication, role-based authorization, and clean API design.
 
 ## Key Features
 
-  * **Secure User Registration:** Onboarding new users with secure password hashing using `bcrypt`.
-  * **JWT Token-Based Authentication:** Stateless and secure authentication using JSON Web Tokens (JWT).
-  * **Role-Based Access Control (RBAC):** A robust permission system with three distinct roles:
-      * **President:** Full administrative access over the entire club.
-      * **Lead:** Can manage tasks and members within their specific domain.
-      * **Member:** Can view and update the status of their assigned tasks.
-  * **Domain & Task Management:** Core functionality for creating organizational domains (e.g., Technical, Creative) and managing the lifecycle of tasks within them.
+- **Secure JWT Authentication**: Stateless and secure user authentication using JSON Web Tokens (JWT) with password hashing via `bcrypt`.
+- **Role-Based Access Control (RBAC)**: A sophisticated permission system ensures users can only access endpoints appropriate for their role (President, Lead, Member), implemented via reusable dependencies.
+- **CRUD Operations for Tasks**: Full Create, Read, and Update functionality for tasks, demonstrating the core requirement of the assignment.
+- **Database Modeling**: A well-defined relational schema using PostgreSQL and SQLModel to manage users, domains, and tasks with clear, unambiguous relationships.
+- **Clean Architecture**: The project follows a modular structure, separating concerns into different files for routing, database models, API schemas, and authentication logic.
 
 ## Tech Stack
 
-  * **Framework:** FastAPI
-  * **Database:** PostgreSQL
-  * **ORM:** SQLModel (built on Pydantic and SQLAlchemy)
-  * **Server:** Uvicorn (ASGI Server)
-  * **Authentication:** Passlib with Bcrypt for hashing, Python-JOSE for JWT.
-  * **Validation:** Pydantic for data validation and serialization.
+- **Framework**: FastAPI
+- **Database**: PostgreSQL
+- **ORM**: SQLModel (built on Pydantic and SQLAlchemy)
+- **Server**: Uvicorn
+- **Authentication**: Passlib with Bcrypt for hashing, Python-JOSE for JWT.
+- **Validation**: Pydantic for data validation and serialization.
 
 ## Setup and Installation
 
 ### Prerequisites
 
-  * Python 3.10+
-  * PostgreSQL Database
+- Python 3.10+
+- A running PostgreSQL instance (cloud-hosted on a platform like Render is recommended).
 
-### 1\. Clone the Repository
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/ClubHub.git
+git clone [https://github.com/your-username/ClubHub.git](https://github.com/your-username/ClubHub.git)
 cd ClubHub
-```
+````
 
 ### 2\. Create and Activate a Virtual Environment
 
@@ -60,10 +47,6 @@ cd ClubHub
 # For Windows
 python -m venv venv
 venv\Scripts\activate
-
-# For macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
 ```
 
 ### 3\. Install Dependencies
@@ -74,70 +57,46 @@ pip install -r requirements.txt
 
 ### 4\. Configure Environment Variables
 
-This project uses a `.env` file for managing environment variables.
-
-1.  Create a file named `.env` in the root of the project.
-2.  Copy the contents of the example below and paste it into your new `.env` file.
-
-**.env.example**
+Create a file named `.env` in the root of the project. This file is listed in `.gitignore` and will not be committed to version control.
 
 ```env
-# Replace with the connection URL from your PostgreSQL provider (e.g., Render)
-DATABASE_URL="postgres://user:password@host:port/database"
-
-# Generate a secure secret key by running: openssl rand -hex 32
+DATABASE_URL="your_postgresql_connection_url_here"
 JWT_SECRET_KEY="your_super_secret_32_character_hex_key_here"
 ```
 
-3.  Update the values with your actual database URL and a unique secret key.
-
-*(Note: The code would need to be updated to use a library like `python-dotenv` to read these values. For this project, we have hardcoded them, but this `.env` setup represents the professional standard.)*
-
 ### 5\. Running the Application
-
-Once the setup is complete, you can run the application with Uvicorn:
 
 ```bash
 uvicorn main:app --reload
 ```
 
 The API will be available at `http://127.0.0.1:8000`.
-Interactive documentation (Swagger UI) is available at `http://127.0.0.1:8000/docs`.
+Interactive documentation (Swagger UI) is automatically generated and available at `http://127.0.0.1:8000/docs`.
 
 ## API Documentation
 
 ### Authentication & Users
 
-| Method | Endpoint             | Permissions      | Description                                          |
-|--------|----------------------|------------------|------------------------------------------------------|
-| `POST` | `/users/register`    | Public           | Registers a new user (President, Lead, or Member).   |
-| `POST` | `/token`             | Public           | Authenticates a user and returns a JWT access token. |
-| `GET`  | `/users/me`          | Authenticated    | Retrieves the profile of the currently logged-in user.|
+| Method | Endpoint          | Permissions   | Description                                    |
+|--------|-------------------|---------------|------------------------------------------------|
+| `POST` | `/users/register` | Public        | Registers a new user (President, Lead, or Member).   |
+| `POST` | `/token`          | Public        | Authenticates a user and returns a JWT token.  |
+| `GET`  | `/users/me`       | Authenticated | Retrieves the profile of the logged-in user.   |
 
-**Example `POST /users/register` Request Body:**
+### Domains
 
-```json
-{
-  "name": "Test Lead",
-  "email": "lead@test.com",
-  "password": "password123",
-  "role": "lead",
-  "domain_id": 1
-}
+| Method | Endpoint  | Permissions   | Description                         |
+|--------|-----------|---------------|-------------------------------------|
+| `POST` | `/domains`| President     | Creates a new domain.              |
+| `GET`  | `/domains`| Authenticated | Retrieves a list of all domains.    |
+
+### Tasks
+
+| Method  | Endpoint                  | Permissions     | Description                                     |
+|---------|---------------------------|-----------------|-------------------------------------------------|
+| `POST`  | `/tasks`                  | Lead            | Creates a new task for a member in their domain.|
+| `GET`   | `/tasks/my`               | Member          | Retrieves all tasks assigned to the member.     |
+| `PATCH` | `/tasks/{task_id}/status` | Assigned Member | Updates the status of an assigned task.         |
+
 ```
-
-## Project Structure
-
-```
-/ClubHub
-|-- /routes
-|   |-- users.py
-|-- .gitignore
-|-- auth.py
-|-- database.py
-|-- main.py
-|-- models.py
-|-- README.md
-|-- requirements.txt
-|-- schemas.py
 ```
