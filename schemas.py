@@ -19,7 +19,7 @@ class UserPublic(BaseModel):
     domain_id: Optional[int] = None
 
     class Config:
-        from_attributes = True # Helps Pydantic work with ORM models
+        from_attributes = True
 
 # Properties for the JWT Token
 class Token(BaseModel):
@@ -40,3 +40,23 @@ class DomainPublic(BaseModel):
 
     class Config:
         from_attributes = True
+
+# === NEW: Task Schemas ===
+class TaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    assignee_id: int
+
+class TaskPublic(BaseModel):
+    id: int
+    title: str
+    description: Optional[str] = None
+    status: str
+    assignee_id: int
+    creator_id: int
+
+    class Config:
+        from_attributes = True
+
+class TaskUpdate(BaseModel):
+    status: str
