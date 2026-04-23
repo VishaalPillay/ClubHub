@@ -21,7 +21,7 @@ This project was developed as a take-home assessment to demonstrate proficiency 
 ## Tech Stack
 
 - **Framework**: FastAPI
-- **Database**: PostgreSQL
+- **Database**: MySQL
 - **ORM**: SQLModel (built on Pydantic and SQLAlchemy)
 - **Server**: Uvicorn
 - **Authentication**: Passlib with Bcrypt for hashing, Python-JOSE for JWT.
