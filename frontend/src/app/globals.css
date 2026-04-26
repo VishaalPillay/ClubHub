@@ -1,0 +1,378 @@
+@import "tailwindcss";
+
+/**
+ * WIRED Editorial System — Tailwind v4 Locked-Down Theme
+ *
+ * In Tailwind v4, ALL configuration lives here in CSS via @theme.
+ * This REPLACES defaults using `@theme` — the equivalent of `theme: {}`
+ * (not extend) in v3. Only what is declared below can be used.
+ *
+ * WIRED law is enforced at the config level:
+ * - Zero box shadows
+ * - Only 3 border-radius values (none, full, pill)
+ * - Strict WIRED color palette only
+ * - No gradients in the theme
+ */
+
+/* ─── Disable all Tailwind v4 defaults we don't want ────────────────────── */
+@layer base {
+  /* Strip all default spacing, colors, etc — we define everything explicitly */
+}
+
+/* ─── WIRED Theme Tokens ─────────────────────────────────────────────────── */
+@theme {
+  /* ── Colors: ONLY the WIRED palette ──────────────────────────────────── */
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-ink: #1a1a1a;
+  --color-caption-gray: #757575;
+  --color-disabled-gray: #999999;
+  --color-hairline-tint: #e2e8f0;
+  --color-link-blue: #057dbc;
+  --color-error: #e53e3e;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* ── Typography: next/font CSS variables ─────────────────────────────── */
+  --font-display: var(--font-newsreader), Georgia, serif;
+  --font-body: var(--font-newsreader), Georgia, serif;
+  --font-ui: var(--font-inter), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-space-grotesk), "Space Mono", monospace;
+
+  /* ── Font sizes ───────────────────────────────────────────────────────── */
+  --text-xs:   0.6875rem;   /* 11px */
+  --text-sm:   0.8125rem;   /* 13px */
+  --text-base: 1rem;        /* 16px */
+  --text-lg:   1.1875rem;   /* 19px */
+  --text-xl:   1.25rem;     /* 20px */
+  --text-2xl:  1.625rem;    /* 26px */
+  --text-4xl:  2.25rem;     /* 36px */
+  --text-5xl:  4rem;        /* 64px */
+
+  /* ── Border radius: WIRED's 3 radii — law enforced ───────────────────── */
+  --radius-none: 0px;        /* Every container, button, input, image */
+  --radius-full: 50%;        /* ONLY icon buttons and circular avatars */
+  --radius-pill: 1920px;     /* ONLY inline text spans: "BREAKING", "LIVE" */
+
+  /* ── Box shadows: NONE — WIRED is flat by religion ───────────────────── */
+  --shadow-none: none;
+
+  /* ── Spacing: 8px base scale ─────────────────────────────────────────── */
+  --spacing-px:  1px;
+  --spacing-0:   0px;
+  --spacing-1:   4px;
+  --spacing-2:   8px;
+  --spacing-3:   12px;
+  --spacing-4:   16px;
+  --spacing-6:   24px;
+  --spacing-8:   32px;
+  --spacing-10:  40px;
+  --spacing-12:  48px;
+  --spacing-16:  64px;
+  --spacing-20:  80px;
+  --spacing-24:  96px;
+
+  /* ── Max widths ───────────────────────────────────────────────────────── */
+  --container-editorial:  1600px;
+  --container-content:    1280px;
+  --container-form:       640px;
+  --container-onboarding: 720px;
+
+  /* ── Screens: WIRED breakpoints ──────────────────────────────────────── */
+  --breakpoint-sm: 375px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1600px;
+
+  /* ── Transition timing: strict tween, no spring ──────────────────────── */
+  --ease-micro: 150ms linear;
+  --ease-structural: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Animations: only fade for loading states ────────────────────────── */
+  --animate-none: none;
+}
+
+/* ─── BASE RESET ─────────────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-family: var(--font-ui);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    line-height: 1.05;
+    color: #1a1a1a;
+  }
+
+  p, li, blockquote {
+    font-family: var(--font-body);
+    font-weight: 400;
+    line-height: 1.50;
+    color: #1a1a1a;
+  }
+
+  a {
+    color: #1a1a1a;
+    text-decoration: underline;
+    transition: color 150ms linear;
+  }
+
+  a:hover {
+    color: #057dbc;
+  }
+
+  button {
+    font-family: var(--font-ui);
+  }
+
+  input, textarea, select {
+    font-family: var(--font-ui);
+    border-radius: 0;
+  }
+
+  /* Remove browser default focus rings — WIRED uses no glow */
+  *:focus {
+    outline: none;
+  }
+}
+
+/* ─── WIRED COMPONENT LAYER ──────────────────────────────────────────────── */
+@layer components {
+
+  /* Kicker — ALL-CAPS Space Grotesk mono eyebrow */
+  .wired-kicker {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.23;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #1a1a1a;
+  }
+
+  /* Editorial ribbon — full-bleed black section header */
+  .wired-ribbon {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.00;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 8px 24px;
+    width: 100%;
+    display: block;
+  }
+
+  /* Primary button — paper white, 2px black border, inverts on hover */
+  .wired-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #ffffff;
+    color: #000000;
+    font-family: var(--font-ui);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border: 2px solid #000000;
+    border-radius: 0;
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: all 150ms linear;
+    text-decoration: none;
+    white-space: nowrap;
+    min-height: 44px;
+  }
+
+  .wired-btn-primary:hover:not(:disabled) {
+    background-color: #000000;
+    color: #ffffff;
+  }
+
+  .wired-btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Secondary button — inverted (dark zones) */
+  .wired-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #000000;
+    color: #ffffff;
+    font-family: var(--font-ui);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border: 2px solid #ffffff;
+    border-radius: 0;
+    padding: 12px 24px;
+    cursor: pointer;
+    transition: all 150ms linear;
+    text-decoration: none;
+    min-height: 44px;
+  }
+
+  .wired-btn-secondary:hover:not(:disabled) {
+    background-color: #ffffff;
+    color: #000000;
+  }
+
+  .wired-btn-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Input — 2px solid black, 0 radius, no glow on focus */
+  .wired-input {
+    width: 100%;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-family: var(--font-ui);
+    font-size: 16px;
+    font-weight: 400;
+    border: 2px solid #000000;
+    border-radius: 0;
+    padding: 12px 16px;
+    outline: none;
+    min-height: 44px;
+    transition: none;
+  }
+
+  .wired-input::placeholder {
+    color: #757575;
+  }
+
+  .wired-input:disabled {
+    color: #999999;
+    border-color: #757575;
+  }
+
+  .wired-input.input-error {
+    border-color: #e53e3e;
+  }
+
+  /* Label */
+  .wired-label {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.92px;
+    text-transform: uppercase;
+    color: #1a1a1a;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  /* Error text */
+  .wired-error-text {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: #e53e3e;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* Hairline rules */
+  .wired-rule {
+    border: none;
+    border-top: 1px solid #000000;
+    width: 100%;
+    margin: 0;
+  }
+
+  .wired-rule-quiet {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    width: 100%;
+    margin: 0;
+  }
+
+  /* Utility nav — full-bleed black top strip */
+  .wired-utility-nav {
+    background-color: #000000;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    height: 40px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    flex-shrink: 0;
+  }
+
+  /* Step progress dots — SQUARE, not round */
+  .wired-step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 0;
+    background-color: #e2e8f0;
+    transition: background-color 150ms linear;
+    flex-shrink: 0;
+  }
+
+  .wired-step-dot.active {
+    background-color: #000000;
+  }
+
+  .wired-step-dot.completed {
+    background-color: #1a1a1a;
+  }
+
+  /* Progress connector line */
+  .wired-progress-line {
+    height: 2px;
+    background-color: #e2e8f0;
+    flex: 1;
+    transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .wired-progress-line.active {
+    background-color: #000000;
+  }
+
+  .wired-select {
+    width: 100%;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-family: var(--font-ui);
+    font-size: 16px;
+    border: 2px solid #000000;
+    border-radius: 0;
+    padding: 12px 16px;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    min-height: 44px;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+}
+
