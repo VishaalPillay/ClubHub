@@ -7,10 +7,8 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlmodel import Session, select
+from database import get_db_connection
 
-from models import User
-from database import engine
 
 load_dotenv()
 
@@ -45,7 +43,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 # --- Dependency to Get Current User ---
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    connection = Depends(get_db_connection)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -59,18 +60,23 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError:
         raise credentials_exception
     
-    with Session(engine) as session:
-        user = session.exec(select(User).where(User.email == email)).first()
-        if user is None:
-            raise credentials_exception
-        return user
+    cursor = connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user_data = cursor.fetchone()
+    cursor.close()
+    
+    if user_data is None:
+        raise credentials_exception
+    return user_data
+
+
 
 def require_role(required_role: str):
     """
     A dependency that checks if the current user has the required role.
     """
-    def role_checker(current_user: User = Depends(get_current_user)):
-        if current_user.role != required_role:
+    def role_checker(current_user: dict = Depends(get_current_user)):
+        if current_user['role'] != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to perform this action",
