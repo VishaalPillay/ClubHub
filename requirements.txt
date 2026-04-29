@@ -1,7 +1,6 @@
 fastapi
 uvicorn[standard]
-sqlmodel
-psycopg2-binary
+mysql-connector-python
 python-jose
 passlib[bcrypt]
 email-validator
