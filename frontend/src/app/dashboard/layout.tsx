@@ -1,3 +1,5 @@
+import DashboardNav from "./DashboardNav";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -16,12 +18,7 @@ export default function DashboardLayout({
         </div>
         
         {/* Navigation Links (Absolutely Centered) */}
-        <nav className="hidden lg:flex gap-8 font-mono text-[15px] font-bold uppercase tracking-widest text-black absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap">
-          <a className="hover:text-link-blue transition-150 cursor-pointer no-underline" href="/dashboard">OVERVIEW</a>
-          <a className="hover:text-link-blue transition-150 cursor-pointer no-underline" href="#">TASK BOARD</a>
-          <a className="hover:text-link-blue transition-150 cursor-pointer no-underline" href="#">DOMAIN DIRECTORY</a>
-          <a className="hover:text-link-blue transition-150 cursor-pointer no-underline" href="#">EVENTS</a>
-        </nav>
+        <DashboardNav />
         
         <div className="flex items-center gap-6 z-10">
           <div className="flex items-center gap-3 font-ui text-base">
