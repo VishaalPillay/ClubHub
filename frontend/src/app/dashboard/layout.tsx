@@ -1,4 +1,5 @@
 import DashboardNav from "./DashboardNav";
+import ProfileMenu from "./ProfileMenu";
 
 export default function DashboardLayout({
   children,
@@ -21,17 +22,7 @@ export default function DashboardLayout({
         <DashboardNav />
         
         <div className="flex items-center gap-6 z-10">
-          <div className="flex items-center gap-3 font-ui text-base">
-            <span>Aarav (President)</span>
-            <div className="w-10 h-10 border border-black overflow-hidden bg-[#e2e2e2]">
-              <img 
-                alt="Aarav" 
-                className="w-full h-full object-cover grayscale" 
-                data-alt="Black and white portrait of a young professional man looking directly at the camera with a neutral expression" 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAegbAJ2PnOcflbgSQ459A6dOFs424Wdg5RQP58XlREoXSA1mByO-wekNdsxmByzZGB5GVaNUiqD9b0P5Da-BgOqi25KGo6faOOZ1XJ0GxEGO_OH9tSantjDo_HEDzqschFfr7_uCEpG7jt8LFR8WfvMrZMzB4ldTzaARd8BZkzn6P9k-LO5KTjkHblcEqa-nbZ1VwwEsFL4EWAi4I8IlPNY2zGtisDQ_hPzpNzBgKwa7X4QyIGiT1rPeJ2QBTlqvVkMVcZ5HS8Y1ix"
-              />
-            </div>
-          </div>
+          <ProfileMenu />
         </div>
       </header>
 

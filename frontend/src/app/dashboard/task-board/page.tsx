@@ -1,3 +1,5 @@
+import Leaderboard from "./Leaderboard";
+
 export default function TaskBoardPage() {
   return (
     <div className="w-full">
@@ -78,6 +80,9 @@ export default function TaskBoardPage() {
         </div>
 
       </div>
+
+      {/* Leaderboard Section */}
+      <Leaderboard />
     </div>
   );
 }
