@@ -67,7 +67,7 @@ export default function EventsPage() {
                 Tech Workshop: Intro to Web Systems
               </h2>
               <p className="font-body text-[16px] leading-[1.50] text-[#4c4546] max-w-2xl mb-4">
-                A hands-on workshop led by our senior developers. Bring your laptops. We will cover the basics of our new tech stack and best practices for contributing to the club's open-source projects.
+                A hands-on workshop led by our senior developers. Bring your laptops. We will cover the basics of our new tech stack and best practices for contributing to the club&apos;s open-source projects.
               </p>
               <div className="flex items-center gap-4 font-mono text-[12px] text-[#757575]">
                 <span className="flex items-center gap-1">
