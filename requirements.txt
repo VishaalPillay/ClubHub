@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-mysql-connector-python
-python-jose
-passlib[bcrypt]
-email-validator
-python-multipart
-python-dotenv
