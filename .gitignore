@@ -15,9 +15,16 @@ __pycache__/
 # Other common Python artifacts
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
 
 DESIGN.md
 WIRED_ONBOARDING_2025.pdf
+SYSTEM_DESIGN.md
+DESIGN-wired.md
+Club-Hub/
 
 # OS-specific files
 .DS_Store
@@ -25,3 +32,4 @@ Thumbs.db
 
 # IDE
 .idea/
+.claude

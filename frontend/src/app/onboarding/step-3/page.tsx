@@ -114,7 +114,13 @@ export default function OnboardingStep3() {
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               BACK
             </button>
-            <button onClick={() => router.push("/onboarding/step-4")} className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+            <button 
+              onClick={() => {
+                localStorage.setItem("onboarding_club_domains", JSON.stringify(domains));
+                router.push("/onboarding/step-4");
+              }} 
+              className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]" type="button"
+            >
               CONTINUE
               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>

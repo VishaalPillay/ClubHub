@@ -100,7 +100,15 @@ export default function OnboardingStep2() {
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                 BACK
               </button>
-              <button onClick={() => router.push("/onboarding/step-3")} className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+              <button 
+                onClick={() => {
+                  localStorage.setItem("onboarding_club_name", form.name);
+                  localStorage.setItem("onboarding_club_desc", form.acronym);
+                  router.push("/onboarding/step-3");
+                }} 
+                disabled={!form.name}
+                className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" type="button"
+              >
                 CONTINUE
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>

@@ -8,8 +8,12 @@ export default function OnboardingStep5() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [stage, setStage] = useState(0);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      setCode(localStorage.getItem("onboarding_club_code") || "CS-XXXX");
+    }
     const t1 = setTimeout(() => setStage(1), 100);
     const t2 = setTimeout(() => setStage(2), 900);
     const t3 = setTimeout(() => setStage(3), 1600);
@@ -78,15 +82,15 @@ export default function OnboardingStep5() {
               <div className="flex items-stretch border-2 border-[#000000]">
                 <input
                   aria-label="Invite Link"
-                  className="w-full border-0 focus:ring-0 font-[Space_Grotesk] text-[12px] tracking-[1.1px] text-[#757575] bg-[#f3f3f3] px-4 py-3"
+                  className="w-full border-0 focus:ring-0 font-[Space_Grotesk] text-[12px] tracking-[1.1px] text-[#000000] font-bold bg-[#f3f3f3] px-4 py-3"
                   readOnly
                   type="text"
-                  value="clubhub.co/invite/x7y9z2"
+                  value={code}
                 />
                 <button
-                  aria-label="Copy Link"
+                  aria-label="Copy Code"
                   className="bg-[#FFFFFF] border-l-2 border-[#000000] px-4 flex items-center justify-center hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-100 group"
-                  onClick={() => navigator.clipboard.writeText("clubhub.co/invite/x7y9z2")}
+                  onClick={() => navigator.clipboard.writeText(code)}
                 >
                   <span className="material-symbols-outlined text-[#000000] group-hover:text-[#FFFFFF]">content_copy</span>
                 </button>

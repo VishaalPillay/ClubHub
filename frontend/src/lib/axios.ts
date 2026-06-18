@@ -1,35 +1,36 @@
 import axios from "axios";
 
-/**
- * Axios instance pre-configured to talk to the ClubHub FastAPI backend.
- * Base URL defaults to localhost:8000 for local development.
- * In production, set NEXT_PUBLIC_API_URL in your environment.
- */
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
   timeout: 10_000,
 });
 
-// ─── Request Interceptor: attach Bearer token if present ─────────────────────
+// Attach Bearer token + X-Club-ID on every request
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("clubhub_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    const clubId = localStorage.getItem("clubhub_active_club_id");
+    if (clubId) config.headers["X-Club-ID"] = clubId;
   }
   return config;
 });
 
-// ─── Response Interceptor: surface clean error messages ──────────────────────
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message =
-      error?.response?.data?.detail ?? error?.message ?? "An error occurred";
+    const detail = error?.response?.data?.detail;
+    let message: string;
+    if (Array.isArray(detail)) {
+      // FastAPI validation error — array of {loc, msg, type}
+      message = detail.map((e: any) => `${e.loc?.join(".")} — ${e.msg}`).join("; ");
+    } else if (typeof detail === "string") {
+      message = detail;
+    } else {
+      message = error?.message ?? "An error occurred";
+    }
     return Promise.reject(new Error(message));
   }
 );

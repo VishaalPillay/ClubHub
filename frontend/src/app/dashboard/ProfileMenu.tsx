@@ -1,12 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useDashboard } from "./DashboardContext";
+import api from "@/lib/axios";
 
 export default function ProfileMenu() {
+  const { currentRole } = useDashboard();
   const [isOpen, setIsOpen] = useState(false);
+  const [userName, setUserName] = useState("Loading...");
   
   const [profilePic, setProfilePic] = useState(
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuAegbAJ2PnOcflbgSQ459A6dOFs424Wdg5RQP58XlREoXSA1mByO-wekNdsxmByzZGB5GVaNUiqD9b0P5Da-BgOqi25KGo6faOOZ1XJ0GxEGO_OH9tSantjDo_HEDzqschFfr7_uCEpG7jt8LFR8WfvMrZMzB4ldTzaARd8BZkzn6P9k-LO5KTjkHblcEqa-nbZ1VwwEsFL4EWAi4I8IlPNY2zGtisDQ_hPzpNzBgKwa7X4QyIGiT1rPeJ2QBTlqvVkMVcZ5HS8Y1ix"
+    "https://ui-avatars.com/api/?name=User&background=000&color=fff&size=150"
   );
 
   // Cleanup object URLs to avoid memory leaks
@@ -18,14 +22,28 @@ export default function ProfileMenu() {
     };
   }, [profilePic]);
 
-  // Mock initial data
   const [formData, setFormData] = useState({
-    firstName: "Aarav",
-    lastName: "Sharma",
-    email: "aarav@clubhub.com",
+    firstName: "User",
+    lastName: "",
+    email: "",
     dob: "2002-05-14",
     password: "",
   });
+
+  useEffect(() => {
+    api.get("/auth/me").then((res) => {
+      const { name, email } = res.data;
+      setUserName(name);
+      setProfilePic(`https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=000&color=fff&size=150`);
+      const parts = name.split(" ");
+      setFormData(prev => ({
+        ...prev,
+        firstName: parts[0] || "",
+        lastName: parts.slice(1).join(" ") || "",
+        email: email || ""
+      }));
+    }).catch(e => console.error("Failed to fetch user", e));
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -44,10 +62,10 @@ export default function ProfileMenu() {
         className="flex items-center gap-3 font-ui text-16 cursor-pointer hover:text-link-blue transition-150"
         onClick={() => setIsOpen(true)}
       >
-        <span className="font-bold uppercase tracking-wide">Aarav (President)</span>
+        <span className="font-bold uppercase tracking-wide">{userName.split(' ')[0]} ({currentRole.replace('_', ' ')})</span>
         <div className="w-10 h-10 border-2 border-black overflow-hidden bg-hairline-tint hover:border-link-blue transition-150">
           <img 
-            alt="Aarav" 
+            alt={userName} 
             className="w-full h-full object-cover grayscale" 
             src={profilePic}
           />

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import api from "@/lib/axios";
 
 export default function OnboardingStep4() {
   const router = useRouter();
@@ -18,11 +19,55 @@ export default function OnboardingStep4() {
   });
 
   const [progress, setProgress] = useState("60%");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setProgress("80%"), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  const handleFinish = async () => {
+    setLoading(true);
+    try {
+      const name = localStorage.getItem("onboarding_club_name") || "Untitled Club";
+      const desc = localStorage.getItem("onboarding_club_desc") || "";
+      const domainsStr = localStorage.getItem("onboarding_club_domains");
+      const domains = domainsStr ? JSON.parse(domainsStr) : [];
+
+      // Map UI roles to backend roles
+      const enabled_roles = [];
+      if (roles.vicePresident) enabled_roles.push("vice_president");
+      if (roles.secretary) enabled_roles.push("secretary");
+      if (roles.jointSecretary) enabled_roles.push("joint_secretary");
+      if (roles.lead) enabled_roles.push("lead");
+      if (roles.associateLead) enabled_roles.push("associate");
+      if (roles.member) enabled_roles.push("member");
+
+      // Create Club
+      const clubRes = await api.post("/clubs", { name, description: desc, enabled_roles });
+      const clubId = clubRes.data.id;
+      const clubCode = clubRes.data.code;
+
+      // Set auth context so we can create domains (requires VP+ role, which we have as president)
+      localStorage.setItem("clubhub_active_club_id", String(clubId));
+      localStorage.setItem("clubhub_active_club_name", name);
+      localStorage.setItem("clubhub_active_role", "president");
+      localStorage.setItem("clubhub_active_domain_id", "");
+
+      // Create Domains
+      for (const d of domains) {
+        await api.post(`/clubs/${clubId}/domains`, { name: d, description: "" }, {
+          headers: { "X-Club-ID": String(clubId) }
+        });
+      }
+
+      localStorage.setItem("onboarding_club_code", clubCode);
+      router.push("/onboarding/step-5");
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Failed to create club.");
+      setLoading(false);
+    }
+  };
 
   const toggleRole = (role: keyof typeof roles) => {
     setRoles((prev) => ({ ...prev, [role]: !prev[role] }));
@@ -167,12 +212,17 @@ export default function OnboardingStep4() {
 
         {/* Action Area */}
         <div className="w-full max-w-4xl mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">
-          <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#FFFFFF] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 flex items-center gap-[4px]">
+          <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#FFFFFF] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 flex items-center gap-[4px]" type="button">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             BACK
           </button>
-          <button onClick={() => router.push("/onboarding/step-5")} className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]">
-            FINISH
+          <button 
+            onClick={handleFinish} 
+            disabled={loading}
+            className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" 
+            type="button"
+          >
+            {loading ? "CREATING..." : "FINISH"}
             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
           </button>
         </div>

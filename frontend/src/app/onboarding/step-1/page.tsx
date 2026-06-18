@@ -108,7 +108,15 @@ export default function OnboardingStep1() {
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               BACK
             </button>
-            <button onClick={() => router.push("/onboarding/step-2")} className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+            <button
+              onClick={() => {
+                if (selected === "join") router.push("/onboarding/join-flow");
+                else if (selected === "create") router.push("/onboarding/step-2");
+              }}
+              disabled={!selected}
+              className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-40"
+              type="button"
+            >
               CONTINUE
               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>

@@ -2,39 +2,31 @@
 
 import { useState } from "react";
 
-const LEADERBOARD_DATA = [
-  { id: 1, name: "Alex Chen", domain: "Technical", points: 1450, pic: "https://i.pravatar.cc/150?u=alex" },
-  { id: 2, name: "Samira Tariq", domain: "Technical", points: 1320, pic: "https://i.pravatar.cc/150?u=samira" },
-  { id: 3, name: "Maya Lin", domain: "Design", points: 1280, pic: "https://i.pravatar.cc/150?u=maya" },
-  { id: 4, name: "Jordan Smith", domain: "Design", points: 1150, pic: "https://i.pravatar.cc/150?u=jordan" },
-  { id: 5, name: "Sarah Johnson", domain: "Management", points: 1090, pic: "https://i.pravatar.cc/150?u=sarah" },
-  { id: 6, name: "David Lee", domain: "Management", points: 950, pic: "https://i.pravatar.cc/150?u=david" },
-  { id: 7, name: "Emma Wong", domain: "Technical", points: 890, pic: "https://i.pravatar.cc/150?u=emma" },
-  { id: 8, name: "Liam Davis", domain: "Design", points: 820, pic: "https://i.pravatar.cc/150?u=liam" },
-  { id: 9, name: "Olivia Martinez", domain: "Management", points: 750, pic: "https://i.pravatar.cc/150?u=olivia" },
-  { id: 10, name: "Noah Wilson", domain: "Technical", points: 680, pic: "https://i.pravatar.cc/150?u=noah" },
-  { id: 11, name: "Ava Taylor", domain: "Design", points: 620, pic: "https://i.pravatar.cc/150?u=ava" },
-  { id: 12, name: "James Anderson", domain: "Management", points: 550, pic: "https://i.pravatar.cc/150?u=james" }
-];
+export type LeaderboardMember = {
+  id: number;
+  name: string;
+  domain: string;
+  points: number;
+  pic: string;
+};
 
 const ITEMS_PER_PAGE = 5;
 
-export default function Leaderboard() {
+export default function Leaderboard({ members }: { members: LeaderboardMember[] }) {
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(LEADERBOARD_DATA.length / ITEMS_PER_PAGE);
+  const sortedMembers = [...members].sort((a, b) => b.points - a.points);
+  const totalPages = Math.ceil(sortedMembers.length / ITEMS_PER_PAGE) || 1;
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentItems = LEADERBOARD_DATA.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const currentItems = sortedMembers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <div className="mt-12 w-full">
-      {/* Editorial Ribbon Header */}
       <div className="bg-black w-full mb-6 flex justify-between items-center px-2 py-1">
         <h2 className="text-white font-mono text-12 uppercase tracking-widest">Leaderboard</h2>
       </div>
 
       <div className="w-full border-2 border-black">
-        {/* Table Header */}
         <div className="grid grid-cols-12 bg-black text-white font-mono text-xs uppercase tracking-widest p-3">
           <div className="col-span-1 text-center">Rank</div>
           <div className="col-span-6">Member</div>
@@ -42,9 +34,8 @@ export default function Leaderboard() {
           <div className="col-span-2 text-right">Points</div>
         </div>
 
-        {/* Table Body */}
         <div className="flex flex-col">
-          {currentItems.map((item, index) => (
+          {currentItems.length > 0 ? currentItems.map((item, index) => (
             <div 
               key={item.id} 
               className="grid grid-cols-12 items-center p-3 border-b-2 border-black last:border-b-0 hover:bg-hairline-tint transition-colors"
@@ -69,16 +60,17 @@ export default function Leaderboard() {
                 {item.points.toLocaleString()}
               </div>
             </div>
-          ))}
+          )) : (
+            <div className="p-4 text-center font-ui text-14 text-caption-gray">No members found.</div>
+          )}
         </div>
       </div>
 
-      {/* Pagination Controls */}
       <div className="mt-4 flex justify-between items-center border-t-2 border-black pt-4">
         <button 
           onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
           disabled={currentPage === 1}
-          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black"
+          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-white"
         >
           Previous
         </button>
@@ -88,7 +80,7 @@ export default function Leaderboard() {
         <button 
           onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           disabled={currentPage === totalPages}
-          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black"
+          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-white"
         >
           Next Page
         </button>
