@@ -102,3 +102,27 @@ def require_min_role(min_role: str):
         return ctx
 
     return checker
+
+
+def verify_club_path(min_role: str = "member"):
+    """Dependency factory: resolve club context, gate by role, then assert the URL path
+    club_id matches the X-Club-ID header. Raises 400 CLUB_ID_MISMATCH on mismatch.
+
+    Replaces the duplicated _assert_club_match helper that used to live in each router.
+    Defaults to 'member' (the lowest role) so any membership passes the role gate.
+    """
+    _role_dep = require_min_role(min_role)
+
+    def _check(
+        club_id: int,
+        ctx: ClubContext = Depends(_role_dep),
+    ) -> ClubContext:
+        if club_id != ctx.club_id:
+            raise AppError(
+                status.HTTP_400_BAD_REQUEST,
+                "Path club_id does not match the X-Club-ID header.",
+                "CLUB_ID_MISMATCH",
+            )
+        return ctx
+
+    return _check

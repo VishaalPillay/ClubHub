@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.modules.auth.router import router as auth_router
+from app.modules.clubs.router import router as clubs_router
+from app.modules.domains.router import router as domains_router
 
 
 def create_app() -> FastAPI:
@@ -27,6 +29,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(clubs_router)
+    app.include_router(domains_router)
 
     @app.get("/health", tags=["Health"])
     def health() -> dict[str, str]:
