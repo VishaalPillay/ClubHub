@@ -16,7 +16,11 @@ from app.core.config import settings
 from app.models import SQLModel
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Prefer an explicit override (set by tests/tooling via Config.set_main_option, e.g. the
+# clubhub_test database) and fall back to app settings. The shipped alembic.ini leaves
+# sqlalchemy.url empty, so the normal `alembic` CLI path is unchanged.
+db_url = config.get_main_option("sqlalchemy.url") or settings.DATABASE_URL
+config.set_main_option("sqlalchemy.url", db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -26,7 +30,7 @@ target_metadata = SQLModel.metadata
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=settings.DATABASE_URL,
+        url=db_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},

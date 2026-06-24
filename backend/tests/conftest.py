@@ -1,52 +1,67 @@
 """Test fixtures — run against a REAL Postgres (never SQLite), per docs/adr/0001 & 0003.
 
-A dedicated `clubhub_test` database is created on the same Postgres server. The schema is
-created once per session; each test runs inside an outer transaction that is rolled back at
-the end (commits inside endpoints become savepoints), giving full isolation between tests.
+A dedicated `clubhub_test` database is created on the same Postgres server. Its schema is
+built by running the **Alembic migrations** (`alembic upgrade head`), not
+`SQLModel.metadata.create_all`, so the migrations are the tested path and any model/migration
+drift fails here. Each test runs inside an outer transaction that is rolled back at the end
+(commits inside endpoints become savepoints), giving full isolation between tests.
 """
 
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
+from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 from sqlmodel import Session
 
+from alembic import command
 from app.core.config import settings
 from app.core.db import get_session
 from app.main import app
-from app.models import SQLModel
 
 TEST_DB_NAME = "clubhub_test"
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _ensure_test_database() -> str:
-    """Create the clubhub_test database if missing; return its URL."""
+    """Drop and recreate the clubhub_test database; return its URL.
+
+    Recreating from scratch guarantees the schema is built fresh by the migrations (no
+    leftover tables from a previous create_all-based run).
+    """
     base_url = make_url(settings.DATABASE_URL)
     test_url = base_url.set(database=TEST_DB_NAME)
     admin_url = base_url.set(database="postgres")
 
     admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
     with admin_engine.connect() as conn:
-        exists = conn.execute(
-            text("SELECT 1 FROM pg_database WHERE datname = :name"),
-            {"name": TEST_DB_NAME},
-        ).scalar()
-        if not exists:
-            conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
+        # WITH (FORCE) terminates any lingering connections (PostgreSQL 13+).
+        conn.execute(text(f'DROP DATABASE IF EXISTS "{TEST_DB_NAME}" WITH (FORCE)'))
+        conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
     admin_engine.dispose()
     return test_url.render_as_string(hide_password=False)
+
+
+def _run_migrations(test_url: str) -> None:
+    """Apply `alembic upgrade head` against the test database.
+
+    env.py honours an explicit sqlalchemy.url override (see its db_url resolution), so this
+    targets clubhub_test without mutating app settings.
+    """
+    cfg = Config(str(BACKEND_ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_ROOT / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", test_url)
+    command.upgrade(cfg, "head")
 
 
 @pytest.fixture(scope="session")
 def engine():
     test_url = _ensure_test_database()
+    _run_migrations(test_url)
     eng = create_engine(test_url, pool_pre_ping=True)
-    # Known gap: create_all uses SQLModel metadata directly, not Alembic migrations.
-    # Migration/model drift won't be caught here. TODO: replace with `alembic upgrade head`
-    # against the test DB, or add a CI job that asserts autogenerate produces no diff.
-    SQLModel.metadata.create_all(eng)
     yield eng
     eng.dispose()
 
