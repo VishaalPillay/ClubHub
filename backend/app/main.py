@@ -5,9 +5,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.modules.action_requests.router import router as action_requests_router
 from app.modules.auth.router import router as auth_router
 from app.modules.clubs.router import router as clubs_router
 from app.modules.domains.router import router as domains_router
+from app.modules.join_requests.router import router as join_requests_router
+from app.modules.members.router import router as members_router
 
 
 def create_app() -> FastAPI:
@@ -31,6 +34,9 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(clubs_router)
     app.include_router(domains_router)
+    app.include_router(members_router)
+    app.include_router(join_requests_router)
+    app.include_router(action_requests_router)
 
     @app.get("/health", tags=["Health"])
     def health() -> dict[str, str]:

@@ -33,3 +33,9 @@ Thumbs.db
 # IDE
 .idea/
 .claude
+
+# Local-only test files (Phase 1 governance — run locally, not pushed)
+backend/tests/test_permissions.py
+backend/tests/test_members.py
+backend/tests/test_join_requests.py
+backend/tests/test_action_requests.py
