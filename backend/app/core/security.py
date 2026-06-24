@@ -1,6 +1,6 @@
 """Password hashing + JWT helpers (ported from the prototype auth.py)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -20,7 +20,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(user_id: int, expires_delta: timedelta | None = None) -> str:
     """Access token carries only the user id (`sub`) — global identity, no club context."""
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     payload = {"sub": str(user_id), "exp": expire}

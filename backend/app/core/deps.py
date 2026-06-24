@@ -65,7 +65,9 @@ def get_club_context(
     try:
         club_id = int(x_club_id)
     except ValueError:
-        raise AppError(status.HTTP_400_BAD_REQUEST, "X-Club-ID must be an integer.", "BAD_CLUB_ID")
+        raise AppError(
+            status.HTTP_400_BAD_REQUEST, "X-Club-ID must be an integer.", "BAD_CLUB_ID"
+        ) from None
 
     membership = session.exec(
         select(ClubMember).where(

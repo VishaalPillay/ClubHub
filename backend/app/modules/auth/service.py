@@ -23,7 +23,11 @@ def register_user(session: Session, name: str, email: str, password: str) -> Use
 def authenticate_user(session: Session, email: str, password: str) -> User:
     user = session.exec(select(User).where(User.email == email)).first()
     # password_hash is null for Google-only accounts — reject password login for those too.
-    if user is None or user.password_hash is None or not verify_password(password, user.password_hash):
+    if (
+        user is None
+        or user.password_hash is None
+        or not verify_password(password, user.password_hash)
+    ):
         raise AppError(
             status.HTTP_401_UNAUTHORIZED, "Incorrect email or password.", "BAD_CREDENTIALS"
         )

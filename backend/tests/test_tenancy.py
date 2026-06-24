@@ -12,7 +12,6 @@ from sqlmodel import select
 
 from app.models import Club, ClubMember, User
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _register(client, email, name="User"):

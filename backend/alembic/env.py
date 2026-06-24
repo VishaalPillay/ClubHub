@@ -7,13 +7,12 @@ would produce an empty/no-op baseline).
 
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
-
-from app.core.config import settings
 
 # Importing the package populates SQLModel.metadata with all tables.
 import app.models  # noqa: F401
+from alembic import context
+from app.core.config import settings
 from app.models import SQLModel
 
 config = context.config

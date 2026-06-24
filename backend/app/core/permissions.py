@@ -3,7 +3,7 @@
 Stored as strings per docs/adr/0001; ordering comes from this list, not enum ordinals.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 # Ordered low -> high authority.
 ROLE_HIERARCHY: list[str] = [
@@ -17,7 +17,7 @@ ROLE_HIERARCHY: list[str] = [
 ]
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     member = "member"
     associate = "associate"
     lead = "lead"
