@@ -6,7 +6,11 @@ and docs/adr/0003-execution-model.md for the DATABASE_URL host conventions.
 
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Placeholder shipped in .env.example; the app must not boot with it (or an empty value).
+_PLACEHOLDER_JWT_SECRET = "change-me-in-env"
 
 
 class Settings(BaseSettings):
@@ -16,11 +20,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    # Runtime mode — set DEBUG=true to relax production-only guards (e.g. the JWT secret
+    # check below) for local/host test runs. Never enable in production.
+    DEBUG: bool = False
+
     # Database
     DATABASE_URL: str = "postgresql+psycopg://clubhub:clubhub@db:5432/clubhub"
 
     # Auth / JWT
-    JWT_SECRET_KEY: str = "change-me-in-env"
+    JWT_SECRET_KEY: str = _PLACEHOLDER_JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # access-token-only for now (refresh deferred)
 
@@ -34,6 +42,17 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @model_validator(mode="after")
+    def _guard_jwt_secret(self) -> "Settings":
+        """Fail fast on startup if the JWT secret is unset/placeholder (unless DEBUG)."""
+        if not self.DEBUG and self.JWT_SECRET_KEY in ("", _PLACEHOLDER_JWT_SECRET):
+            raise RuntimeError(
+                "JWT_SECRET_KEY is unset or still the placeholder default. Set a real secret "
+                '(python -c "import secrets; print(secrets.token_hex(32))") '
+                "or set DEBUG=true for local/test runs."
+            )
+        return self
 
 
 @lru_cache

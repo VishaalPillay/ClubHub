@@ -26,7 +26,7 @@ def create_domain(
             status.HTTP_409_CONFLICT,
             f"A domain named '{name}' already exists in this club.",
             "DOMAIN_NAME_TAKEN",
-        )
+        ) from None
     session.refresh(domain)
     return domain
 
@@ -62,7 +62,7 @@ def update_domain(
             status.HTTP_409_CONFLICT,
             f"A domain named '{name}' already exists in this club.",
             "DOMAIN_NAME_TAKEN",
-        )
+        ) from None
     session.refresh(domain)
     return domain
 
@@ -70,4 +70,14 @@ def update_domain(
 def delete_domain(session: Session, club_id: int, domain_id: int) -> None:
     domain = _load_domain_in_club(session, club_id, domain_id)
     session.delete(domain)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # After the FK ondelete rules, dependents are CASCADE/SET NULL; this guards any
+        # future RESTRICT reference (mirrors the create/update rollback pattern above).
+        session.rollback()
+        raise AppError(
+            status.HTTP_409_CONFLICT,
+            "This domain is still in use and cannot be deleted.",
+            "DOMAIN_IN_USE",
+        ) from None

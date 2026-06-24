@@ -77,11 +77,11 @@ class MyClubItem(BaseModel):
 
 
 class DirectoryItem(BaseModel):
-    """One entry in GET /clubs/directory."""
+    """One entry in GET /clubs/directory. The join `code` is deliberately omitted —
+    it is an invite secret and only surfaces via the authenticated lookup."""
     id: int
     name: str
     description: str | None
-    code: str
     institution: str | None
 
     model_config = {"from_attributes": True}

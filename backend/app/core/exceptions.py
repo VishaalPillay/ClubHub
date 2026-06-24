@@ -1,9 +1,13 @@
 """Consistent error envelope: {"detail": "...", "code": "..."} (SYSTEM_DESIGN §8.3)."""
 
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger("app")
 
 
 class AppError(Exception):
@@ -53,4 +57,14 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={"detail": errors, "code": "VALIDATION_ERROR"},
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled_error(_: Request, exc: Exception) -> JSONResponse:
+        # Last-resort guard: log the full traceback server-side, return the standard
+        # envelope. AppError / HTTPException / RequestValidationError are matched by their
+        # specific handlers above and never reach this one (specificity wins).
+        logger.exception("Unhandled exception")
+        return _envelope(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, "Internal server error", "INTERNAL_ERROR"
         )

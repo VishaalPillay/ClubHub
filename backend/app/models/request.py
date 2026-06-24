@@ -13,16 +13,18 @@ class JoinRequest(SQLModel, table=True):
     __table_args__ = (Index("ix_join_requests_club_status", "club_id", "status"),)
 
     id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")
-    club_id: int = Field(foreign_key="clubs.id")
+    user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
+    club_id: int = Field(foreign_key="clubs.id", ondelete="CASCADE")
     requested_role: str = Field(sa_column=Column(String, nullable=False))
-    requested_domain_id: int | None = Field(default=None, foreign_key="domains.id")
+    requested_domain_id: int | None = Field(
+        default=None, foreign_key="domains.id", ondelete="SET NULL"
+    )
     status: str = Field(
         default="pending", sa_column=Column(String, nullable=False, default="pending")
     )
     message: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
-    reviewed_by: int | None = Field(default=None, foreign_key="users.id")
+    reviewed_by: int | None = Field(default=None, foreign_key="users.id", ondelete="SET NULL")
     reviewed_at: datetime | None = Field(default=None)
 
 
@@ -35,9 +37,9 @@ class ActionRequest(SQLModel, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    club_id: int = Field(foreign_key="clubs.id")
-    requester_id: int = Field(foreign_key="users.id")
-    target_id: int = Field(foreign_key="users.id")
+    club_id: int = Field(foreign_key="clubs.id", ondelete="CASCADE")
+    requester_id: int = Field(foreign_key="users.id", ondelete="RESTRICT")
+    target_id: int = Field(foreign_key="users.id", ondelete="RESTRICT")
     action_type: str = Field(sa_column=Column(String, nullable=False))  # promote | kick
     new_role: str | None = Field(default=None, sa_column=Column(String, nullable=True))
     reason: str
@@ -45,5 +47,5 @@ class ActionRequest(SQLModel, table=True):
         default="pending", sa_column=Column(String, nullable=False, default="pending")
     )
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
-    resolved_by: int | None = Field(default=None, foreign_key="users.id")
+    resolved_by: int | None = Field(default=None, foreign_key="users.id", ondelete="SET NULL")
     resolved_at: datetime | None = Field(default=None)

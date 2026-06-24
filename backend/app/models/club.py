@@ -16,7 +16,7 @@ class Club(SQLModel, table=True):
     name: str
     description: str | None = Field(default=None)
     code: str = Field(unique=True, index=True)  # shareable join code, e.g. "AB-X7K2P"
-    owner_id: int = Field(foreign_key="users.id")
+    owner_id: int = Field(foreign_key="users.id", ondelete="RESTRICT")
     # Which sub-roles this club uses. JSONB (indexable) per docs/adr/0001 note.
     enabled_roles: list[str] | None = Field(default=None, sa_column=Column(JSONB))
     is_public: bool = Field(default=True)
@@ -29,7 +29,7 @@ class Domain(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("club_id", "name", name="uq_club_domain"),)
 
     id: int | None = Field(default=None, primary_key=True)
-    club_id: int = Field(foreign_key="clubs.id", index=True)
+    club_id: int = Field(foreign_key="clubs.id", index=True, ondelete="CASCADE")
     name: str
     description: str | None = Field(default=None)
 
@@ -44,10 +44,10 @@ class ClubMember(SQLModel, table=True):
     )
 
     id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")
-    club_id: int = Field(foreign_key="clubs.id")
+    user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
+    club_id: int = Field(foreign_key="clubs.id", ondelete="CASCADE")
     # Role stored as VARCHAR, validated by the Role enum at the edge (docs/adr/0001).
     role: str = Field(sa_column=Column(String, nullable=False))
-    domain_id: int | None = Field(default=None, foreign_key="domains.id")
+    domain_id: int | None = Field(default=None, foreign_key="domains.id", ondelete="SET NULL")
     points: int = Field(default=0)  # cached running total; points_ledger is the source of truth
     joined_at: datetime = Field(default_factory=utcnow, nullable=False)

@@ -2,8 +2,9 @@
 
 import re
 
-from app.models import Club, ClubMember, Domain
+from sqlmodel import select
 
+from app.models import Club, ClubMember, Domain, Task
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,9 @@ def _club_headers(token: str, club_id: int) -> dict:
 
 def _create_club(client, token, name="Test Club", enabled_roles=None):
     if enabled_roles is None:
-        enabled_roles = ["member", "associate", "lead", "joint_secretary", "secretary", "vice_president"]
+        enabled_roles = [
+            "member", "associate", "lead", "joint_secretary", "secretary", "vice_president",
+        ]
     r = client.post(
         "/clubs",
         json={"name": name, "description": "A test club.", "enabled_roles": enabled_roles},
@@ -101,6 +104,18 @@ def test_directory_returns_public_clubs(client):
     assert club["id"] in ids
 
 
+def test_directory_excludes_code(client):
+    """The public directory must not leak the club join code (it's an invite secret)."""
+    token = _register(client)
+    club = _create_club(client, token)
+
+    r = client.get("/clubs/directory", headers=_auth(token))
+    assert r.status_code == 200
+    item = next(c for c in r.json() if c["id"] == club["id"])
+    assert "code" not in item
+    assert item["name"] == club["name"]
+
+
 # ── /clubs/lookup ─────────────────────────────────────────────────────────────
 
 def test_lookup_by_code_returns_club_with_domains_and_roles(client, session):
@@ -152,7 +167,11 @@ def test_join_creates_pending_row(client, session):
 
     r = client.post(
         "/clubs/join",
-        json={"club_code": club["code"], "requested_role": "member", "requested_domain_id": domain.id},
+        json={
+            "club_code": club["code"],
+            "requested_role": "member",
+            "requested_domain_id": domain.id,
+        },
         headers=_auth(bob),
     )
     assert r.status_code == 201, r.text
@@ -173,7 +192,11 @@ def test_join_appears_in_pending(client, session):
 
     client.post(
         "/clubs/join",
-        json={"club_code": club["code"], "requested_role": "member", "requested_domain_id": domain.id},
+        json={
+            "club_code": club["code"],
+            "requested_role": "member",
+            "requested_domain_id": domain.id,
+        },
         headers=_auth(bob),
     )
 
@@ -310,7 +333,11 @@ def test_withdraw_own_request_204(client, session):
 
     join_r = client.post(
         "/clubs/join",
-        json={"club_code": club["code"], "requested_role": "member", "requested_domain_id": domain.id},
+        json={
+            "club_code": club["code"],
+            "requested_role": "member",
+            "requested_domain_id": domain.id,
+        },
         headers=_auth(bob),
     )
     req_id = join_r.json()["id"]
@@ -332,7 +359,11 @@ def test_withdraw_others_request_403(client, session):
 
     join_r = client.post(
         "/clubs/join",
-        json={"club_code": club["code"], "requested_role": "member", "requested_domain_id": domain.id},
+        json={
+            "club_code": club["code"],
+            "requested_role": "member",
+            "requested_domain_id": domain.id,
+        },
         headers=_auth(bob),
     )
     req_id = join_r.json()["id"]
@@ -424,3 +455,40 @@ def test_update_club_rejects_president_in_enabled_roles(client):
     )
     assert r.status_code == 422
     assert r.json()["code"] == "VALIDATION_ERROR"
+
+
+# ── FK on-delete behaviour ────────────────────────────────────────────────────
+
+def test_delete_club_cascades_children(client, session):
+    """Deleting a club CASCADE-removes its domains, members, and tasks.
+
+    There is no delete-club endpoint, so the DB-level cascade is exercised directly via
+    the ORM (models define no relationships, so this issues a single DELETE and Postgres
+    cascades the children).
+    """
+    alice = _register(client, "alice@example.com")
+    bob = _register(client, "bob@example.com", name="Bob")
+    club = _create_club(client, alice)
+    alice_id = _user_id(client, alice)
+    bob_id = _user_id(client, bob)
+
+    domain = Domain(club_id=club["id"], name="Engineering")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+
+    session.add(
+        ClubMember(user_id=bob_id, club_id=club["id"], role="member", domain_id=domain.id)
+    )
+    session.add(
+        Task(club_id=club["id"], domain_id=domain.id, title="Ship it", creator_id=alice_id)
+    )
+    session.commit()
+
+    session.delete(session.get(Club, club["id"]))
+    session.commit()
+
+    session.expire_all()
+    assert session.exec(select(Domain).where(Domain.club_id == club["id"])).all() == []
+    assert session.exec(select(ClubMember).where(ClubMember.club_id == club["id"])).all() == []
+    assert session.exec(select(Task).where(Task.club_id == club["id"])).all() == []

@@ -1,7 +1,8 @@
 """Domains vertical-slice tests: CRUD, permissions, name-collision, cross-club isolation."""
 
-from app.models import ClubMember, Domain
+from sqlmodel import select
 
+from app.models import ClubMember, Domain, Task
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ def test_update_domain_rename_collision_409(client):
     token = _register(client)
     club = _create_club(client, token)
 
-    r1 = client.post(
+    client.post(
         f"/clubs/{club['id']}/domains",
         json={"name": "Alpha"},
         headers=_club_headers(token, club["id"]),
@@ -277,3 +278,49 @@ def test_domain_club_id_mismatch_400(client):
     )
     assert r.status_code == 400
     assert r.json()["code"] == "CLUB_ID_MISMATCH"
+
+
+# ── FK on-delete behaviour ────────────────────────────────────────────────────
+
+def test_delete_domain_cascades_tasks_and_nulls_members(client, session):
+    """Deleting a domain CASCADE-deletes its tasks and SET NULLs members' domain_id."""
+    alice = _register(client, "alice@example.com")
+    bob = _register(client, "bob@example.com", name="Bob")
+    club = _create_club(client, alice)
+    alice_id = _user_id(client, alice)
+    bob_id = _user_id(client, bob)
+
+    # President Alice (above VP) creates a domain.
+    create_r = client.post(
+        f"/clubs/{club['id']}/domains",
+        json={"name": "Engineering"},
+        headers=_club_headers(alice, club["id"]),
+    )
+    domain_id = create_r.json()["id"]
+
+    # Bob is a member assigned to that domain; a task lives in the domain.
+    session.add(
+        ClubMember(user_id=bob_id, club_id=club["id"], role="member", domain_id=domain_id)
+    )
+    session.add(
+        Task(club_id=club["id"], domain_id=domain_id, title="Build API", creator_id=alice_id)
+    )
+    session.commit()
+
+    r = client.delete(
+        f"/clubs/{club['id']}/domains/{domain_id}",
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 204, r.text
+
+    session.expire_all()
+    # CASCADE: the task is gone.
+    assert session.exec(select(Task).where(Task.domain_id == domain_id)).all() == []
+    # SET NULL: Bob's membership survives, but its domain_id is cleared.
+    bob_member = session.exec(
+        select(ClubMember).where(
+            ClubMember.user_id == bob_id, ClubMember.club_id == club["id"]
+        )
+    ).first()
+    assert bob_member is not None
+    assert bob_member.domain_id is None
