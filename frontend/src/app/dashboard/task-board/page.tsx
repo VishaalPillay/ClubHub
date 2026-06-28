@@ -251,7 +251,7 @@ export default function TaskBoardPage() {
         </div>
         <div className="flex flex-col gap-3 lg:border-r-2 border-black lg:px-4">
           <h2 className="font-display text-20 text-black border-b-2 border-black pb-0.5 uppercase tracking-tight font-bold">In Progress</h2>
-          {tasks.filter(t => t.status === 'in-progress').map(renderTask)}
+          {tasks.filter(t => t.status === 'in_progress').map(renderTask)}
         </div>
         <div className="flex flex-col gap-3 lg:pl-4">
           <h2 className="font-display text-20 text-black border-b-2 border-black pb-0.5 uppercase tracking-tight font-bold">Completed</h2>

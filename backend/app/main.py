@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
 from app.modules.action_requests.router import router as action_requests_router
+from app.modules.announcements.router import router as announcements_router
 from app.modules.auth.router import router as auth_router
 from app.modules.clubs.router import router as clubs_router
 from app.modules.domains.router import router as domains_router
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(action_requests_router)
     app.include_router(tasks_router)
     app.include_router(leaderboard_router)
+    app.include_router(announcements_router)
 
     @app.get("/health", tags=["Health"])
     def health() -> dict[str, str]:
