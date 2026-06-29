@@ -56,7 +56,7 @@ def _approve_join(client, pres_token, club_id, club_code, user_token, role, doma
 # ── Create & list ─────────────────────────────────────────────────────────────
 
 def test_vp_can_create_global_announcement(client):
-    pres = _register(client, "pres@ann_gl.com", "President")
+    pres = _register(client, "pres@ann-gl.com", "President")
     club = _create_club(client, pres)
     cid = club["id"]
 
@@ -75,8 +75,8 @@ def test_vp_can_create_global_announcement(client):
 
 
 def test_lead_can_create_domain_announcement(client):
-    pres = _register(client, "pres@ann_dom.com", "President")
-    lead_user = _register(client, "lead@ann_dom.com", "Lead")
+    pres = _register(client, "pres@ann-dom.com", "President")
+    lead_user = _register(client, "lead@ann-dom.com", "Lead")
     club = _create_club(client, pres)
     cid = club["id"]
     domain = _create_domain(client, pres, cid)
@@ -101,8 +101,8 @@ def test_lead_can_create_domain_announcement(client):
 
 
 def test_member_cannot_post_announcement(client):
-    pres = _register(client, "pres@ann_mem.com", "President")
-    mem = _register(client, "mem@ann_mem.com", "Member")
+    pres = _register(client, "pres@ann-mem.com", "President")
+    mem = _register(client, "mem@ann-mem.com", "Member")
     club = _create_club(client, pres)
     cid = club["id"]
     domain = _create_domain(client, pres, cid)
@@ -118,8 +118,8 @@ def test_member_cannot_post_announcement(client):
 
 
 def test_lead_cannot_post_global_announcement(client):
-    pres = _register(client, "pres@ann_ldg.com", "President")
-    lead_user = _register(client, "lead@ann_ldg.com", "Lead")
+    pres = _register(client, "pres@ann-ldg.com", "President")
+    lead_user = _register(client, "lead@ann-ldg.com", "Lead")
     club = _create_club(client, pres)
     cid = club["id"]
     domain = _create_domain(client, pres, cid)
@@ -136,8 +136,8 @@ def test_lead_cannot_post_global_announcement(client):
 
 
 def test_lead_cannot_post_in_wrong_domain(client):
-    pres = _register(client, "pres@ann_ld2.com", "President")
-    lead_user = _register(client, "lead@ann_ld2.com", "Lead")
+    pres = _register(client, "pres@ann-ld2.com", "President")
+    lead_user = _register(client, "lead@ann-ld2.com", "Lead")
     club = _create_club(client, pres)
     cid = club["id"]
     domain_a = _create_domain(client, pres, cid, "Domain A")
@@ -160,7 +160,7 @@ def test_lead_cannot_post_in_wrong_domain(client):
 
 
 def test_domain_announcement_requires_domain_id(client):
-    pres = _register(client, "pres@ann_nod.com", "President")
+    pres = _register(client, "pres@ann-nod.com", "President")
     club = _create_club(client, pres)
     cid = club["id"]
 
@@ -174,7 +174,7 @@ def test_domain_announcement_requires_domain_id(client):
 
 
 def test_list_announcements(client):
-    pres = _register(client, "pres@ann_list.com", "President")
+    pres = _register(client, "pres@ann-list.com", "President")
     club = _create_club(client, pres)
     cid = club["id"]
 
@@ -201,8 +201,8 @@ def test_list_announcements(client):
 # ── Scope-based read filtering ─────────────────────────────────────────────────
 
 def test_member_sees_global_and_own_domain_only(client):
-    pres = _register(client, "pres@ann_flt.com", "President")
-    mem = _register(client, "mem@ann_flt.com", "Member")
+    pres = _register(client, "pres@ann-flt.com", "President")
+    mem = _register(client, "mem@ann-flt.com", "Member")
     club = _create_club(client, pres)
     cid = club["id"]
     domain_a = _create_domain(client, pres, cid, "Domain A")
@@ -238,7 +238,7 @@ def test_member_sees_global_and_own_domain_only(client):
 
 
 def test_vp_sees_all_announcements(client):
-    pres = _register(client, "pres@ann_vpa.com", "President")
+    pres = _register(client, "pres@ann-vpa.com", "President")
     club = _create_club(client, pres)
     cid = club["id"]
     domain = _create_domain(client, pres, cid)
@@ -264,7 +264,7 @@ def test_vp_sees_all_announcements(client):
 # ── Update & delete ───────────────────────────────────────────────────────────
 
 def test_author_can_update_own_announcement(client):
-    pres = _register(client, "pres@ann_upd.com", "President")
+    pres = _register(client, "pres@ann-upd.com", "President")
     club = _create_club(client, pres)
     cid = club["id"]
 
@@ -287,7 +287,7 @@ def test_author_can_update_own_announcement(client):
 
 
 def test_author_can_delete_own_announcement(client):
-    pres = _register(client, "pres@ann_del.com", "President")
+    pres = _register(client, "pres@ann-del.com", "President")
     club = _create_club(client, pres)
     cid = club["id"]
 
@@ -305,8 +305,8 @@ def test_author_can_delete_own_announcement(client):
 
 
 def test_non_author_member_cannot_modify(client):
-    pres = _register(client, "pres@ann_nmod.com", "President")
-    mem = _register(client, "mem@ann_nmod.com", "Member")
+    pres = _register(client, "pres@ann-nmod.com", "President")
+    mem = _register(client, "mem@ann-nmod.com", "Member")
     club = _create_club(client, pres)
     cid = club["id"]
     domain = _create_domain(client, pres, cid)
@@ -337,8 +337,8 @@ def test_non_author_member_cannot_modify(client):
 
 def test_vp_can_delete_other_authors_announcement(client):
     """A VP+ can moderate any announcement, even if they didn't author it."""
-    pres = _register(client, "pres@ann_vpmod.com", "President")
-    vp_user = _register(client, "vp@ann_vpmod.com", "VP")
+    pres = _register(client, "pres@ann-vpmod.com", "President")
+    vp_user = _register(client, "vp@ann-vpmod.com", "VP")
     club = _create_club(client, pres)
     cid = club["id"]
 
@@ -358,8 +358,8 @@ def test_vp_can_delete_other_authors_announcement(client):
 
 def test_announcement_cross_tenant_denied(client):
     """A member of club A cannot see announcements from club B."""
-    alice = _register(client, "alice@ann_ct.com", "Alice")
-    bob = _register(client, "bob@ann_ct.com", "Bob")
+    alice = _register(client, "alice@ann-ct.com", "Alice")
+    bob = _register(client, "bob@ann-ct.com", "Bob")
 
     _create_club(client, alice, "Club A")
     club_b = _create_club(client, bob, "Club B")

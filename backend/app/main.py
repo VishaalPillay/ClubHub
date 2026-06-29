@@ -14,6 +14,7 @@ from app.modules.join_requests.router import router as join_requests_router
 from app.modules.leaderboard.router import router as leaderboard_router
 from app.modules.members.router import router as members_router
 from app.modules.tasks.router import router as tasks_router
+from app.modules.users.router import router as users_router
 
 
 def create_app() -> FastAPI:
@@ -43,6 +44,7 @@ def create_app() -> FastAPI:
     app.include_router(tasks_router)
     app.include_router(leaderboard_router)
     app.include_router(announcements_router)
+    app.include_router(users_router)
 
     @app.get("/health", tags=["Health"])
     def health() -> dict[str, str]:
