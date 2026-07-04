@@ -10,7 +10,6 @@ from app.core.permissions import DOMAIN_SCOPED_ROLES, role_at_least
 from app.core.tenant import tenant_query
 from app.models import Announcement, Domain, User
 
-
 # ── Enrichment helper ─────────────────────────────────────────────────────────
 
 def _enrich(session: Session, announcements: list[Announcement]) -> list[dict]:

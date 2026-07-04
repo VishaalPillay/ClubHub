@@ -219,13 +219,23 @@ def test_member_sees_global_and_own_domain_only(client):
     # Domain A announcement (member's domain)
     client.post(
         f"/clubs/{cid}/announcements",
-        json={"title": "Domain A news", "body": "A only.", "scope": "domain", "domain_id": domain_a["id"]},
+        json={
+            "title": "Domain A news",
+            "body": "A only.",
+            "scope": "domain",
+            "domain_id": domain_a["id"],
+        },
         headers=_h(pres, cid),
     )
     # Domain B announcement (not the member's domain)
     client.post(
         f"/clubs/{cid}/announcements",
-        json={"title": "Domain B secret", "body": "B only.", "scope": "domain", "domain_id": domain_b["id"]},
+        json={
+            "title": "Domain B secret",
+            "body": "B only.",
+            "scope": "domain",
+            "domain_id": domain_b["id"],
+        },
         headers=_h(pres, cid),
     )
 
@@ -250,7 +260,12 @@ def test_vp_sees_all_announcements(client):
     )
     client.post(
         f"/clubs/{cid}/announcements",
-        json={"title": "Domain news", "body": "Domain.", "scope": "domain", "domain_id": domain["id"]},
+        json={
+            "title": "Domain news",
+            "body": "Domain.",
+            "scope": "domain",
+            "domain_id": domain["id"],
+        },
         headers=_h(pres, cid),
     )
 
