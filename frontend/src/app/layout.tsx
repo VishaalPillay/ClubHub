@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Newsreader, Inter, Space_Grotesk } from "next/font/google";
+import { QueryProvider } from "@/lib/queryClient";
 import "./globals.css";
 
 // WiredDisplay / BreveText substitute — display headlines and body decks
@@ -54,7 +55,7 @@ export default function RootLayout({
         />
       </head>
       <body style={{ backgroundColor: "#ffffff", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
-        {children}
+        <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
   );
