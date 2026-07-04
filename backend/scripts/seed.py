@@ -7,14 +7,74 @@ Run inside the container:  docker compose exec api python -m scripts.seed
 """
 
 import random
+from datetime import date, time, timedelta
 
 from sqlmodel import Session, select
 
 from app.core.db import engine
 from app.core.security import hash_password
-from app.models import Club, ClubMember, Domain, User
+from app.models import Club, ClubMember, Domain, Event, EventRsvp, User
 
 DEMO_CODE = "TEST-2024"
+
+
+def _seed_events(session: Session, club_id: int, creator_id: int) -> None:
+    """Demo events (one per type) with a few RSVPs so the events page has real data."""
+    today = date.today()
+    events = [
+        Event(
+            club_id=club_id,
+            creator_id=creator_id,
+            title="Winter Buildthon",
+            type="hackathon",
+            description="A 12-hour hackathon focused on building community tools.",
+            event_date=today + timedelta(days=21),
+            event_time=time(9, 0),
+            location="Main Campus Auditorium",
+        ),
+        Event(
+            club_id=club_id,
+            creator_id=creator_id,
+            title="AI & The Future of Web",
+            type="tech_talk",
+            description="Guest talk on generative AI in modern web frameworks.",
+            event_date=today + timedelta(days=7),
+            event_time=time(16, 0),
+            location="Room 402, Tech Building",
+        ),
+        Event(
+            club_id=club_id,
+            creator_id=creator_id,
+            title="React Fundamentals BootCamp",
+            type="workshop",
+            description="Hands-on hooks, state management, and component lifecycles.",
+            event_date=today - timedelta(days=14),
+            event_time=time(10, 0),
+            location="Lab 3A",
+            status="past",
+        ),
+    ]
+    for event in events:
+        session.add(event)
+    session.commit()
+    for event in events:
+        session.refresh(event)
+
+    member_ids = [
+        m.user_id
+        for m in session.exec(
+            select(ClubMember).where(ClubMember.club_id == club_id)
+        ).all()
+    ]
+    for event in events:
+        attendees = random.sample(member_ids, k=min(8, len(member_ids)))
+        for uid in attendees:
+            session.add(EventRsvp(club_id=club_id, event_id=event.id, user_id=uid))
+        event.attendees = len(attendees)
+        session.add(event)
+    session.commit()
+
+
 ALL_ROLES = [
     "president",
     "vice_president",
@@ -30,7 +90,15 @@ def seed() -> None:
     with Session(engine) as session:
         existing = session.exec(select(Club).where(Club.code == DEMO_CODE)).first()
         if existing is not None:
-            print(f"[skip] Demo club '{DEMO_CODE}' already exists — nothing to seed.")
+            # Backfill demo events for dev DBs seeded before the events module existed.
+            has_events = session.exec(
+                select(Event).where(Event.club_id == existing.id)
+            ).first()
+            if has_events is None:
+                _seed_events(session, existing.id, existing.owner_id)
+                print(f"[OK] Demo club '{DEMO_CODE}' existed — backfilled demo events.")
+            else:
+                print(f"[skip] Demo club '{DEMO_CODE}' already exists — nothing to seed.")
             return
 
         pwd = hash_password("password123")
@@ -107,6 +175,9 @@ def seed() -> None:
                     )
                 )
             session.commit()
+
+        # 4. Demo events (one per type) with a few RSVPs so the events page has real data.
+        _seed_events(session, club.id, owner.id)
 
     print("\n[OK] Database seeded successfully!")
     print("-" * 40)

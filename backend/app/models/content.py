@@ -1,8 +1,8 @@
-"""Announcements (club/domain-scoped) and events (deferred from MVP UI, schema kept)."""
+"""Announcements (club/domain-scoped) and events with RSVP."""
 
 from datetime import date, datetime, time
 
-from sqlalchemy import Column, Index, String
+from sqlalchemy import Column, Index, String, UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 from app.models.base import utcnow
@@ -25,6 +25,7 @@ class Announcement(SQLModel, table=True):
 
 class Event(SQLModel, table=True):
     __tablename__ = "events"
+    __table_args__ = (Index("ix_events_club_status", "club_id", "status"),)
 
     id: int | None = Field(default=None, primary_key=True)
     club_id: int = Field(foreign_key="clubs.id", ondelete="CASCADE")
@@ -39,5 +40,20 @@ class Event(SQLModel, table=True):
     status: str = Field(
         default="upcoming", sa_column=Column(String, nullable=False, default="upcoming")
     )
+    # Cached RSVP count — event_rsvps is the source of truth (mirrors ClubMember.points
+    # caching the points_ledger). Updated in the same transaction as RSVP inserts/deletes.
     attendees: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
+class EventRsvp(SQLModel, table=True):
+    """One row per member attending an event; unique (event_id, user_id) makes RSVP idempotent."""
+
+    __tablename__ = "event_rsvps"
+    __table_args__ = (UniqueConstraint("event_id", "user_id", name="uq_event_rsvp"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    club_id: int = Field(foreign_key="clubs.id", index=True, ondelete="CASCADE")
+    event_id: int = Field(foreign_key="events.id", ondelete="CASCADE")
+    user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
