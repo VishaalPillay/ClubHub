@@ -27,10 +27,16 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+psycopg://clubhub:clubhub@db:5432/clubhub"
 
-    # Auth / JWT
+    # Auth / JWT — short-lived access token; long-lived refresh token in an httpOnly cookie
+    # (rotated on every /auth/refresh; see docs/adr/0002-auth-token-contract.md).
     JWT_SECRET_KEY: str = _PLACEHOLDER_JWT_SECRET
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 8  # access-token-only for now (refresh deferred)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    REFRESH_COOKIE_NAME: str = "clubhub_refresh"
+    # False for local http (and the in-container test client, which drops Secure cookies over
+    # http). MUST be set true in any HTTPS deployment — see the deployment checklist in ADR-0002.
+    COOKIE_SECURE: bool = False
 
     # CORS — comma-separated list of explicit origins (never "*" with credentials).
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"

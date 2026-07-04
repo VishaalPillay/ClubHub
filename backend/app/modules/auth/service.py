@@ -1,11 +1,20 @@
 """Auth business logic (thin router -> fat service)."""
 
+from datetime import timedelta
+
 from fastapi import status
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.core.exceptions import AppError
-from app.core.security import hash_password, verify_password
-from app.models import User
+from app.core.security import (
+    generate_refresh_token,
+    hash_password,
+    hash_refresh_token,
+    verify_password,
+)
+from app.models import RefreshToken, User
+from app.models.base import utcnow
 
 
 def register_user(session: Session, name: str, email: str, password: str) -> User:
@@ -32,3 +41,92 @@ def authenticate_user(session: Session, email: str, password: str) -> User:
             status.HTTP_401_UNAUTHORIZED, "Incorrect email or password.", "BAD_CREDENTIALS"
         )
     return user
+
+
+# --- Refresh tokens (opaque, hashed at rest, rotated on every use — ADR-0002) ---
+
+
+def issue_refresh_token(session: Session, user_id: int) -> str:
+    """Create a refresh-token row for the user and return the raw (cookie) value."""
+    raw, token_hash = generate_refresh_token()
+    session.add(
+        RefreshToken(
+            user_id=user_id,
+            token_hash=token_hash,
+            expires_at=utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+    )
+    session.commit()
+    return raw
+
+
+def rotate_refresh_token(session: Session, raw: str) -> tuple[User, str]:
+    """Validate a presented refresh token, revoke it, and issue a replacement.
+
+    Reuse detection: a *revoked* hash showing up again means the token was stolen and already
+    rotated (by us or by the thief) — revoke every active token for that user so both parties
+    are forced to log in again.
+    """
+    invalid = AppError(
+        status.HTTP_401_UNAUTHORIZED, "Invalid or expired refresh token.", "INVALID_REFRESH"
+    )
+
+    record = session.exec(
+        select(RefreshToken).where(RefreshToken.token_hash == hash_refresh_token(raw))
+    ).first()
+    if record is None:
+        raise invalid
+
+    if record.revoked_at is not None:
+        _revoke_all_for_user(session, record.user_id)
+        raise AppError(
+            status.HTTP_401_UNAUTHORIZED,
+            "Refresh token reuse detected — all sessions revoked.",
+            "REFRESH_REUSED",
+        )
+
+    if record.expires_at <= utcnow():
+        raise invalid
+
+    user = session.get(User, record.user_id)
+    if user is None:
+        raise invalid
+
+    record.revoked_at = utcnow()
+    session.add(record)
+
+    raw_new, hash_new = generate_refresh_token()
+    session.add(
+        RefreshToken(
+            user_id=record.user_id,
+            token_hash=hash_new,
+            expires_at=utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        )
+    )
+    session.commit()
+    return user, raw_new
+
+
+def revoke_refresh_token(session: Session, raw: str) -> None:
+    """Best-effort revoke for logout — silently ignores unknown/already-revoked tokens."""
+    record = session.exec(
+        select(RefreshToken).where(RefreshToken.token_hash == hash_refresh_token(raw))
+    ).first()
+    if record is not None and record.revoked_at is None:
+        record.revoked_at = utcnow()
+        session.add(record)
+        session.commit()
+
+
+def _revoke_all_for_user(session: Session, user_id: int) -> None:
+    active = session.exec(
+        select(RefreshToken).where(
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked_at.is_(None),
+        )
+    ).all()
+    now = utcnow()
+    for token in active:
+        token.revoked_at = now
+        session.add(token)
+    session.commit()

@@ -7,6 +7,24 @@ from sqlmodel import Field, SQLModel
 from app.models.base import utcnow
 
 
+class RefreshToken(SQLModel, table=True):
+    """Server-side refresh-token record (opaque token; only the SHA-256 hash is stored).
+
+    Rotation: each /auth/refresh revokes the presented row and inserts a replacement.
+    A revoked hash presented again means the token leaked (reuse) — all of the user's
+    active tokens are revoked in response. See docs/adr/0002-auth-token-contract.md.
+    """
+
+    __tablename__ = "refresh_tokens"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id", index=True, ondelete="CASCADE")
+    token_hash: str = Field(unique=True, index=True)
+    expires_at: datetime = Field(nullable=False)
+    revoked_at: datetime | None = Field(default=None)  # null = active
+    created_at: datetime = Field(default_factory=utcnow, nullable=False)
+
+
 class User(SQLModel, table=True):
     __tablename__ = "users"
 

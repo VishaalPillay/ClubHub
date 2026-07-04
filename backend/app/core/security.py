@@ -1,5 +1,7 @@
 """Password hashing + JWT helpers (ported from the prototype auth.py)."""
 
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
@@ -35,3 +37,18 @@ def decode_access_token(token: str) -> int | None:
         return int(sub) if sub is not None else None
     except (JWTError, ValueError):
         return None
+
+
+def generate_refresh_token() -> tuple[str, str]:
+    """Return (raw, hash) for a new opaque refresh token.
+
+    The raw value goes to the client (httpOnly cookie); only the SHA-256 hash is stored.
+    A high-entropy random secret doesn't need a slow hash — sha256 is enough (unlike passwords).
+    """
+    raw = secrets.token_urlsafe(48)
+    return raw, hash_refresh_token(raw)
+
+
+def hash_refresh_token(raw: str) -> str:
+    """Deterministic hash for looking a presented refresh token up in the database."""
+    return hashlib.sha256(raw.encode()).hexdigest()
