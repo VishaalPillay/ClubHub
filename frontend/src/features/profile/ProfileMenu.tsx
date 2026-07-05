@@ -4,15 +4,18 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useClub } from "@/features/club/ClubProvider";
 import { updateProfile } from "@/lib/api/users";
+import AvatarUpload from "@/features/auth/AvatarUpload";
+import CountryStateSelect from "@/features/auth/CountryStateSelect";
 
 type FormState = {
   name: string;
   institution: string;
+  country: string;
+  state: string;
   age: string;
   github_url: string;
   linkedin_url: string;
   instagram_url: string;
-  avatar_url: string;
 };
 
 /** "" -> null so the backend clears the column; HttpUrl rejects empty strings. */
@@ -28,11 +31,12 @@ export default function ProfileMenu() {
   const [form, setForm] = useState<FormState>(() => ({
     name: user.name,
     institution: user.institution ?? "",
+    country: user.country ?? "",
+    state: user.state ?? "",
     age: user.age != null ? String(user.age) : "",
     github_url: user.github_url ?? "",
     linkedin_url: user.linkedin_url ?? "",
     instagram_url: user.instagram_url ?? "",
-    avatar_url: user.avatar_url ?? "",
   }));
 
   const profilePic =
@@ -43,11 +47,12 @@ export default function ProfileMenu() {
     setForm({
       name: user.name,
       institution: user.institution ?? "",
+      country: user.country ?? "",
+      state: user.state ?? "",
       age: user.age != null ? String(user.age) : "",
       github_url: user.github_url ?? "",
       linkedin_url: user.linkedin_url ?? "",
       instagram_url: user.instagram_url ?? "",
-      avatar_url: user.avatar_url ?? "",
     });
     setError("");
     setIsOpen(true);
@@ -63,14 +68,17 @@ export default function ProfileMenu() {
     setError("");
     setSaving(true);
     try {
+      // avatar_url is deliberately omitted — the portrait is managed by AvatarUpload,
+      // which stores the image server-side the moment it's dropped.
       const updated = await updateProfile({
         name: form.name.trim(),
         institution: orNull(form.institution),
+        country: orNull(form.country),
+        state: orNull(form.state),
         age: form.age.trim() === "" ? null : Number(form.age),
         github_url: orNull(form.github_url),
         linkedin_url: orNull(form.linkedin_url),
         instagram_url: orNull(form.instagram_url),
-        avatar_url: orNull(form.avatar_url),
       });
       setUser(updated);
       setIsOpen(false);
@@ -142,32 +150,17 @@ export default function ProfileMenu() {
             )}
 
             <form onSubmit={handleSave} className="space-y-6">
-              <div className="flex items-center gap-6 pb-6 border-b-2 border-black">
-                <div className="w-20 h-20 border-2 border-black overflow-hidden bg-hairline-tint shrink-0">
-                  <img
-                    alt="Current Profile"
-                    className="w-full h-full object-cover grayscale"
-                    src={
-                      form.avatar_url.trim() !== ""
-                        ? form.avatar_url
-                        : `https://ui-avatars.com/api/?name=${encodeURIComponent(form.name || "User")}&background=000&color=fff&size=150`
-                    }
-                  />
-                </div>
-                <div className="flex-1 flex flex-col gap-2">
-                  <label className="font-ui text-16 font-bold text-black uppercase" htmlFor="avatar_url">
-                    Avatar URL
-                  </label>
-                  <input
-                    className="border-2 border-black bg-white text-black p-3 font-ui text-14 focus:outline-none focus:ring-0 focus:border-black rounded-none"
-                    id="avatar_url"
-                    name="avatar_url"
-                    value={form.avatar_url}
-                    onChange={handleChange}
-                    placeholder="https://..."
-                    type="url"
-                  />
-                </div>
+              <div className="pb-6 border-b-2 border-black">
+                <AvatarUpload
+                  initials={(form.name || "?")
+                    .split(/\s+/)
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0]!.toUpperCase())
+                    .join("")}
+                  avatarUrl={user.avatar_url}
+                  onUploaded={(url) => setUser({ ...user, avatar_url: url })}
+                />
               </div>
 
               <div className="flex flex-col md:flex-row gap-4">
@@ -228,6 +221,14 @@ export default function ProfileMenu() {
                   type="text"
                 />
               </div>
+
+              <CountryStateSelect
+                country={form.country}
+                state={form.state}
+                onChange={({ country, state }) =>
+                  setForm((prev) => ({ ...prev, country, state }))
+                }
+              />
 
               {urlField("github_url", "GitHub URL", "https://github.com/you")}
               {urlField("linkedin_url", "LinkedIn URL", "https://linkedin.com/in/you")}

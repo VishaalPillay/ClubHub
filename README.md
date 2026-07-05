@@ -245,8 +245,6 @@ backend/
 │   │   ├── leaderboard/       # per-club / per-domain rankings
 │   │   └── announcements/     # club & domain announcements
 │   └── shared/                # tiny shared utilities (pagination, types)
-├── scripts/
-│   └── seed.py                # demo data (rewritten for SQLModel)
 └── tests/
     ├── conftest.py            # test client + ephemeral DB fixtures
     ├── test_auth.py
@@ -361,14 +359,6 @@ GOOGLE_CLIENT_SECRET=
 CORS_ORIGINS=http://localhost:3000
 ```
 
-### Seed demo data
-
-```bash
-cd backend && python -m scripts.seed
-```
-
-Creates a demo club (code **`TEST-2024`**) with executives and three domains. All seeded accounts use the password `password123` (e.g. `aarav@clubhub.com` = President).
-
 ### Frontend
 
 ```bash
@@ -457,7 +447,7 @@ The flat prototype is being reshaped into the structure above. Mapping:
 | `auth.py` | `backend/app/core/security.py` + `backend/app/core/deps.py` |
 | `routes/*.py` | `backend/app/modules/*/router.py` (+ `service.py`) |
 | `routes/users.py` (dead, broken) | **deleted** — replaced by `modules/auth` + `modules/users` |
-| `seed.py` (MySQL, truncates) | `backend/scripts/seed.py` (SQLModel) |
+| `seed.py` (MySQL, truncates) | **deleted** — demo data ships no fixed credentials |
 | `main.py` | `backend/app/main.py` (app factory) |
 
 Nothing is lost — every behavior moves to a clearer home, and the MySQL-specific SQL is translated to PostgreSQL (cheatsheet in `SYSTEM_DESIGN.md` §5.1).

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { myClubs, pendingRequests, withdrawJoin } from "@/lib/api/clubs";
+import { directory, myClubs, pendingRequests, withdrawJoin } from "@/lib/api/clubs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
 import type { MyClub } from "@/types/api";
@@ -25,6 +25,7 @@ export default function PortalPage() {
   const { user, signOut } = useAuth();
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
   const [confirmWithdraw, setConfirmWithdraw] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data: clubs = [], isPending: clubsLoading } = useQuery({
     queryKey: ["my-clubs"],
@@ -36,6 +37,25 @@ export default function PortalPage() {
     queryFn: pendingRequests,
     refetchInterval: 10_000,
   });
+  // Directory is fetched lazily, only once the user actually types a search.
+  const { data: allClubs = [], isPending: searchLoading } = useQuery({
+    queryKey: ["directory"],
+    queryFn: directory,
+    enabled: search.trim().length > 0,
+    staleTime: 60_000,
+  });
+
+  const q = search.trim().toLowerCase();
+  const results =
+    q.length === 0
+      ? []
+      : allClubs
+          .filter((c) =>
+            [c.name, c.description ?? "", c.institution ?? ""].some((t) =>
+              t.toLowerCase().includes(q)
+            )
+          )
+          .slice(0, 9);
 
   const enterClub = (club: MyClub) => router.push(`/c/${club.id}/dashboard`);
 
@@ -190,6 +210,89 @@ export default function PortalPage() {
                   </motion.div>
                 ))}
               </AnimatePresence>
+            </div>
+          )}
+        </section>
+
+        {/* Search the directory */}
+        <section className="mb-16">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="bg-black h-[32px] flex items-center px-4">
+              <span className="font-mono text-[11px] text-white uppercase tracking-[1.2px]">
+                Search Clubs
+              </span>
+            </div>
+            <span className="font-mono text-[11px] text-[#757575] uppercase tracking-wider hidden sm:inline">
+              Every public club, every institution
+            </span>
+          </div>
+
+          <div className="relative max-w-2xl">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-[#757575]">
+              search
+            </span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by club name, institution, or keyword…"
+              aria-label="Search the club directory"
+              className="w-full border-2 border-black bg-white text-black pl-12 pr-4 py-3.5 font-ui text-[15px] rounded-none focus:outline-none focus:border-[#057DBC]"
+            />
+          </div>
+
+          {q.length > 0 && (
+            <div className="mt-6">
+              {searchLoading ? (
+                <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] animate-pulse">
+                  Searching the directory…
+                </p>
+              ) : results.length === 0 ? (
+                <div className="border-2 border-dashed border-[#e2e8f0] p-8 text-center">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-2">
+                    No clubs match “{search.trim()}”
+                  </p>
+                  <p className="font-ui text-[13px] text-[#4c4546]">
+                    Have an invite code instead?{" "}
+                    <button
+                      onClick={() => router.push("/onboarding/join-flow")}
+                      className="text-[#057DBC] underline"
+                    >
+                      Join with a code
+                    </button>
+                    {" "}— or be the first:{" "}
+                    <button
+                      onClick={() => router.push("/onboarding/step-1")}
+                      className="text-[#057DBC] underline"
+                    >
+                      create this club
+                    </button>
+                    .
+                  </p>
+                </div>
+              ) : (
+                <div className="border-2 border-black divide-y divide-[#e2e8f0]">
+                  {results.map((c) => (
+                    <div key={c.id} className="flex items-center gap-4 px-5 py-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-display text-[20px] font-bold leading-tight truncate">
+                          {c.name}
+                        </h3>
+                        <p className="font-mono text-[10px] uppercase tracking-wider text-[#757575] mt-0.5 truncate">
+                          {c.institution ?? "Independent"}
+                          {c.description ? ` — ${c.description}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => router.push("/onboarding/join-flow")}
+                        className="font-ui text-[11px] font-bold border-2 border-black px-4 py-1.5 uppercase hover:bg-black hover:text-white transition-colors whitespace-nowrap"
+                      >
+                        Join with code
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </section>

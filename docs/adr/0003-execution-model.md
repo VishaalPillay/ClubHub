@@ -6,7 +6,7 @@
 
 ## Decision
 
-`alembic`, `scripts/seed.py`, and `pytest` are all run **inside the API container** via
+`alembic`, one-off scripts, and `pytest` are all run **inside the API container** via
 `docker compose exec api ...`. The committed `.env` (consumed by Docker Compose) uses the
 **compose-network host**:
 
