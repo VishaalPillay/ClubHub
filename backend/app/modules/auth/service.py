@@ -3,6 +3,8 @@
 from datetime import timedelta
 
 from fastapi import status
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from sqlmodel import Session, select
 
 from app.core.config import settings
@@ -41,6 +43,67 @@ def authenticate_user(session: Session, email: str, password: str) -> User:
             status.HTTP_401_UNAUTHORIZED, "Incorrect email or password.", "BAD_CREDENTIALS"
         )
     return user
+
+
+def authenticate_google(session: Session, credential: str) -> tuple[User, bool]:
+    """Sign in / sign up with a Google Identity Services ID token.
+
+    Verifies the JWT's signature and audience against GOOGLE_CLIENT_ID, then resolves
+    the account in precedence order: known `google_sub` -> sign in; matching email ->
+    link Google to the existing account; otherwise create a password-less user.
+    Returns (user, is_new) — the frontend routes brand-new users to the profile step.
+    """
+    if not settings.GOOGLE_CLIENT_ID:
+        raise AppError(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Google sign-in is not configured on this server.",
+            "GOOGLE_NOT_CONFIGURED",
+        )
+
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+        )
+    except ValueError as exc:  # bad signature, wrong audience, expired, malformed
+        raise AppError(
+            status.HTTP_401_UNAUTHORIZED, "Invalid Google credential.", "INVALID_GOOGLE_TOKEN"
+        ) from exc
+
+    sub: str = claims["sub"]
+    email: str | None = claims.get("email")
+    if not email or not claims.get("email_verified", False):
+        raise AppError(
+            status.HTTP_401_UNAUTHORIZED,
+            "Google account has no verified email.",
+            "GOOGLE_EMAIL_UNVERIFIED",
+        )
+
+    user = session.exec(select(User).where(User.google_sub == sub)).first()
+    if user is not None:
+        return user, False
+
+    user = session.exec(select(User).where(User.email == email)).first()
+    if user is not None:
+        # Same verified email — link Google to the existing (password) account.
+        user.google_sub = sub
+        if user.avatar_url is None and claims.get("picture"):
+            user.avatar_url = claims["picture"]
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user, False
+
+    user = User(
+        name=claims.get("name") or email.split("@")[0],
+        email=email,
+        google_sub=sub,
+        avatar_url=claims.get("picture"),
+        # password_hash stays None — authenticate_user rejects password login for these.
+    )
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user, True
 
 
 # --- Refresh tokens (opaque, hashed at rest, rotated on every use — ADR-0002) ---

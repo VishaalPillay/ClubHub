@@ -16,9 +16,21 @@ class LoginIn(BaseModel):
     password: str
 
 
+class GoogleAuthIn(BaseModel):
+    """The ID token (JWT `credential`) issued by Google Identity Services on the client."""
+
+    credential: str = Field(min_length=1)
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class GoogleTokenOut(TokenOut):
+    """TokenOut plus `is_new` so the frontend can route first-time users to the profile step."""
+
+    is_new: bool
 
 
 class MeOut(BaseModel):

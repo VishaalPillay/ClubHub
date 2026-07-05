@@ -1,7 +1,8 @@
-"""Auth endpoints: register, login, refresh, logout, and /me.
+"""Auth endpoints: register, login, google, refresh, logout, and /me.
 
 Access token is returned in the JSON body (ADR-0002); the refresh token travels only in an
-httpOnly cookie scoped to /auth so it never touches JavaScript. Google OAuth remains deferred.
+httpOnly cookie scoped to /auth so it never touches JavaScript. /google verifies a Google
+Identity Services ID token server-side and issues the exact same session pair.
 """
 
 from fastapi import APIRouter, Cookie, Depends, Response, status
@@ -14,7 +15,14 @@ from app.core.exceptions import AppError
 from app.core.security import create_access_token
 from app.models import User
 from app.modules.auth import service
-from app.modules.auth.schemas import LoginIn, MeOut, RegisterIn, TokenOut
+from app.modules.auth.schemas import (
+    GoogleAuthIn,
+    GoogleTokenOut,
+    LoginIn,
+    MeOut,
+    RegisterIn,
+    TokenOut,
+)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -47,6 +55,16 @@ def login(body: LoginIn, response: Response, session: Session = Depends(get_sess
     user = service.authenticate_user(session, body.email, body.password)
     _set_refresh_cookie(response, service.issue_refresh_token(session, user.id))
     return TokenOut(access_token=create_access_token(user.id))
+
+
+@router.post("/google", response_model=GoogleTokenOut)
+def google(
+    body: GoogleAuthIn, response: Response, session: Session = Depends(get_session)
+) -> GoogleTokenOut:
+    """Sign in / sign up with a Google ID token. Same session contract as register/login."""
+    user, is_new = service.authenticate_google(session, body.credential)
+    _set_refresh_cookie(response, service.issue_refresh_token(session, user.id))
+    return GoogleTokenOut(access_token=create_access_token(user.id), is_new=is_new)
 
 
 @router.post("/refresh", response_model=TokenOut)
