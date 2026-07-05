@@ -7,11 +7,18 @@ export type TokenOut = {
   token_type: string;
 };
 
+/** POST /auth/google — TokenOut plus first-time flag (new users go to the profile step). */
+export type GoogleTokenOut = TokenOut & {
+  is_new: boolean;
+};
+
 export type Profile = {
   id: number;
   name: string;
   email: string;
   institution: string | null;
+  country: string | null;
+  state: string | null;
   age: number | null;
   github_url: string | null;
   linkedin_url: string | null;
@@ -23,6 +30,8 @@ export type Profile = {
 export type UpdateProfileIn = Partial<{
   name: string;
   institution: string | null;
+  country: string | null;
+  state: string | null;
   age: number | null;
   github_url: string | null;
   linkedin_url: string | null;

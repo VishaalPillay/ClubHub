@@ -37,6 +37,8 @@ class User(SQLModel, table=True):
 
     # Profile fields
     institution: str | None = Field(default=None)
+    country: str | None = Field(default=None)
+    state: str | None = Field(default=None)
     age: int | None = Field(default=None)
     github_url: str | None = Field(default=None)
     linkedin_url: str | None = Field(default=None)

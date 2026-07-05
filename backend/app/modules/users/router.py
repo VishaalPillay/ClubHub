@@ -4,7 +4,7 @@ Profile reads + writes live here. GET /auth/me stays as-is (partial, and still
 consumed by the frontend); GET /users/me returns the full profile.
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 from sqlmodel import Session
 
 from app.core.db import get_session
@@ -28,3 +28,14 @@ def update_me(
     session: Session = Depends(get_session),
 ) -> User:
     return service.update_profile(session, current_user, payload)
+
+
+@router.post("/me/avatar", response_model=ProfileOut)
+def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> User:
+    """Upload a profile picture (multipart). Validated/resized server-side; see service."""
+    data = file.file.read()
+    return service.set_avatar(session, current_user, data, file.content_type)

@@ -27,7 +27,8 @@ def test_get_profile_returns_full_field_set(client):
     assert body["email"] == "get@prof.com"
     # The full profile is wider than auth's MeOut — every field is present, even if null.
     for field in (
-        "institution", "age", "github_url", "linkedin_url", "instagram_url", "avatar_url"
+        "institution", "country", "state", "age",
+        "github_url", "linkedin_url", "instagram_url", "avatar_url",
     ):
         assert field in body
 
@@ -48,11 +49,29 @@ def test_update_profile_partial_leaves_name(client):
     assert body["name"] == "Updater"  # untouched
 
 
+def test_update_country_and_state(client):
+    token = _register(client, "loc@prof.com", "Located")
+    r = client.put(
+        "/users/me",
+        json={"country": "India", "state": "Tamil Nadu"},
+        headers=_auth(token),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["country"] == "India"
+    assert r.json()["state"] == "Tamil Nadu"
+    # Clearable like any other optional profile field.
+    r = client.put("/users/me", json={"state": None}, headers=_auth(token))
+    assert r.json()["state"] is None
+    assert r.json()["country"] == "India"  # untouched
+
+
 def test_update_all_fields(client):
     token = _register(client, "all@prof.com", "All")
     payload = {
         "name": "New Name",
         "institution": "Stanford",
+        "country": "United States",
+        "state": "California",
         "age": 22,
         "github_url": "https://github.com/example",
         "linkedin_url": "https://linkedin.com/in/example",

@@ -12,6 +12,8 @@ class ProfileOut(BaseModel):
     name: str
     email: EmailStr
     institution: str | None = None
+    country: str | None = None
+    state: str | None = None
     age: int | None = None
     github_url: str | None = None
     linkedin_url: str | None = None
@@ -32,6 +34,8 @@ class UpdateProfileIn(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=255)
     institution: str | None = Field(default=None, max_length=255)
+    country: str | None = Field(default=None, max_length=100)
+    state: str | None = Field(default=None, max_length=100)
     age: int | None = Field(default=None, ge=13, le=120)
     github_url: HttpUrl | None = None
     linkedin_url: HttpUrl | None = None
