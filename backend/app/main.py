@@ -1,7 +1,11 @@
 """FastAPI application factory."""
 
+import mimetypes
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
@@ -47,6 +51,15 @@ def create_app() -> FastAPI:
     app.include_router(announcements_router)
     app.include_router(events_router)
     app.include_router(users_router)
+
+    # Local media (avatar uploads) — dev convenience only; the s3 backend serves
+    # straight from the bucket/CDN and never hits this mount. See core/storage.py.
+    if settings.STORAGE_BACKEND == "local":
+        # Python 3.12's mimetypes doesn't know .webp — avatars would serve as octet-stream.
+        mimetypes.add_type("image/webp", ".webp")
+        media_root = Path(settings.MEDIA_ROOT)
+        media_root.mkdir(parents=True, exist_ok=True)
+        app.mount("/media", StaticFiles(directory=media_root), name="media")
 
     @app.get("/health", tags=["Health"])
     def health() -> dict[str, str]:

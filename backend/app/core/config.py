@@ -41,9 +41,21 @@ class Settings(BaseSettings):
     # CORS — comma-separated list of explicit origins (never "*" with credentials).
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
-    # Google OAuth (optional until wired)
+    # Google OAuth — GOOGLE_CLIENT_ID is the audience POST /auth/google verifies ID tokens
+    # against; the endpoint returns 503 GOOGLE_NOT_CONFIGURED while it is empty.
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
+
+    # Media storage (avatar uploads) — "local" writes under MEDIA_ROOT and serves via /media
+    # (dev only; not durable on ephemeral hosts); "s3" writes to S3_BUCKET and returns
+    # S3_PUBLIC_BASE_URL-based URLs. Switch to s3 in any real deployment.
+    STORAGE_BACKEND: str = "local"  # local | s3
+    MEDIA_ROOT: str = "media"
+    MEDIA_BASE_URL: str = "http://localhost:8000/media"
+    S3_BUCKET: str = ""
+    S3_REGION: str = ""
+    S3_PUBLIC_BASE_URL: str = ""  # e.g. CloudFront domain; defaults to the bucket URL when empty
+    MAX_UPLOAD_MB: int = 5
 
     @property
     def cors_origins_list(self) -> list[str]:

@@ -27,6 +27,9 @@ DESIGN-wired.md
 Club-Hub/
 CLAUDE.md
 
+# Local media storage (avatar uploads, STORAGE_BACKEND=local — dev only)
+backend/media/
+
 # OS-specific files
 .DS_Store
 Thumbs.db
