@@ -1,0 +1,97 @@
+name: CI
+
+# Run the full test + lint suite on every push to main and on every pull request.
+# This is the gate the README badge refers to: no green CI, no merge.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel an in-progress run if the same branch/PR is pushed again (saves CI minutes).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Backend: ruff (lint) + pytest against a REAL Postgres service container.
+  # The suite is not hermetic by design (JSONB/CHECK/ON CONFLICT need Postgres);
+  # conftest.py connects to DATABASE_URL, drops/recreates clubhub_test, and
+  # rebuilds it via `alembic upgrade head` — so migrations are tested too.
+  # --------------------------------------------------------------------------
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: clubhub
+          POSTGRES_PASSWORD: clubhub
+          POSTGRES_DB: clubhub
+        ports:
+          - 5432:5432
+        # Don't start the job's steps until Postgres answers — mirrors the compose healthcheck.
+        options: >-
+          --health-cmd "pg_isready -U clubhub -d clubhub"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The service is reachable on localhost from the runner. conftest creates clubhub_test here.
+      DATABASE_URL: postgresql+psycopg://clubhub:clubhub@localhost:5432/clubhub
+      # A real (non-placeholder) secret satisfies the startup guard without needing DEBUG=true,
+      # so tests exercise the same auth path as production. This value is test-only, not a secret.
+      JWT_SECRET_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12" # matches the runtime image (backend/Dockerfile)
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install (with dev extras)
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Test (pytest)
+        run: pytest
+
+  # --------------------------------------------------------------------------
+  # Frontend: eslint + a production build (catches type errors and build breaks).
+  # No env needed — NEXT_PUBLIC_* have safe fallbacks, so the build is self-contained.
+  # --------------------------------------------------------------------------
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20" # Next.js 16 requires Node 20+
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

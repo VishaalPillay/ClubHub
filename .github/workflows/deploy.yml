@@ -1,0 +1,60 @@
+name: Deploy
+
+# Continuous deployment of the backend + infrastructure to AWS (Mode A).
+# Triggered on pushes to main that touch the API or the CDK app. The frontend deploys
+# separately via AWS Amplify's own GitHub integration (no workflow needed for it).
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - "infra/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: {} # allow manual "Run workflow" from the Actions tab
+
+# Never run two production deploys at once; let an in-flight deploy finish.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+# OIDC: mint a short-lived token GitHub uses to assume the AWS deploy role — no static keys.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production # audit/gate point; add required reviewers here for manual approval
+    steps:
+      - uses: actions/checkout@v4
+
+      # Exchanges the GitHub OIDC token for temporary AWS credentials by assuming the role
+      # whose ARN you store in the AWS_DEPLOY_ROLE_ARN repo variable (see the runbook).
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install CDK dependencies
+        working-directory: infra
+        run: npm ci
+
+      # `cdk deploy` builds the API image from backend/Dockerfile (Docker is preinstalled on the
+      # runner), pushes it to the CDK-managed ECR, updates the CloudFormation stack, and rolls
+      # the ECS service. Migrations run on the new task's boot before it takes traffic.
+      # Config comes from repo Variables (non-secret): DOMAIN_NAME, GOOGLE_CLIENT_ID, ALERT_EMAIL.
+      - name: Deploy (cdk)
+        working-directory: infra
+        run: >-
+          npx cdk deploy --require-approval never
+          -c domainName=${{ vars.DOMAIN_NAME }}
+          -c googleClientId=${{ vars.GOOGLE_CLIENT_ID }}
+          -c alertEmail=${{ vars.ALERT_EMAIL }}
