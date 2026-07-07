@@ -7,8 +7,12 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Install dependencies first (cached layer). Copy only project metadata, then install.
+# INSTALL_DEV toggles the dev extras (pytest/ruff/testcontainers): docker-compose passes
+# "true" for local work; the production build leaves it "false" for a lean, tool-free image.
+ARG INSTALL_DEV=false
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install -e ".[dev]"
+RUN pip install --upgrade pip && \
+    if [ "$INSTALL_DEV" = "true" ]; then pip install -e ".[dev]"; else pip install -e .; fi
 
 # App source (also bind-mounted in docker-compose for live reload during dev).
 COPY . .

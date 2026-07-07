@@ -1,0 +1,26 @@
+# Keep the production image lean and free of secrets / dev cruft.
+# NOTE: this only affects the image built by `docker build`. In local dev, docker-compose
+# bind-mounts ./backend over /app, so these files are still available at runtime there.
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Local avatar uploads (dev-only local storage backend); never ship user data in an image
+media/
+
+# Secrets and local env — must never enter an image layer
+.env
+.env.*
+
+# Tests aren't run from inside the prod image (CI runs them against the repo checkout)
+tests/
+
+# VCS / editor
+.git/
+.gitignore
+.vscode/
+.idea/

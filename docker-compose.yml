@@ -16,12 +16,20 @@ services:
       retries: 10
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        # Local dev wants the dev extras (pytest/ruff) in the image. The production image
+        # is built without this arg, so it stays lean. See backend/Dockerfile.
+        INSTALL_DEV: "true"
     env_file:
       - .env
     environment:
       # Compose-network DSN (overrides any localhost value from .env) — see docs/adr/0003.
       DATABASE_URL: postgresql+psycopg://clubhub:clubhub@db:5432/clubhub
+      # Enable uvicorn --reload for local dev (the source is bind-mounted below). The
+      # production container omits this, so it runs without the file-watcher. See entrypoint.sh.
+      RELOAD: "true"
     ports:
       - "8000:8000"
     depends_on:
