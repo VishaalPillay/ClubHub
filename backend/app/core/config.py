@@ -46,6 +46,13 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
+    # Rate limiting (SYSTEM_DESIGN §11.4) — brute-force protection on public auth + join-code
+    # endpoints. In-process counters (fine for a single task; use a Redis backend if you scale
+    # to multiple). Tests toggle limiter.enabled off (see conftest) so they aren't throttled.
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_AUTH: str = "10/minute"  # /auth/login, /auth/register, /auth/google per client IP
+    RATE_LIMIT_JOIN: str = "30/minute"  # /clubs/join + /clubs/lookup per client IP
+
     # Media storage (avatar uploads) — "local" writes under MEDIA_ROOT and serves via /media
     # (dev only; not durable on ephemeral hosts); "s3" writes to S3_BUCKET and returns
     # S3_PUBLIC_BASE_URL-based URLs. Switch to s3 in any real deployment.

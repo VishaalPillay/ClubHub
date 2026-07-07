@@ -42,8 +42,10 @@ def _auth(token: str) -> dict:
 
 # ── Configuration guard ─────────────────────────────────────────────────────────
 
-def test_unconfigured_server_returns_503(client):
-    # settings.GOOGLE_CLIENT_ID defaults to "" in tests.
+def test_unconfigured_server_returns_503(client, monkeypatch):
+    # Pin the client ID empty so this is hermetic even when a real GOOGLE_CLIENT_ID is
+    # present in the environment (e.g. a developer's .env with Google sign-in configured).
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", "")
     r = client.post("/auth/google", json={"credential": "anything"})
     assert r.status_code == 503, r.text
     assert r.json()["code"] == "GOOGLE_NOT_CONFIGURED"

@@ -80,6 +80,17 @@ def session(engine) -> Generator[Session, None, None]:
         connection.close()
 
 
+@pytest.fixture(autouse=True)
+def _disable_rate_limit():
+    """Turn off rate limiting for the suite — every test shares one client IP and would
+    otherwise trip the limits. test_ratelimit.py re-enables it locally to prove it works."""
+    from app.core.ratelimit import limiter
+
+    limiter.enabled = False
+    yield
+    limiter.enabled = False
+
+
 @pytest.fixture()
 def client(session) -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = lambda: session

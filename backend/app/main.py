@@ -3,12 +3,15 @@
 import mimetypes
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.exceptions import register_exception_handlers
+from app.core.ratelimit import limiter
 from app.modules.action_requests.router import router as action_requests_router
 from app.modules.announcements.router import router as announcements_router
 from app.modules.auth.router import router as auth_router
@@ -39,6 +42,18 @@ def create_app() -> FastAPI:
     )
 
     register_exception_handlers(app)
+
+    # Rate limiting: the limiter is looked up via app.state by slowapi; a breach becomes the
+    # standard error envelope with a stable machine code so the frontend handles it like any other.
+    app.state.limiter = limiter
+
+    @app.exception_handler(RateLimitExceeded)
+    async def _rate_limited(_: Request, __: RateLimitExceeded) -> JSONResponse:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Too many requests — please slow down and try again shortly.",
+                     "code": "RATE_LIMITED"},
+        )
 
     app.include_router(auth_router)
     app.include_router(clubs_router)

@@ -4,11 +4,13 @@ Static GET paths (/my, /directory, /lookup, /pending) are declared BEFORE the
 parameterised /{club_id} routes so FastAPI matches them correctly.
 """
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlmodel import Session
 
+from app.core.config import settings
 from app.core.db import get_session
 from app.core.deps import ClubContext, get_current_user, verify_club_path
+from app.core.ratelimit import limiter
 from app.models import User
 from app.modules.clubs import service
 from app.modules.clubs.schemas import (
@@ -46,7 +48,9 @@ def directory(
 
 
 @router.get("/lookup", response_model=LookupOut)
+@limiter.limit(settings.RATE_LIMIT_JOIN)
 def lookup(
+    request: Request,
     code: str = Query(..., description="The club's shareable join code."),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -63,7 +67,9 @@ def pending_requests(
 
 
 @router.post("/join", response_model=JoinOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit(settings.RATE_LIMIT_JOIN)
 def join_club(
+    request: Request,
     body: JoinClubIn,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
