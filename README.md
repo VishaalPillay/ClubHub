@@ -2,470 +2,229 @@
 
 # ClubHub
 
-**A multi-tenant SaaS for running student clubs — memberships, roles, sub-teams, tasks, gamified leaderboards, and announcements.**
+**Multi-tenant SaaS for running student clubs — one account, many clubs; seven-tier RBAC, sub-teams, weighted tasks, an auditable points economy, events, and announcements.**
 
+[![CI](https://github.com/VishaalPillay/ClubHub/actions/workflows/ci.yml/badge.svg)](https://github.com/VishaalPillay/ClubHub/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-05998b?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white)
-![SQLModel](https://img.shields.io/badge/SQLModel-+Alembic-7E56C2)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/license-TBD-lightgrey)
+![AWS CDK](https://img.shields.io/badge/AWS_CDK-TypeScript-FF9900?logo=amazonwebservices&logoColor=white)
+
+FastAPI · SQLModel · Alembic · React 19 · TanStack Query · ECS Fargate · RDS · CloudFront
 
 </div>
 
 ---
 
-## Table of contents
+ClubHub is a GitHub-style tenancy model applied to student organizations: identity is global, authority is per-club. A student signs up once, then creates or joins any number of clubs; inside each club they hold a role in a seven-tier hierarchy, work inside sub-teams ("domains"), earn points through completed tasks, and everything they can see or touch is derived server-side from their membership — never from what the client claims.
 
-- [What is ClubHub?](#what-is-clubhub)
-- [Architecture at a glance](#architecture-at-a-glance)
-- [Multi-tenancy & request flow](#multi-tenancy--request-flow)
-- [Data model](#data-model)
-- [Repository layout](#repository-layout)
-- [Backend structure (modular by domain)](#backend-structure-modular-by-domain)
-- [Frontend structure (feature-based)](#frontend-structure-feature-based)
-- [Tech stack](#tech-stack)
-- [Getting started](#getting-started)
-- [Conventions & guardrails](#conventions--guardrails)
-- [Adding a new feature module](#adding-a-new-feature-module)
-- [Roles & permissions](#roles--permissions)
-- [API surface](#api-surface)
-- [Migration from the prototype](#migration-from-the-prototype)
-- [Roadmap](#roadmap)
+This README focuses on the **architecture**: how tenant isolation is enforced structurally, how the data layer is engineered, and how the AWS deployment is designed for security and cost. Operational detail lives in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and the accepted decisions in [`docs/adr/`](docs/adr/).
 
----
+## Design highlights
 
-## What is ClubHub?
+The decisions a reviewer should probe first, and where each is enforced:
 
-ClubHub lets any student spin up a club in minutes, invite people with a shareable code, organize them into sub-teams (**domains**), assign and track work, and keep everyone engaged with a points leaderboard.
-
-The model is multi-tenant: **one account, many clubs.** Identity is global; everything else is scoped to the club you're acting in. A public club directory lets students discover and request to join clubs across institutions.
-
-> This README is the **development blueprint** for the rebuild. The full reasoning — tenancy strategy, gamification, security, AWS deployment, trade-offs, and the phased roadmap — lives in `SYSTEM_DESIGN.md` (internal, not committed). The frontend visual language is defined in `DESIGN-wired.md` (internal, not committed).
+| Decision | Rationale | Where |
+|---|---|---|
+| **Tenancy = JWT identity + per-request club header, never body-supplied `club_id`** | A forged payload cannot write into another tenant; context is resolved from the caller's own membership row | `app/core/deps.py` |
+| **Single chokepoint for tenant-scoped reads** (`tenant_query`) | One place to get the `WHERE club_id =` filter right, one place to audit | `app/core/tenant.py` |
+| **Access token (15 min, in memory) + rotating opaque refresh token (httpOnly cookie), reuse ⇒ revoke all sessions** | No bearer material in `localStorage`; a replayed refresh token burns the whole session family | [ADR-0002](docs/adr/0002-auth-token-contract.md), `app/modules/auth/service.py` |
+| **Enums stored as `VARCHAR`, validated at the edge, ranked in code** | Roles/statuses evolve; `ALTER TYPE` migrations are painful and rank must never depend on enum ordinals | [ADR-0001](docs/adr/0001-enum-storage-as-varchar.md), `app/core/permissions.py` |
+| **Append-only points ledger + transactionally-maintained cached aggregate** | Leaderboard reads are `O(members)` with an index, while every award stays auditable and idempotent | `app/models/task.py`, `modules/tasks/service.py` |
+| **Schema owned exclusively by Alembic — and the migrations are the tested path** | The test suite rebuilds its database from `alembic upgrade head`, so model↔migration drift fails CI, not production | `backend/tests/conftest.py`, [ADR-0003](docs/adr/0003-execution-model.md) |
+| **No NAT gateway: Fargate in a public subnet, security-group-locked to the ALB** | Same effective exposure as private-subnet-plus-NAT at ~$33/mo less; the trade-off is explicit, not accidental | `infra/lib/network.ts`, `infra/lib/api.ts` |
+| **DB credentials injected as discrete secrets; DSN assembled at boot** | The password never exists in task-definition plaintext or an image layer | `infra/lib/api.ts`, `backend/entrypoint.sh` |
+| **Deploys are `cdk deploy` via GitHub OIDC — no static cloud keys anywhere** | Short-lived, repo-scoped credentials; the CI role can only assume the CDK bootstrap roles | `.github/workflows/deploy.yml` |
 
 ---
 
-## Architecture at a glance
+## Multi-tenancy: isolation as a structural property
 
-```mermaid
-flowchart TD
-    U["User browser"] -->|HTTPS| CF["CloudFront + S3<br/>Next.js frontend"]
-    CF -->|/api/*| API["FastAPI app<br/>(ECS Fargate / App Runner)"]
-    API --> PG[("PostgreSQL<br/>RDS / Aurora Serverless")]
-    API --> OBJ[("S3<br/>uploads & avatars")]
-    API --> MAIL["Amazon SES<br/>transactional email"]
-    API -. "later (when needed)" .-> RD[("Redis<br/>cache + job queue")]
-    RD -. .-> WK["Worker<br/>async jobs"]
-
-    classDef ext fill:#E6F1FB,stroke:#185FA5,color:#042C53;
-    classDef store fill:#E1F5EE,stroke:#0F6E56,color:#04342C;
-    class CF,API,MAIL,WK ext;
-    class PG,OBJ,RD store;
-```
-
-A single FastAPI service (stateless, JWT-based) talks to one PostgreSQL database using row-level `club_id` tenancy. Redis, a worker, and SES are wired in only when real load or features demand them — see `SYSTEM_DESIGN.md` §9–10.
-
----
-
-## Multi-tenancy & request flow
-
-Identity and tenancy are deliberately separated:
-
-- The **JWT carries only the user id** — *who you are*, globally, across every club.
-- The **active club is sent per request** via an `X-Club-ID` header.
-- A dependency resolves *what you can do* by looking up your membership for that club.
+Identity and tenancy are deliberately separated. The JWT carries only `sub` (user id). The active club travels per-request in an `X-Club-ID` header, and the server resolves what the caller may do by loading their own `club_members` row — role, domain, and all.
 
 ```mermaid
 sequenceDiagram
     participant B as Browser
-    participant API as FastAPI (deps)
+    participant D as core/deps.py
     participant DB as PostgreSQL
 
-    B->>API: POST /clubs/42/tasks  (Bearer JWT + X-Club-ID: 42)
-    API->>API: get_current_user  (decode JWT -> user 7)
-    API->>DB: SELECT role, domain_id FROM club_members WHERE user=7 AND club=42
-    DB-->>API: role = lead, domain_id = 3
-    API->>API: require_min_role("lead") + domain check  (pass)
-    API->>DB: INSERT task (club_id = 42 from context, never from body)
-    DB-->>API: task row
-    API-->>B: 201 Created
+    B->>D: POST /clubs/42/tasks  (Bearer JWT · X-Club-ID: 42)
+    D->>D: get_current_user — JWT ⇒ user 7
+    D->>DB: SELECT role, domain_id FROM club_members WHERE user_id=7 AND club_id=42
+    DB-->>D: role=lead, domain_id=3
+    D->>D: verify_club_path("lead") — role gate + assert path club == header club
+    D->>DB: INSERT task (club_id from verified context, never from body)
+    DB-->>B: 201 Created
 ```
 
-**The golden rule:** `club_id` for any write comes from the verified context, never from the request body. A client cannot write into a club it doesn't belong to, even by lying in the payload.
+Isolation is enforced in three independent layers, so no single forgotten check is fatal:
 
----
+1. **Context is authoritative.** `get_club_context` returns a `ClubContext(user_id, club_id, role, domain_id)` built from the caller's membership. Non-members of the header club get `403` before any handler runs.
+2. **Path/header binding.** Every `/clubs/{club_id}/...` route depends on `verify_club_path(min_role)`, which additionally asserts the *path* club equals the *header* club (`400 CLUB_ID_MISMATCH`). A privileged user of club A cannot route a write into club B by editing the URL.
+3. **Scoped reads by construction.** Club-owned SELECTs go through `tenant_query(Model, ctx)`, which pre-applies `.where(Model.club_id == ctx.club_id)`. The filter is not something each endpoint remembers — it is something each endpoint cannot omit.
 
-## Data model
+`tests/test_tenancy.py` proves the invariants over HTTP, including the forged-path case.
+
+## Authentication: a session contract, not just a login box
+
+Full contract in [ADR-0002](docs/adr/0002-auth-token-contract.md). The shape:
+
+- **Access token** — 15-minute JWT, returned in the response body, held **in memory** on the client (`lib/auth/tokenStore.ts`). It never touches `localStorage`, so XSS cannot exfiltrate a long-lived credential.
+- **Refresh token** — opaque 384-bit random value, stored **sha256-hashed** at rest, delivered in an `httpOnly; SameSite=Lax` cookie scoped to `Path=/auth`. `POST /auth/refresh` **rotates** it on every use; presenting an already-rotated token is treated as theft and **revokes every session for that user** (`401 REFRESH_REUSED`).
+- **Google sign-in** — the client obtains a Google Identity Services ID token; `POST /auth/google` verifies it server-side against `GOOGLE_CLIENT_ID`, then resolves: known `google_sub` → sign in; verified matching email → link to the existing account; otherwise → create a **password-less** account (`password_hash = NULL`, and password login is structurally rejected for it). Same session contract as email/password.
+- The axios client single-flight-refreshes on 401 and retries, so token expiry is invisible to feature code.
+
+Brute-force surface is rate-limited (slowapi, keyed by `X-Forwarded-For` since the API sits behind an ALB): `10/min` on register/login/google, `30/min` on join-code endpoints — breaches return the same machine-readable envelope as every other error (`429 RATE_LIMITED`).
+
+## Data layer
 
 ```mermaid
 erDiagram
-    USERS ||--o{ CLUB_MEMBERS : "joins"
-    CLUBS ||--o{ CLUB_MEMBERS : "has"
-    CLUBS ||--o{ DOMAINS : "contains"
-    DOMAINS ||--o{ CLUB_MEMBERS : "groups"
-    CLUBS ||--o{ TASKS : "owns"
-    DOMAINS ||--o{ TASKS : "scopes"
-    TASKS ||--o{ TASK_ASSIGNMENTS : "has"
-    USERS ||--o{ TASK_ASSIGNMENTS : "assigned"
-    CLUBS ||--o{ JOIN_REQUESTS : "receives"
-    CLUBS ||--o{ ACTION_REQUESTS : "tracks"
-    CLUBS ||--o{ ANNOUNCEMENTS : "publishes"
-    TASKS ||--o{ POINTS_LEDGER : "credits"
-    USERS ||--o{ POINTS_LEDGER : "earns"
+    USERS ||--o{ CLUB_MEMBERS : joins
+    USERS ||--o{ REFRESH_TOKENS : holds
+    CLUBS ||--o{ CLUB_MEMBERS : has
+    CLUBS ||--o{ DOMAINS : contains
+    DOMAINS ||--o{ CLUB_MEMBERS : groups
+    CLUBS ||--o{ TASKS : owns
+    DOMAINS ||--o{ TASKS : scopes
+    TASKS ||--o{ TASK_ASSIGNMENTS : has
+    TASKS ||--o{ POINTS_LEDGER : credits
+    USERS ||--o{ POINTS_LEDGER : earns
+    CLUBS ||--o{ EVENTS : hosts
+    EVENTS ||--o{ EVENT_RSVPS : receives
+    CLUBS ||--o{ JOIN_REQUESTS : receives
+    CLUBS ||--o{ ACTION_REQUESTS : arbitrates
+    CLUBS ||--o{ ANNOUNCEMENTS : publishes
 
     USERS {
         int id PK
         string email UK
-        string password_hash "nullable (Google-only)"
-        string google_sub "nullable"
-        string institution
-        string github_url
-    }
-    CLUBS {
-        int id PK
-        string code UK "shareable join code"
-        int owner_id FK
-        jsonb enabled_roles
-        bool is_public
+        string password_hash "NULL for Google-only accounts"
+        string google_sub "NULL unless linked"
     }
     CLUB_MEMBERS {
-        int id PK
         int user_id FK
         int club_id FK
-        enum role
-        int domain_id FK "nullable"
-        int points "cached total"
-    }
-    TASKS {
-        int id PK
-        int club_id FK
-        int domain_id FK
-        enum status
-        int points "weightage"
+        string role "VARCHAR, ranked in code"
+        int domain_id FK "SET NULL on domain delete"
+        int points "cached aggregate of ledger"
     }
     POINTS_LEDGER {
-        int id PK
-        int task_id FK
+        int club_id FK
         int user_id FK
-        int delta
+        int task_id FK
+        int delta "append-only"
+    }
+    EVENT_RSVPS {
+        int event_id FK "uq(event_id, user_id)"
+        int user_id FK
     }
 ```
 
-`club_members` is both the membership join table and the RBAC source of truth — your role, domain, and points live here, per club. The `points_ledger` (new) makes leaderboard awards auditable and idempotent. Full schema and indexing notes: `SYSTEM_DESIGN.md` §5.
+`club_members` is simultaneously the membership join table and the RBAC source of truth — role, domain, and cached points live there, per club.
 
----
+**Engineering decisions under the schema:**
 
-## Repository layout
+- **Migrations are the only schema authority.** No `create_all` anywhere. The container entrypoint runs `alembic upgrade head` before serving; the test suite drops and rebuilds `clubhub_test` *from the migration chain* every run — so a migration that diverges from the models is a failing test, not a production surprise.
+- **Real Postgres, deliberately.** The schema uses `JSONB` (per-club `enabled_roles`), `CHECK` constraints, and `ON CONFLICT` — the suite runs against PostgreSQL, never SQLite, and each test executes inside an outer transaction rolled back at teardown (endpoint commits become savepoints), giving full isolation without per-test truncation.
+- **Ledger + cached aggregate.** Completing a task appends immutable `points_ledger` rows and updates `club_members.points` in the same transaction. Re-completing is idempotent (no double-award); re-opening never claws back — the ledger is append-only history, the column is a read model. `events.attendees` follows the identical pattern for RSVPs, with `uq_event_rsvp(event_id, user_id)` making RSVP writes idempotent at the constraint level.
+- **Explicit `ON DELETE` semantics per relationship.** Owned rows cascade (`club_members`, `tasks`, `rsvps` die with their club); authorship restricts (`clubs.owner_id`, `announcements.author_id` — you cannot delete a user out from under records that attribute action to them); optional grouping nulls (`domain_id SET NULL` — deleting a sub-team never deletes its people or work).
+- **Tenant-led composite indexes.** Every hot path is prefix-scoped by tenant: `(club_id, points)` for the leaderboard, `(club_id, status)` for task/request/event queues, `(club_id, scope)` for announcements. Index shape mirrors query shape.
+- **Enums as `VARCHAR`** ([ADR-0001](docs/adr/0001-enum-storage-as-varchar.md)): values are validated by Pydantic at the boundary and **ranked** by `ROLE_HIERARCHY` in `app/core/permissions.py` — never by enum ordinals, and never by Postgres `ALTER TYPE` ceremony when a role is added.
 
-A monorepo with a clear backend / frontend split and shared docs at the root.
-
-```
-ClubHub/
-├── README.md                  # this file
-├── SYSTEM_DESIGN.md           # architecture, roadmap, trade-offs
-├── DESIGN-wired.md            # frontend design system (Wired editorial)
-├── docker-compose.yml         # local dev: postgres + api (+ adminer)
-├── .env.example               # committed template — copy to .env
-├── .gitignore
-│
-├── backend/                   # FastAPI service  (see below)
-├── frontend/                  # Next.js app      (see below)
-└── docs/
-    └── adr/                   # architecture decision records
-```
-
----
-
-## Backend structure (modular by domain)
-
-Each feature is a **vertical slice** — its own router, request/response schemas, and service (business logic). Cross-cutting concerns live in `core/`. SQLModel **table** definitions are centralized in `models/` to avoid circular imports between modules that share foreign keys.
-
-```mermaid
-flowchart LR
-    main["app/main.py<br/>(app factory, mounts routers)"]
-    subgraph mod["app/modules (features)"]
-        direction TB
-        m1["auth"]
-        m2["clubs"]
-        m3["members"]
-        m4["tasks"]
-        m5["leaderboard"]
-        m6["...announcements, domains,<br/>join_requests, action_requests"]
-    end
-    subgraph core["app/core (shared infra)"]
-        direction TB
-        c1["config"]
-        c2["db / session"]
-        c3["security (JWT, hashing)"]
-        c4["deps (get_club_context,<br/>require_min_role)"]
-    end
-    md["app/models<br/>(SQLModel tables)"]
-    main --> mod
-    mod --> core
-    mod --> md
-    core --> md
-```
+## Authorization
 
 ```
-backend/
-├── pyproject.toml             # deps & tooling (ruff, pytest)  [or requirements.txt]
-├── Dockerfile
-├── alembic.ini
-├── alembic/
-│   ├── env.py
-│   └── versions/              # generated migrations (the source of truth for schema)
-├── app/
-│   ├── main.py                # create_app(): FastAPI instance, CORS, router mounting
-│   ├── core/
-│   │   ├── config.py          # pydantic-settings (DATABASE_URL, JWT_SECRET_KEY, ...)
-│   │   ├── db.py              # engine + Session + get_session() dependency
-│   │   ├── security.py        # hash/verify password, create/decode JWT
-│   │   ├── deps.py            # get_current_user, get_club_context, require_min_role
-│   │   ├── permissions.py     # ROLE_HIERARCHY + rank helpers
-│   │   └── exceptions.py      # custom exceptions + handlers
-│   ├── models/                # SQLModel tables (one file per aggregate)
-│   │   ├── user.py
-│   │   ├── club.py            # club, club_member, domain
-│   │   ├── task.py            # task, task_assignment, points_ledger
-│   │   ├── request.py         # join_request, action_request
-│   │   └── content.py         # announcement, event
-│   ├── modules/
-│   │   ├── auth/              # register, login, refresh, Google OAuth
-│   │   │   ├── router.py
-│   │   │   ├── schemas.py
-│   │   │   └── service.py
-│   │   ├── users/             # global profile (/me, profile fields)
-│   │   ├── clubs/             # create/list/lookup, public directory
-│   │   ├── join_requests/     # request -> approve flow
-│   │   ├── members/           # roster, role changes, kick
-│   │   ├── action_requests/   # Lead-raised promote/kick approvals
-│   │   ├── domains/           # sub-team CRUD
-│   │   ├── tasks/             # task CRUD, assignment, points award
-│   │   ├── leaderboard/       # per-club / per-domain rankings
-│   │   └── announcements/     # club & domain announcements
-│   └── shared/                # tiny shared utilities (pagination, types)
-└── tests/
-    ├── conftest.py            # test client + ephemeral DB fixtures
-    ├── test_auth.py
-    ├── test_tenancy.py        # proves cross-club isolation
-    └── test_tasks.py
+member < associate < lead < joint_secretary < secretary < vice_president < president
 ```
 
-Why this shape: adding a feature touches **one folder**, the tenant guard and auth live in exactly **one place** (`core/deps.py`), and the schema is owned by Alembic — never by a destructive "drop & recreate" startup hook.
+All RBAC truth lives in `app/core/permissions.py`; endpoints declare a minimum role via `verify_club_path("<role>")` and never re-implement checks. Three helpers encode the policy: `role_at_least` (gating), `can_manage` (must **strictly** outrank the target — equals cannot manage each other), and `can_grant_role` (nobody grants a rank ≥ their own; secretaries cap at granting `lead`). Authority a Lead lacks directly — promotions, removals — flows through an **action-request queue** that a senior role approves, so club governance is itself auditable data.
 
----
+## AWS architecture
 
-## Frontend structure (feature-based)
-
-Routes stay thin (App Router), real logic lives in `features/`, and a typed API client plus a design-token layer (from `DESIGN-wired.md`) keep the UI consistent and on-brand.
+Defined end-to-end in [`infra/`](infra/) (CDK, TypeScript) as **one stack composed of four constructs** — plain object references instead of cross-stack CloudFormation exports, which would lock shared resources against change. Diagram: [`docs/clubhub-aws-architecture.drawio`](docs/clubhub-aws-architecture.drawio) · runbook: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
 ```
-frontend/
-├── package.json
-├── next.config.ts
-├── tailwind.config.ts         # extends theme from src/styles/design-tokens
-├── .env.local.example         # NEXT_PUBLIC_API_URL=...
-└── src/
-    ├── app/                   # routing only — thin pages
-    │   ├── (public)/          # landing, /directory, /join/[code], /login, /register
-    │   ├── (app)/             # authenticated shell (nav + club switcher)
-    │   │   └── c/[clubId]/     # club-scoped: dashboard, tasks, members,
-    │   │                       #   leaderboard, announcements, settings
-    │   └── layout.tsx
-    ├── features/              # one folder per domain: components + hooks
-    │   ├── auth/
-    │   ├── clubs/             # club switcher, directory, create/join
-    │   ├── tasks/
-    │   ├── members/
-    │   ├── announcements/
-    │   └── leaderboard/
-    ├── components/ui/         # Wired primitives: Button, Input, StoryRow,
-    │                          #   MastheadBand, HairlineRule, Kicker
-    ├── lib/
-    │   ├── api/               # typed axios client + per-resource endpoints
-    │   │   ├── client.ts      # base axios, auth header, X-Club-ID injection
-    │   │   ├── auth.ts
-    │   │   ├── clubs.ts
-    │   │   └── tasks.ts
-    │   ├── auth/              # token store (in-memory), club context provider
-    │   └── queryClient.ts     # TanStack Query setup
-    ├── styles/
-    │   ├── globals.css
-    │   └── design-tokens.ts   # colors, type scale, spacing from DESIGN-wired.md
-    └── types/                 # shared TS types mirroring API schemas
+                        Route 53 (hosted zone)
+      app.<domain> ────────────┐        ┌─────────── api.<domain>
+                               ▼        ▼
+                  ┌─────────────────┐  ┌────────────────────────────────┐
+  Browser ──────▶ │ Amplify Hosting │  │ ALB — HTTPS (ACM), health=/health
+                  │ Next.js 16 SSR  │  │   └─▶ ECS Fargate task :8000    │   public subnet
+                  └─────────────────┘  └──────────────┬─────────────────┘
+                                                      │ SG: 5432 from API SG only
+  media CDN ─▶ CloudFront ─▶ S3 (private, OAC)        ▼
+                                        RDS PostgreSQL 16 — isolated subnet,
+                                        encrypted, no internet route
+  Secrets Manager (JWT · DB creds) · CloudWatch + budget alarm · ECR (image asset)
 ```
 
-The **club switcher** sets the active `clubId` (URL segment `c/[clubId]`), and `lib/api/client.ts` automatically attaches both the `Authorization` and `X-Club-ID` headers to every request.
+**Trust boundaries.** The VPC spans two AZs with two subnet tiers. The database sits in an **isolated** subnet — no route to or from the internet exists; its security group admits port 5432 from the API's security group and nothing else. The API task sits in the **public** subnet with a public IP but an SG that only accepts the ALB. That placement is the deliberate cost decision: it removes the NAT gateway (~$33/mo) that a private-subnet task would need for ECR/S3/Google egress, with the same effective ingress posture.
 
----
+**Secrets discipline.** RDS generates its credentials directly into Secrets Manager; ECS injects them into the task as discrete fields (`POSTGRES_HOST/USER/PASSWORD/…`) and the entrypoint assembles `DATABASE_URL` (+ `sslmode=require`) in process memory. The JWT key is a separate generated secret. Nothing sensitive exists in an image layer, task definition, or the repo — and the app **refuses to boot** if the JWT secret is missing or the placeholder.
 
-## Tech stack
+**Media path.** Avatars are Pillow-verified (decode-or-reject, decompression-bomb guarded), EXIF-normalized, center-cropped to 512² WebP, and written under content-unique keys through a two-backend storage interface (`local` disk for dev, S3 for prod — callers never branch). The bucket blocks all public access; CloudFront reads it via Origin Access Control, so the CDN is the only reader and objects are cached as immutable.
 
-| Layer | Technology |
-|---|---|
-| API | FastAPI, Uvicorn, Pydantic v2 |
-| ORM / DB | **PostgreSQL 16**, SQLModel (SQLAlchemy + Pydantic), `psycopg` 3, **Alembic** migrations |
-| Auth | JWT access + refresh (`python-jose`), `passlib[bcrypt]`, Google OAuth (Authlib) |
-| Config | `pydantic-settings` (env-driven, no secrets in code) |
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 |
-| Data fetching | TanStack Query + a typed Axios client |
-| UI | Framer Motion, Phosphor Icons, the Wired design system |
-| Local dev | Docker Compose (Postgres + API) |
-| CI | GitHub Actions (lint + test on PR) |
+**Deploy semantics.** The image is a CDK asset (`ContainerImage.fromAsset`) — `cdk deploy` builds, pushes, and rolls in one converging operation, with a deployment circuit breaker that auto-rolls-back a task that can't pass `/health`. The service runs `minHealthyPercent: 0` **on purpose**: migrations run on boot, and a zero-downtime overlap of old/new tasks would race `alembic upgrade head`; a few seconds of deploy downtime is the honest MVP trade (the documented upgrade path is a pre-traffic migration task). Frontend and cookie architecture co-operate here: `app.` and `api.` share a registrable domain, so the `SameSite=Lax` refresh cookie works cross-subdomain **with zero code change** — that constraint is *why* the design insists on a custom domain rather than raw AWS hostnames.
 
----
+**Cost model.** Mode A lists at ~**$46–52/mo** (Fargate ≈ $9, ALB ≈ $18, RDS t4g.micro ≈ $15, the rest single digits) — fully covered by new-account credits, with a budget alarm wired at 80% of $40. A documented **Mode B** fallback (single Lightsail box running the same containers, S3/CloudFront retained) lands at ~$5–20/mo when credits end; because everything is containerized, the move is a redeploy, not a rewrite.
 
-## Getting started
+**Pipelines.** CI runs ruff + the full suite against a Postgres 16 service container (the same migration-built database as local) plus the frontend build. CD assumes an AWS role via **GitHub OIDC** — the trust policy pins the exact repo and branch, the role can only assume CDK's bootstrap roles, and no long-lived cloud key exists anywhere in the system.
 
-### Prerequisites
-
-- Docker + Docker Compose (simplest path), **or** Python 3.12 and PostgreSQL 16 locally
-- Node.js 18+ for the frontend
-
-### Option A — Docker Compose (recommended)
-
-```bash
-cp .env.example .env          # fill in JWT_SECRET_KEY (see below)
-docker compose up --build     # starts postgres + api, runs migrations
-```
-
-API at `http://localhost:8000` · Swagger at `http://localhost:8000/docs`.
-
-### Option B — run the backend directly
-
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e .              # or: pip install -r requirements.txt
-cp ../.env.example .env
-alembic upgrade head          # create/update schema (no destructive drops)
-uvicorn app.main:app --reload
-```
-
-Generate a JWT secret:
-
-```bash
-python -c "import secrets; print(secrets.token_hex(32))"
-```
-
-`.env` (template in `.env.example`):
-
-```env
-DATABASE_URL=postgresql+psycopg://clubhub:clubhub@localhost:5432/clubhub
-JWT_SECRET_KEY=your_generated_hex_key
-GOOGLE_CLIENT_ID=            # optional until OAuth is wired
-GOOGLE_CLIENT_SECRET=
-CORS_ORIGINS=http://localhost:3000
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.local.example .env.local     # NEXT_PUBLIC_API_URL=http://localhost:8000
-npm run dev                          # http://localhost:3000
-```
-
----
-
-## Conventions & guardrails
-
-- **Tenant safety:** never read `club_id` from a request body for a write — always from `get_club_context`. List/read queries are scoped through a shared helper so the filter can't be forgotten.
-- **Thin routers, fat services:** routers validate + delegate; business logic lives in each module's `service.py`. Easier to test, no logic duplicated across endpoints.
-- **Schema = migrations:** the database is changed only through Alembic revisions. No `create_all` / drop-and-rebuild in app startup.
-- **No secrets in code:** everything sensitive comes from `core/config.py` (env). `.env` is git-ignored; `.env.example` documents the keys.
-- **Permissions in one place:** role ranks and `require_min_role` live in `core/`. Endpoints declare the minimum role they need; they don't reimplement checks.
-- **Tested isolation:** `tests/test_tenancy.py` scaffolds cross-club isolation — currently proves the data-model invariant (no ClubMember row leaks between clubs); HTTP-level cross-tenant denial assertions are added as each module is ported.
-
----
-
-## Adding a new feature module
-
-The structure makes this a recipe (example: "files"):
-
-1. Add the table(s) in `app/models/` and run `alembic revision --autogenerate -m "add files"` → `alembic upgrade head`.
-2. Create `app/modules/files/` with `router.py`, `schemas.py`, `service.py`.
-3. Scope every query to `ctx.club_id`; declare the minimum role via `require_min_role(...)`.
-4. Mount the router in `app/main.py`.
-5. Add `tests/test_files.py`, including a cross-tenant denial case.
-6. Frontend: add `features/files/` + `lib/api/files.ts`; drop the UI into `app/(app)/c/[clubId]/files`.
-
----
-
-## Roles & permissions
-
-Ordered low → high authority:
+## Codebase
 
 ```
-member  <  associate  <  lead  <  joint_secretary  <  secretary  <  vice_president  <  president
+backend/app/
+├── core/        # the cross-cutting spine: config, db, security, deps (tenant guards),
+│                #   permissions (RBAC truth), tenant.py, ratelimit, storage, exceptions
+├── models/      # SQLModel tables, centralized per aggregate (avoids cross-module import cycles)
+└── modules/     # vertical slices — auth, clubs, members, domains, join/action requests,
+                 #   tasks, leaderboard, announcements, events, users
+frontend/src/
+├── app/         # App Router: (public) marketing+auth · (app)/portal · (app)/c/[clubId]/…
+├── features/    # marketing, auth wizard, club pages — logic lives here, routes stay thin
+└── lib/         # typed axios client (Bearer + X-Club-ID injection, single-flight refresh)
+infra/           # CDK: network / database / media / api constructs + one stack
 ```
 
-| Capability | Min role |
-|---|---|
-| View members, own-domain tasks, announcements; update own task status | Member |
-| Assign tasks within own domain | Associate |
-| Create tasks / post domain announcements / raise promote–kick requests (own domain) | Lead |
-| Approve join & action requests; promote up to Lead; create events | Joint-Secretary / Secretary |
-| Create/edit domains; edit club; post global announcements | Vice-President |
-| Full control (auto-assigned to the club creator) | President |
+Every module is the same three files — `router.py` (thin: routes + role gate), `schemas.py` (the contract), `service.py` (fat: logic, raising `AppError`) — and every error leaves the API as `{"detail", "code"}` with a stable machine code, which the frontend client switches on. The active club lives in the **URL** (`/c/[clubId]`), not client storage: deep links are shareable, the back button works, and the tenant header derives from one source of truth.
 
-A President picks which roles a club uses via `enabled_roles`. Actions a Lead can't perform directly (promotions, kicks) flow through the **action-request** approval queue.
-
----
+**Verification:** 169 tests against real Postgres (tenancy attacks, auth-contract properties including refresh-reuse revocation, RBAC edges, ledger idempotency, upload rejection paths, rate-limit firing) · ruff · `tsc --noEmit` + `cdk synth` for the infrastructure.
 
 ## API surface
 
-All club-scoped endpoints require two headers: `Authorization: Bearer <token>` and `X-Club-ID: <id>`. Auth, club creation, `/clubs/my`, `/clubs/directory`, `/clubs/lookup`, and `/clubs/join` need only the bearer token.
+Club-scoped routes require `Authorization: Bearer` **and** `X-Club-ID`; identity-scoped routes take only the bearer. Full schemas at `/docs`.
 
 | Area | Endpoints |
 |---|---|
-| Auth | `POST /auth/register` · `POST /auth/login` · `POST /auth/refresh` · `POST /auth/logout` · `GET /auth/google/login` · `GET /auth/google/callback` · `GET /auth/me` |
-| Profile | `GET /me` · `PUT /me` |
-| Clubs | `POST /clubs` · `GET /clubs/my` · `GET /clubs/directory` · `GET /clubs/lookup?code=` · `GET /clubs/{id}` · `PUT /clubs/{id}` |
-| Joining | `POST /clubs/join` · `GET /clubs/pending` · `DELETE /clubs/join/{rid}` · `GET /clubs/{id}/requests` · `PUT /clubs/{id}/requests/{rid}/approve` `/reject` |
-| Members | `GET /clubs/{id}/members` · `PUT /clubs/{id}/members/{uid}/role` · `DELETE /clubs/{id}/members/{uid}` |
-| Governance | `POST /clubs/{id}/action-requests` · `GET ...` · `PUT .../{rid}/approve` `/reject` |
-| Domains | `GET/POST /clubs/{id}/domains` · `PUT/DELETE /clubs/{id}/domains/{did}` |
-| Tasks | `GET/POST /clubs/{id}/tasks` · `PUT/DELETE /clubs/{id}/tasks/{tid}` · `POST /clubs/{id}/tasks/{tid}/assign` |
-| Leaderboard | `GET /clubs/{id}/leaderboard?domain_id=` |
-| Announcements | `GET/POST /clubs/{id}/announcements` · `PUT/DELETE /clubs/{id}/announcements/{aid}` |
+| Auth | `POST /auth/register` · `/login` · `/google` · `/refresh` · `/logout` · `GET /auth/me` |
+| Profile | `GET/PUT /users/me` · `POST /users/me/avatar` |
+| Clubs | `POST /clubs` · `GET /clubs/my` · `/directory` · `/lookup?code=` · `GET/PUT /clubs/{id}` |
+| Joining | `POST /clubs/join` · `GET /clubs/pending` · `DELETE /clubs/join/{rid}` · approve/reject queue under `/clubs/{id}/requests` |
+| Members & governance | `GET /clubs/{id}/members` · role change · remove · `POST /clubs/{id}/action-requests` + approve/reject |
+| Domains | CRUD under `/clubs/{id}/domains` |
+| Tasks & points | CRUD + `POST /clubs/{id}/tasks/{tid}/assign` · `GET /clubs/{id}/leaderboard?domain_id=` |
+| Events | CRUD under `/clubs/{id}/events` · idempotent `POST/DELETE …/{eid}/rsvp` |
+| Announcements | CRUD under `/clubs/{id}/announcements` (scope-aware visibility) |
 
-Full request/response schemas are auto-documented at `/docs`.
+## Running it
 
----
+```bash
+cp .env.example .env            # set JWT_SECRET_KEY (python -c "import secrets; print(secrets.token_hex(32))")
+docker compose up --build       # Postgres + API; migrations apply on boot → http://localhost:8000/docs
+docker compose exec api pytest  # full suite against a migration-built database
+cd frontend && npm i && npm run dev   # http://localhost:3000
+```
 
-## Migration from the prototype
+Deploying to AWS is a guided, ~30-minute sequence — account, hosted zone, `cdk bootstrap`, one `cdk deploy`, Amplify connect, OIDC role — documented step-by-step with troubleshooting in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-The flat prototype is being reshaped into the structure above. Mapping:
+## Status
 
-| Prototype (delete / replace) | New home |
-|---|---|
-| `database.py` (raw MySQL pool + drop-and-create) | `backend/app/core/db.py` (engine/session) + `alembic/` (schema) |
-| `schemas.py` (one big file) | `backend/app/modules/*/schemas.py` (per feature) + `app/models/` (tables) |
-| `auth.py` | `backend/app/core/security.py` + `backend/app/core/deps.py` |
-| `routes/*.py` | `backend/app/modules/*/router.py` (+ `service.py`) |
-| `routes/users.py` (dead, broken) | **deleted** — replaced by `modules/auth` + `modules/users` |
-| `seed.py` (MySQL, truncates) | **deleted** — demo data ships no fixed credentials |
-| `main.py` | `backend/app/main.py` (app factory) |
-
-Nothing is lost — every behavior moves to a clearer home, and the MySQL-specific SQL is translated to PostgreSQL (cheatsheet in `SYSTEM_DESIGN.md` §5.1).
-
----
-
-## Roadmap
-
-From prototype to deployed SaaS (full detail in [`SYSTEM_DESIGN.md`](./SYSTEM_DESIGN.md) §15):
-
-1. **Scaffold & re-platform** — stand up this structure; PostgreSQL + SQLModel + Alembic; port modules with centralized tenant scoping.
-2. **Finish MVP** — points awarding + `points_ledger` + leaderboard endpoint; public directory; profile fields; Google OAuth + refresh tokens.
-3. **Frontend** — implement the Wired design system + club switcher; wire mocked pages to the real API.
-4. **Ship on AWS** — containerize, CI/CD, deploy on the free-tier path (RDS/Aurora PostgreSQL, S3 + CloudFront).
-5. **Harden & monetize** — rate limiting, backups, observability; billing when there's demand.
+Application, infrastructure code, and CI/CD are complete and verified. What remains is operational: executing the first `cdk deploy` against a live account/domain, then post-launch hardening (pre-traffic migration task for zero-downtime deploys, observability dashboards, Postgres row-level security as a fourth tenancy layer).
 
 ---
 
 <div align="center">
-<sub>Built by Vis · Architecture in SYSTEM_DESIGN.md · Design system in DESIGN-wired.md</sub>
+<sub>Built by Vis · Decisions in <a href="docs/adr/">docs/adr</a> · Deployment in <a href="docs/DEPLOYMENT.md">docs/DEPLOYMENT.md</a></sub>
 </div>
