@@ -11,11 +11,13 @@ import type {
 export async function createClub(
   name: string,
   description: string | null,
-  enabledRoles: string[]
+  enabledRoles: string[],
+  institution: string | null = null
 ): Promise<ClubOut> {
   const res = await api.post<ClubOut>("/clubs", {
     name,
     description,
+    institution,
     enabled_roles: enabledRoles,
   });
   return res.data;
@@ -37,7 +39,8 @@ export async function lookupClub(code: string): Promise<ClubLookup> {
 }
 
 export async function joinClub(body: {
-  club_code: string;
+  club_code?: string;
+  club_id?: number;
   requested_role: string;
   requested_domain_id: number | null;
   message?: string | null;

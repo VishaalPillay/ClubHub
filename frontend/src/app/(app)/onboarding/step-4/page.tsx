@@ -11,11 +11,12 @@ export default function OnboardingStep4() {
   const router = useRouter();
   const queryClient = useQueryClient();
   
+  // President and Member are mandatory — always enabled, cannot be toggled off.
   const [roles, setRoles] = useState({
     president: true,
     secretary: false,
     lead: true,
-    member: false,
+    member: true,
     vicePresident: true,
     jointSecretary: false,
     associateLead: false,
@@ -33,7 +34,7 @@ export default function OnboardingStep4() {
     setLoading(true);
     try {
       const name = localStorage.getItem("onboarding_club_name") || "Untitled Club";
-      const desc = localStorage.getItem("onboarding_club_desc") || "";
+      const institution = localStorage.getItem("onboarding_club_institution") || "";
       const domainsStr = localStorage.getItem("onboarding_club_domains");
       const domains = domainsStr ? JSON.parse(domainsStr) : [];
 
@@ -47,7 +48,7 @@ export default function OnboardingStep4() {
       if (roles.member) enabled_roles.push("member");
 
       // Create the club (the caller becomes president), then its domains.
-      const club = await createClub(name, desc || null, enabled_roles);
+      const club = await createClub(name, null, enabled_roles, institution || null);
       for (const d of domains) {
         await createDomain(club.id, d, "");
       }
@@ -66,7 +67,11 @@ export default function OnboardingStep4() {
     }
   };
 
+  // President and Member are mandatory and locked — they can't be toggled off.
+  const LOCKED_ROLES: (keyof typeof roles)[] = ["president", "member"];
+
   const toggleRole = (role: keyof typeof roles) => {
+    if (LOCKED_ROLES.includes(role)) return;
     setRoles((prev) => ({ ...prev, [role]: !prev[role] }));
   };
 
@@ -115,14 +120,11 @@ export default function OnboardingStep4() {
           <div className="flex flex-col">
             <button
               onClick={() => toggleRole("president")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.president ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className="w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC] cursor-default"
+              title="President is always included and cannot be removed."
             >
               <span className="font-[Inter] text-[16px] font-bold">President</span>
-              {roles.president ? (
-                <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
-              )}
+              <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
             </button>
             <div className="w-full h-[1px] bg-[#E2E8F0] mb-[8px] hidden md:block"></div>
             
@@ -154,14 +156,11 @@ export default function OnboardingStep4() {
 
             <button
               onClick={() => toggleRole("member")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.member ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className="w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC] cursor-default"
+              title="Member is always included and cannot be removed."
             >
               <span className="font-[Inter] text-[16px] font-bold">Member</span>
-              {roles.member ? (
-                <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-              ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
-              )}
+              <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
             </button>
           </div>
 

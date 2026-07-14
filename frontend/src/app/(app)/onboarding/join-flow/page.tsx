@@ -5,17 +5,9 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { joinClub, lookupClub } from "@/lib/api/clubs";
+import { JOINABLE_ROLES as ROLES } from "@/lib/roles";
 
 type Domain = { id: number; name: string; description: string | null };
-
-const ROLES = [
-  { value: "vice_president",  label: "Vice President",   needsDomain: false },
-  { value: "secretary",       label: "Secretary",         needsDomain: false },
-  { value: "joint_secretary", label: "Joint Secretary",   needsDomain: false },
-  { value: "lead",            label: "Lead",              needsDomain: true  },
-  { value: "associate",       label: "Associate",         needsDomain: true  },
-  { value: "member",          label: "Member",            needsDomain: true  },
-];
 
 export default function JoinFlowPage() {
   const router = useRouter();

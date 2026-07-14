@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 
 export default function OnboardingStep2() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", acronym: "" });
+  const [form, setForm] = useState({ name: "", institution: "" });
   const [progress, setProgress] = useState("20%");
 
   useEffect(() => {
@@ -60,38 +60,34 @@ export default function OnboardingStep2() {
 
           {/* Brutalist Form Layout */}
           <form className="flex flex-col gap-[32px]">
-            {/* Row 1: Text Inputs */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-[24px]">
-              {/* Full Name Input */}
-              <div className="flex flex-col gap-[8px]">
-                <label className="font-[Inter] text-[16px] font-bold uppercase text-[#000000]" htmlFor="club-name">
-                  Full Club Name
-                </label>
-                <input
-                  className="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
-                  id="club-name"
-                  placeholder="e.g. The Architecture League"
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                />
-              </div>
+            {/* Full Name Input */}
+            <div className="flex flex-col gap-[8px]">
+              <label className="font-[Inter] text-[16px] font-bold uppercase text-[#000000]" htmlFor="club-name">
+                Full Club Name
+              </label>
+              <input
+                className="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
+                id="club-name"
+                placeholder="e.g. The Architecture League"
+                type="text"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
 
-              {/* Acronym Input */}
-              <div className="flex flex-col gap-[8px]">
-                <label className="font-[Inter] text-[16px] font-bold uppercase text-[#000000]" htmlFor="club-acronym">
-                  Club Acronym
-                </label>
-                <input
-                  className="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] uppercase focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
-                  id="club-acronym"
-                  maxLength={6}
-                  placeholder="e.g. TAL"
-                  type="text"
-                  value={form.acronym}
-                  onChange={(e) => setForm({ ...form, acronym: e.target.value })}
-                />
-              </div>
+            {/* College / Institution Input */}
+            <div className="flex flex-col gap-[8px]">
+              <label className="font-[Inter] text-[16px] font-bold uppercase text-[#000000]" htmlFor="club-institution">
+                College / Institution
+              </label>
+              <input
+                className="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
+                id="club-institution"
+                placeholder="e.g. Stanford University"
+                type="text"
+                value={form.institution}
+                onChange={(e) => setForm({ ...form, institution: e.target.value })}
+              />
             </div>
 
             {/* Action Area */}
@@ -100,13 +96,13 @@ export default function OnboardingStep2() {
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                 BACK
               </button>
-              <button 
+              <button
                 onClick={() => {
                   localStorage.setItem("onboarding_club_name", form.name);
-                  localStorage.setItem("onboarding_club_desc", form.acronym);
+                  localStorage.setItem("onboarding_club_institution", form.institution);
                   router.push("/onboarding/step-3");
-                }} 
-                disabled={!form.name}
+                }}
+                disabled={!form.name || !form.institution}
                 className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" type="button"
               >
                 CONTINUE

@@ -48,6 +48,7 @@ def create_club(
     name: str,
     description: str | None,
     enabled_roles: list[str],
+    institution: str | None = None,
 ) -> Club:
     code = generate_code(session, name)
     club = Club(
@@ -56,6 +57,7 @@ def create_club(
         code=code,
         owner_id=user_id,
         enabled_roles=enabled_roles,
+        institution=institution,
     )
     session.add(club)
     session.flush()  # populate club.id without committing the outer transaction
@@ -79,6 +81,7 @@ def get_my_clubs(session: Session, user_id: int) -> list[dict]:
             "id": club.id,
             "name": club.name,
             "description": club.description,
+            "institution": club.institution,
             "code": club.code,
             "role": cm.role,
             "domain_id": cm.domain_id,
@@ -87,8 +90,29 @@ def get_my_clubs(session: Session, user_id: int) -> list[dict]:
     ]
 
 
-def get_directory(session: Session) -> list[Club]:
-    return list(session.exec(select(Club).where(Club.is_public.is_(True))).all())
+def get_directory(session: Session) -> list[dict]:
+    clubs = list(session.exec(select(Club).where(Club.is_public.is_(True))).all())
+    club_ids = [c.id for c in clubs]
+
+    domains_by_club: dict[int, list[Domain]] = {}
+    if club_ids:
+        for d in session.exec(select(Domain).where(Domain.club_id.in_(club_ids))).all():
+            domains_by_club.setdefault(d.club_id, []).append(d)
+
+    return [
+        {
+            "id": c.id,
+            "name": c.name,
+            "description": c.description,
+            "institution": c.institution,
+            "enabled_roles": c.enabled_roles,
+            "domains": [
+                {"id": d.id, "name": d.name, "description": d.description}
+                for d in domains_by_club.get(c.id, [])
+            ],
+        }
+        for c in clubs
+    ]
 
 
 def lookup_by_code(session: Session, code: str) -> dict:
@@ -166,13 +190,20 @@ def get_pending_requests(session: Session, user_id: int) -> list[dict]:
 def join_club(
     session: Session,
     user_id: int,
-    club_code: str,
+    club_code: str | None,
+    club_id: int | None,
     requested_role: str,
     requested_domain_id: int | None,
     message: str | None,
 ) -> JoinRequest:
-    # 1. Resolve club.
-    club = session.exec(select(Club).where(Club.code == club_code.upper())).first()
+    # 1. Resolve club. `club_id` (the directory "request to join" path) only ever
+    # resolves public clubs — private clubs still require the invite code.
+    if club_id is not None:
+        club = session.get(Club, club_id)
+        if club is not None and not club.is_public:
+            club = None
+    else:
+        club = session.exec(select(Club).where(Club.code == (club_code or "").upper())).first()
     if club is None:
         raise AppError(status.HTTP_404_NOT_FOUND, "No club found with that code.", "CLUB_NOT_FOUND")
 

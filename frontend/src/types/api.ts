@@ -48,12 +48,14 @@ export type ClubOut = {
   code: string;
   is_public: boolean;
   enabled_roles: string[] | null;
+  institution: string | null;
 };
 
 export type MyClub = {
   id: number;
   name: string;
   description: string | null;
+  institution: string | null;
   code: string;
   role: string;
   domain_id: number | null;
@@ -74,6 +76,8 @@ export type DirectoryClub = {
   name: string;
   description: string | null;
   institution: string | null;
+  enabled_roles: string[] | null;
+  domains: DomainBrief[];
 };
 
 export type ClubLookup = {

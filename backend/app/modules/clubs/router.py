@@ -4,7 +4,7 @@ Static GET paths (/my, /directory, /lookup, /pending) are declared BEFORE the
 parameterised /{club_id} routes so FastAPI matches them correctly.
 """
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlmodel import Session
 
 from app.core.config import settings
@@ -43,7 +43,7 @@ def my_clubs(
 def directory(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
-):
+) -> list[dict]:
     return service.get_directory(session)
 
 
@@ -51,6 +51,7 @@ def directory(
 @limiter.limit(settings.RATE_LIMIT_JOIN)
 def lookup(
     request: Request,
+    response: Response,
     code: str = Query(..., description="The club's shareable join code."),
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -70,6 +71,7 @@ def pending_requests(
 @limiter.limit(settings.RATE_LIMIT_JOIN)
 def join_club(
     request: Request,
+    response: Response,
     body: JoinClubIn,
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
@@ -78,6 +80,7 @@ def join_club(
         session,
         current_user.id,
         body.club_code,
+        body.club_id,
         body.requested_role,
         body.requested_domain_id,
         body.message,
@@ -100,7 +103,12 @@ def create_club(
     session: Session = Depends(get_session),
 ):
     return service.create_club(
-        session, current_user.id, body.name, body.description, body.enabled_roles
+        session,
+        current_user.id,
+        body.name,
+        body.description,
+        body.enabled_roles,
+        body.institution,
     )
 
 

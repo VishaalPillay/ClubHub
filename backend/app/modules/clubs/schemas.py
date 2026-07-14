@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.core.permissions import ROLE_HIERARCHY
 
@@ -23,6 +23,7 @@ def _validate_enabled_roles(roles: list[str]) -> list[str]:
 class CreateClubIn(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    institution: str | None = Field(default=None, max_length=255)
     enabled_roles: list[str]
 
     @field_validator("enabled_roles")
@@ -46,10 +47,19 @@ class UpdateClubIn(BaseModel):
 
 
 class JoinClubIn(BaseModel):
-    club_code: str
+    """Either `club_code` (invite-code flow) or `club_id` (request-to-join a public
+    club straight from the directory, no code needed) must be given."""
+    club_code: str | None = None
+    club_id: int | None = None
     requested_role: str
     requested_domain_id: int | None = None
     message: str | None = None
+
+    @model_validator(mode="after")
+    def require_an_identifier(self) -> "JoinClubIn":
+        if not self.club_code and self.club_id is None:
+            raise ValueError("Either club_code or club_id is required.")
+        return self
 
 
 # ── Response schemas ──────────────────────────────────────────────────────────
@@ -62,6 +72,7 @@ class ClubOut(BaseModel):
     code: str
     is_public: bool
     enabled_roles: list[str] | None
+    institution: str | None
 
     model_config = {"from_attributes": True}
 
@@ -71,27 +82,30 @@ class MyClubItem(BaseModel):
     id: int
     name: str
     description: str | None
+    institution: str | None
     code: str
     role: str
     domain_id: int | None
 
 
+class DomainBrief(BaseModel):
+    """Embedded domain shape used inside LookupOut / DirectoryItem."""
+    id: int
+    name: str
+    description: str | None
+
+
 class DirectoryItem(BaseModel):
     """One entry in GET /clubs/directory. The join `code` is deliberately omitted —
-    it is an invite secret and only surfaces via the authenticated lookup."""
+    it is an invite secret; public clubs are instead requestable by `id` via
+    POST /clubs/join. `enabled_roles`/`domains` let the client build that request
+    without a second round-trip."""
     id: int
     name: str
     description: str | None
     institution: str | None
-
-    model_config = {"from_attributes": True}
-
-
-class DomainBrief(BaseModel):
-    """Embedded domain shape used inside LookupOut."""
-    id: int
-    name: str
-    description: str | None
+    enabled_roles: list[str] | None
+    domains: list[DomainBrief]
 
 
 class LookupOut(BaseModel):
