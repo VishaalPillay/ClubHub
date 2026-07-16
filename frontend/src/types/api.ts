@@ -7,9 +7,11 @@ export type TokenOut = {
   token_type: string;
 };
 
-/** POST /auth/google — TokenOut plus first-time flag (new users go to the profile step). */
+/** POST /auth/google — TokenOut plus routing flags: first-time account, and whether
+ * the required registration steps are done (incomplete → back into the wizard). */
 export type GoogleTokenOut = TokenOut & {
   is_new: boolean;
+  profile_completed: boolean;
 };
 
 export type Profile = {
@@ -24,6 +26,7 @@ export type Profile = {
   linkedin_url: string | null;
   instagram_url: string | null;
   avatar_url: string | null;
+  profile_completed: boolean;
   created_at: string;
 };
 

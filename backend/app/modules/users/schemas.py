@@ -19,6 +19,7 @@ class ProfileOut(BaseModel):
     linkedin_url: str | None = None
     instagram_url: str | None = None
     avatar_url: str | None = None
+    profile_completed: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

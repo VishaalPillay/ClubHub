@@ -3,17 +3,12 @@ import RegisterWizard from "@/features/auth/RegisterWizard";
 
 export const metadata = { title: "Register" };
 
-export default async function RegisterPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ step?: string }>;
-}) {
-  // ?step=profile lets an already-authenticated first-time Google user (arriving via
-  // the login page) start straight at the profile step.
-  const { step } = await searchParams;
+// The wizard restores half-finished registrations itself (silent refresh →
+// resume with prefills), so this page needs no step routing.
+export default function RegisterPage() {
   return (
     <AuthShell active="register">
-      <RegisterWizard initialStep={step === "profile" ? 2 : 1} />
+      <RegisterWizard />
     </AuthShell>
   );
 }

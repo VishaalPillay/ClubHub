@@ -1,15 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { uploadAvatar } from "@/lib/api/users";
+import AvatarCropModal from "@/features/auth/AvatarCropModal";
 
 const ACCEPT = "image/png,image/jpeg,image/webp";
 
 /**
- * Drag-and-drop / click-to-browse avatar upload. Uploads immediately on selection
- * (the caller is already authenticated after registration step 1) and reports the
- * stored URL back up. Square editorial dropzone; round preview per the system's
- * one radius exception.
+ * Drag-and-drop / click-to-browse avatar upload. Picking a file opens a crop
+ * dialog (pan + zoom, round mask) so the user frames the visible area themselves;
+ * only the confirmed 512² crop is uploaded. Reports the stored URL back up.
  */
 export default function AvatarUpload({
   initials,
@@ -22,16 +22,35 @@ export default function AvatarUpload({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [pendingSrc, setPendingSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const handleFile = async (file: File | undefined) => {
+  // Revoke the preview object URL whenever it's replaced or on unmount.
+  useEffect(() => {
+    return () => {
+      if (pendingSrc) URL.revokeObjectURL(pendingSrc);
+    };
+  }, [pendingSrc]);
+
+  const handleFile = (file: File | undefined) => {
     if (!file || busy) return;
+    if (!ACCEPT.split(",").includes(file.type)) {
+      setError("Use a PNG, JPG, or WebP image.");
+      return;
+    }
     setError("");
+    setPendingSrc(URL.createObjectURL(file));
+  };
+
+  const handleCropConfirm = async (blob: Blob) => {
     setBusy(true);
+    setError("");
     try {
-      const profile = await uploadAvatar(file);
+      const ext = blob.type === "image/png" ? "png" : "jpg";
+      const profile = await uploadAvatar(new File([blob], `avatar.${ext}`, { type: blob.type }));
       onUploaded(profile.avatar_url);
+      setPendingSrc(null); // effect revokes the object URL
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Upload failed.");
     } finally {
@@ -86,7 +105,7 @@ export default function AvatarUpload({
             {busy ? "Uploading…" : avatarUrl ? "Looks good — click to replace" : "Drop a photo, or click to browse"}
           </p>
           <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] m-0 mt-1">
-            PNG / JPG / WebP · ≤ 5 MB · resized to 512×512
+            PNG / JPG / WebP · ≤ 5 MB · you choose the visible area
           </p>
         </div>
       </div>
@@ -103,6 +122,15 @@ export default function AvatarUpload({
           e.target.value = ""; // allow re-selecting the same file
         }}
       />
+
+      {pendingSrc && (
+        <AvatarCropModal
+          src={pendingSrc}
+          busy={busy}
+          onConfirm={handleCropConfirm}
+          onCancel={() => !busy && setPendingSrc(null)}
+        />
+      )}
     </div>
   );
 }

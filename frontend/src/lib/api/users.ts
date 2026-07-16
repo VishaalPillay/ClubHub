@@ -15,6 +15,11 @@ export async function updateProfile(changes: UpdateProfileIn): Promise<Profile> 
 export async function uploadAvatar(file: File): Promise<Profile> {
   const form = new FormData();
   form.append("file", file);
-  const res = await api.post<Profile>("/users/me/avatar", form);
+  // The client's default "Content-Type: application/json" header must be cleared here —
+  // otherwise axios sends it as-is instead of letting the browser attach the multipart
+  // boundary, and the backend sees no `file` field at all.
+  const res = await api.post<Profile>("/users/me/avatar", form, {
+    headers: { "Content-Type": undefined },
+  });
   return res.data;
 }

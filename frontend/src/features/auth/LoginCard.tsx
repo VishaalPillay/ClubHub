@@ -51,8 +51,9 @@ export default function LoginCard() {
 
       <GoogleButton
         text="signin_with"
-        onSuccess={({ isNew }) =>
-          router.push(isNew ? "/register?step=profile" : "/portal")
+        onSuccess={({ profileCompleted }) =>
+          // Incomplete registration resumes in the wizard; it restores the session itself.
+          router.push(profileCompleted ? "/portal" : "/register")
         }
         onError={setError}
       />

@@ -17,6 +17,13 @@ function Chevron() {
   );
 }
 
+/** True when the given country (display name) has states in the dataset — used by
+ * the register wizard to require a state only where one exists. */
+export function countryHasStates(countryName: string): boolean {
+  const iso = Country.getAllCountries().find((c) => c.name === countryName)?.isoCode;
+  return iso ? State.getStatesOfCountry(iso).length > 0 : false;
+}
+
 /**
  * Dependent country → state dropdowns backed by the country-state-city dataset.
  * Values are the display names (the API stores plain strings). Changing country

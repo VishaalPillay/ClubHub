@@ -43,7 +43,7 @@ export default function GoogleButton({
   onError,
 }: {
   text: "signup_with" | "signin_with" | "continue_with";
-  onSuccess: (result: { isNew: boolean }) => void;
+  onSuccess: (result: { isNew: boolean; profileCompleted: boolean }) => void;
   onError: (message: string) => void;
 }) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -74,6 +74,7 @@ export default function GoogleButton({
           }
         },
       });
+      slot.innerHTML = ""; // effects can run twice (dev StrictMode) — never stack two buttons
       id.renderButton(slot, {
         type: "standard",
         theme: "outline",

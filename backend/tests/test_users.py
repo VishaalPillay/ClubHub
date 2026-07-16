@@ -25,10 +25,11 @@ def test_get_profile_returns_full_field_set(client):
     body = r.json()
     assert body["name"] == "Reader"
     assert body["email"] == "get@prof.com"
+    assert body["profile_completed"] is False  # fresh account: required steps not done
     # The full profile is wider than auth's MeOut — every field is present, even if null.
     for field in (
         "institution", "country", "state", "age",
-        "github_url", "linkedin_url", "instagram_url", "avatar_url",
+        "github_url", "linkedin_url", "instagram_url", "avatar_url", "profile_completed",
     ):
         assert field in body
 
@@ -133,6 +134,53 @@ def test_name_cannot_be_empty(client):
 
 def test_update_requires_authentication(client):
     assert client.put("/users/me", json={"institution": "X"}).status_code == 401
+
+
+# ── Profile completion (one-way latch) ─────────────────────────────────────────
+
+def test_profile_completed_when_country_and_institution_set(client):
+    token = _register(client, "done@prof.com", "Done")
+    r = client.put(
+        "/users/me",
+        json={"country": "India", "state": "Tamil Nadu", "institution": "NIT Trichy"},
+        headers=_auth(token),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["profile_completed"] is True
+
+
+def test_profile_not_completed_with_partial_fields(client):
+    token = _register(client, "half@prof.com", "Half")
+    r = client.put("/users/me", json={"country": "India"}, headers=_auth(token))
+    assert r.json()["profile_completed"] is False
+
+    other = _register(client, "half2@prof.com", "Half2")
+    r = client.put("/users/me", json={"institution": "X"}, headers=_auth(other))
+    assert r.json()["profile_completed"] is False
+
+
+def test_profile_completed_is_a_latch(client):
+    """Clearing a required field later must NOT reset completion (would eject the
+    user from the portal mid-session)."""
+    token = _register(client, "latch@prof.com", "Latch")
+    client.put(
+        "/users/me",
+        json={"country": "India", "institution": "NIT Trichy"},
+        headers=_auth(token),
+    )
+    r = client.put("/users/me", json={"institution": None}, headers=_auth(token))
+    assert r.status_code == 200, r.text
+    assert r.json()["institution"] is None
+    assert r.json()["profile_completed"] is True  # latched
+
+
+def test_empty_institution_does_not_complete(client):
+    token = _register(client, "empty@prof.com", "Empty")
+    r = client.put(
+        "/users/me", json={"country": "India", "institution": ""}, headers=_auth(token)
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["profile_completed"] is False
 
 
 # ── Regression: auth read endpoint untouched ────────────────────────────────────

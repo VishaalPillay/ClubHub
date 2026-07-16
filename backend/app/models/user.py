@@ -44,5 +44,9 @@ class User(SQLModel, table=True):
     linkedin_url: str | None = Field(default=None)
     instagram_url: str | None = Field(default=None)
     avatar_url: str | None = Field(default=None)
+    # One-way latch, flipped by users.service.update_profile once the required
+    # registration fields (country + institution) are filled. Gates the (app) shell:
+    # incomplete accounts are routed back into the register wizard, never /portal.
+    profile_completed: bool = Field(default=False, nullable=False)
 
     created_at: datetime = Field(default_factory=utcnow, nullable=False)

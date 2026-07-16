@@ -79,7 +79,11 @@ def google(
     """Sign in / sign up with a Google ID token. Same session contract as register/login."""
     user, is_new = service.authenticate_google(session, body.credential)
     _set_refresh_cookie(response, service.issue_refresh_token(session, user.id))
-    return GoogleTokenOut(access_token=create_access_token(user.id), is_new=is_new)
+    return GoogleTokenOut(
+        access_token=create_access_token(user.id),
+        is_new=is_new,
+        profile_completed=user.profile_completed,
+    )
 
 
 @router.post("/refresh", response_model=TokenOut)

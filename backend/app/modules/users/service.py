@@ -30,6 +30,13 @@ def update_profile(session: Session, user: User, payload: UpdateProfileIn) -> Us
     for field, value in changes.items():
         setattr(user, field, value)
 
+    # One-way latch: registration counts as complete once the required fields
+    # (country + institution) are filled. Truthiness, not `is not None`, so an
+    # empty string doesn't count. Never reset to False — clearing a field later
+    # from the profile menu must not eject an established user from the portal.
+    if not user.profile_completed and user.country and user.institution:
+        user.profile_completed = True
+
     session.add(user)
     session.commit()
     session.refresh(user)

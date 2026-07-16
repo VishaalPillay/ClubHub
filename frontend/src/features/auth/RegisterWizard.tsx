@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { GithubLogo, InstagramLogo, LinkedinLogo } from "@phosphor-icons/react";
 import { register } from "@/lib/api/auth";
-import { updateProfile } from "@/lib/api/users";
-import type { UpdateProfileIn } from "@/types/api";
+import { getProfile, updateProfile } from "@/lib/api/users";
+import { refreshAccessToken } from "@/lib/api/client";
+import { tokenStore } from "@/lib/auth/tokenStore";
+import type { Profile, UpdateProfileIn } from "@/types/api";
 import AvatarUpload from "@/features/auth/AvatarUpload";
-import CountryStateSelect from "@/features/auth/CountryStateSelect";
+import CountryStateSelect, { countryHasStates } from "@/features/auth/CountryStateSelect";
 import GoogleButton from "@/features/auth/GoogleButton";
 
 const inputClass =
@@ -31,37 +35,40 @@ function initialsOf(name: string): string {
     .join("");
 }
 
-function StepLine({ step }: { step: 1 | 2 }) {
-  return (
-    <div className="flex items-center gap-0 mb-6">
-      <span className="w-3.5 h-3.5 border-2 border-black bg-black flex-none" />
-      <span className={`h-0.5 w-12 ${step === 2 ? "bg-black" : "bg-[#e2e8f0]"}`} />
-      <span
-        className={`w-3.5 h-3.5 border-2 border-black flex-none ${step === 2 ? "bg-black" : "bg-white"}`}
-      />
-      <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575] ml-3.5">
-        Step {step} of 2 — {step === 1 ? "Account" : "Profile"}
-      </span>
-    </div>
-  );
-}
+const STEP_LABELS = ["Account", "Location", "Portrait", "Socials"] as const;
 
 /**
- * Two-step registration. Step 1 creates the account (Google or email/password) and
- * signs the user in; step 2 collects the optional profile (country/state, college,
- * portrait, socials) via PUT /users/me. Both finishing and skipping land on /portal —
- * the club-creation wizard is a portal choice now, never a forced march.
+ * Four-step registration wizard. Steps 1–2 are required; 3–4 are skippable.
+ *
+ * 1. Account — email/password sign-up or Google. Once a session exists the step
+ *    becomes "confirm mode": the name (Google's claim included) is shown for the
+ *    user to check/edit, and the email is locked.
+ * 2. Location & college — required; saving these flips the server-side
+ *    `profile_completed` latch that the (app) shell gates on.
+ * 3. Portrait — optional, with a pan/zoom crop dialog.
+ * 4. Socials — optional GitHub/LinkedIn/Instagram links.
+ *
+ * On mount it restores any half-finished registration: silent refresh FIRST
+ * (never a cold getProfile — the axios interceptor would hard-redirect signed-out
+ * visitors to /login), then resume with prefills, or bounce completed users to
+ * /portal.
  */
-export default function RegisterWizard({ initialStep = 1 }: { initialStep?: 1 | 2 }) {
+export default function RegisterWizard() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(initialStep);
+
+  const [phase, setPhase] = useState<"checking" | "ready">("checking");
+  // "fresh" = no account yet (show Google + password form); "confirm" = a session
+  // exists, step 1 shows the editable name + locked email.
+  const [mode, setMode] = useState<"fresh" | "confirm">("fresh");
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
   // Step 1 — account
   const [name, setName] = useState("");
+  const [savedName, setSavedName] = useState(""); // server-persisted name, to detect edits
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // Step 2 — profile
+  // Steps 2–4 — profile
   const [location, setLocation] = useState({ country: "", state: "" });
   const [institution, setInstitution] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -72,12 +79,62 @@ export default function RegisterWizard({ initialStep = 1 }: { initialStep?: 1 | 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleAccount = async (e: React.FormEvent) => {
+  const applyProfile = useCallback((p: Profile) => {
+    setSavedName(p.name);
+    setName(p.name);
+    setEmail(p.email);
+    setLocation({ country: p.country ?? "", state: p.state ?? "" });
+    setInstitution(p.institution ?? "");
+    setAvatarUrl(p.avatar_url);
+    setGithub(p.github_url ?? "");
+    setLinkedin(p.linkedin_url ?? "");
+    setInstagram(p.instagram_url ?? "");
+    setMode("confirm");
+  }, []);
+
+  // Session restore: resume a half-finished registration, or send completed
+  // accounts to the portal. Signed-out visitors just get the fresh wizard.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const token = tokenStore.get() ?? (await refreshAccessToken());
+      if (!token) {
+        if (!cancelled) setPhase("ready");
+        return;
+      }
+      try {
+        const profile = await getProfile();
+        if (cancelled) return;
+        if (profile.profile_completed) {
+          router.replace("/portal");
+          return;
+        }
+        applyProfile(profile);
+      } catch {
+        // Token turned out to be dead — fall through to the fresh wizard.
+      }
+      if (!cancelled) setPhase("ready");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, applyProfile]);
+
+  const goTo = (s: 1 | 2 | 3 | 4) => {
+    setError("");
+    setStep(s);
+  };
+
+  // Step 1 (fresh): create the account, then continue in confirm mode.
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await register(name, email, password);
+      const trimmed = name.trim();
+      await register(trimmed, email, password);
+      setSavedName(trimmed);
+      setMode("confirm");
       setStep(2);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Registration failed.");
@@ -86,15 +143,61 @@ export default function RegisterWizard({ initialStep = 1 }: { initialStep?: 1 | 
     }
   };
 
-  const handleProfile = async (e: React.FormEvent) => {
+  // Step 1 (confirm): persist the (possibly edited) name, then continue.
+  const handleConfirmName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Please enter your name.");
+      return;
+    }
+    setError("");
+    setLoading(true);
+    try {
+      if (trimmed !== savedName) {
+        await updateProfile({ name: trimmed });
+        setSavedName(trimmed);
+      }
+      setStep(2);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not save your name.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2: required details — saving these completes registration server-side.
+  const needsState = countryHasStates(location.country);
+  const detailsValid =
+    !!location.country && !!institution.trim() && (!needsState || !!location.state);
+
+  const handleDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detailsValid) return;
+    setError("");
+    setLoading(true);
+    try {
+      const changes: UpdateProfileIn = {
+        country: location.country,
+        institution: institution.trim(),
+      };
+      if (location.state) changes.state = location.state;
+      await updateProfile(changes);
+      setStep(3);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Could not save your details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 4: optional socials, then into the app.
+  const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
       const changes: UpdateProfileIn = {};
-      if (location.country) changes.country = location.country;
-      if (location.state) changes.state = location.state;
-      if (institution.trim()) changes.institution = institution.trim();
       const gh = normalizeUrl(github);
       const li = normalizeUrl(linkedin);
       const ig = normalizeUrl(instagram);
@@ -104,28 +207,61 @@ export default function RegisterWizard({ initialStep = 1 }: { initialStep?: 1 | 
       if (Object.keys(changes).length > 0) await updateProfile(changes);
       router.push("/portal");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not save your profile.");
+      setError(e instanceof Error ? e.message : "Could not save your links.");
       setLoading(false);
     }
   };
 
+  if (phase === "checking") {
+    return (
+      <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-white">
+        <div className="font-mono text-[12px] uppercase tracking-widest text-[#757575] animate-pulse text-center py-16">
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  const stepHeader = (eyebrow: string, title: string, sub?: string) => (
+    <div className="mb-8 pb-6 border-b-2 border-black">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
+        {eyebrow}
+      </p>
+      <h1 className="font-display text-[42px] md:text-[48px] leading-[0.93] tracking-[-0.5px] font-bold uppercase">
+        {title}
+      </h1>
+      {sub && <p className="font-body text-[15px] text-[#4c4546] mt-3 mb-0">{sub}</p>}
+    </div>
+  );
+
+  const backButton = (to: 1 | 2 | 3) => (
+    <button
+      type="button"
+      onClick={() => goTo(to)}
+      className="font-ui text-[13px] font-bold border-2 border-black px-5 py-3 uppercase hover:bg-black hover:text-white transition-colors flex items-center gap-1"
+    >
+      <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+      Back
+    </button>
+  );
+
   return (
     <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-white">
-      <StepLine step={step} />
-
-      <div className="mb-8 pb-6 border-b-2 border-black">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
-          {step === 1 ? "Create Account" : "About You"}
-        </p>
-        <h1 className="font-display text-[42px] md:text-[48px] leading-[0.93] tracking-[-0.5px] font-bold uppercase">
-          {step === 1 ? "Join the Network." : "On the Record."}
-        </h1>
-        {step === 2 && (
-          <p className="font-body text-[15px] text-[#4c4546] mt-3 mb-0">
-            Where you study, where you&rsquo;re from. Everything here can wait — skip and
-            fill it in later from your profile.
-          </p>
-        )}
+      {/* Progress */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-2">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
+            Step {step} of 4 — {STEP_LABELS[step - 1]}
+          </span>
+          <span className="font-mono text-[10px] text-[#757575]">{step * 25}%</span>
+        </div>
+        <div className="w-full h-[2px] bg-[#e2e8f0] relative overflow-hidden">
+          <motion.div
+            className="absolute top-0 left-0 h-full bg-black"
+            animate={{ width: `${step * 25}%` }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          />
+        </div>
       </div>
 
       {error && (
@@ -134,141 +270,278 @@ export default function RegisterWizard({ initialStep = 1 }: { initialStep?: 1 | 
         </div>
       )}
 
-      {step === 1 ? (
-        <>
-          <GoogleButton
-            text="signup_with"
-            onSuccess={({ isNew }) => (isNew ? setStep(2) : router.push("/portal"))}
-            onError={setError}
-          />
-          <form onSubmit={handleAccount} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <label htmlFor="reg-name" className={labelClass}>Full Name</label>
-              <input
-                id="reg-name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                placeholder="Aarav Sharma"
-                className={inputClass}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${mode}-${step}`}
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -30 }}
+          transition={{ duration: 0.2 }}
+        >
+          {/* ─── STEP 1: Account ─── */}
+          {step === 1 && mode === "fresh" && (
+            <>
+              {stepHeader("Create Account", "Join the Network.")}
+              <GoogleButton
+                text="signup_with"
+                onSuccess={async ({ profileCompleted }) => {
+                  if (profileCompleted) {
+                    router.push("/portal");
+                    return;
+                  }
+                  try {
+                    // New (or half-registered) Google account: show the claimed
+                    // name for the user to check — never adopt it silently.
+                    applyProfile(await getProfile());
+                  } catch {
+                    setError("Signed in, but your profile could not be loaded. Refresh to continue.");
+                  }
+                }}
+                onError={setError}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="reg-email" className={labelClass}>Email Address</label>
-              <input
-                id="reg-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@university.edu"
-                className={inputClass}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="reg-password" className={labelClass}>Password</label>
-              <input
-                id="reg-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                placeholder="••••••••"
-                className={inputClass}
-              />
-              <span className="font-mono text-[10px] tracking-widest text-[#757575]">
-                8+ CHARACTERS
-              </span>
-            </div>
-            <div className="pt-4 border-t border-[#e2e8f0] mt-1">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
-              >
-                {loading ? "Please wait..." : "Create Account"}
-                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-              </button>
-            </div>
-          </form>
-          <p className="font-mono text-[11px] text-[#757575] uppercase tracking-wider text-center mt-6">
-            Already on Club-Hub?{" "}
-            <Link href="/login" className="text-[#057DBC] underline">Sign in</Link>
-          </p>
-        </>
-      ) : (
-        <form onSubmit={handleProfile} className="flex flex-col gap-5">
-          <CountryStateSelect
-            country={location.country}
-            state={location.state}
-            onChange={setLocation}
-          />
-          <div className="flex flex-col gap-2">
-            <label htmlFor="reg-college" className={labelClass}>Current College</label>
-            <input
-              id="reg-college"
-              type="text"
-              value={institution}
-              onChange={(e) => setInstitution(e.target.value)}
-              placeholder="National Institute of Technology, Trichy"
-              className={inputClass}
-            />
-          </div>
+              <form onSubmit={handleCreateAccount} className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="reg-name" className={labelClass}>Full Name</label>
+                  <input
+                    id="reg-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    placeholder="Aarav Sharma"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="reg-email" className={labelClass}>Email Address</label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="you@university.edu"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="reg-password" className={labelClass}>Password</label>
+                  <input
+                    id="reg-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    placeholder="••••••••"
+                    className={inputClass}
+                  />
+                  <span className="font-mono text-[10px] tracking-widest text-[#757575]">
+                    8+ CHARACTERS
+                  </span>
+                </div>
+                <div className="pt-4 border-t border-[#e2e8f0] mt-1">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
+                  >
+                    {loading ? "Please wait..." : "Create Account"}
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
+                </div>
+              </form>
+              <p className="font-mono text-[11px] text-[#757575] uppercase tracking-wider text-center mt-6">
+                Already on Club-Hub?{" "}
+                <Link href="/login" className="text-[#057DBC] underline">Sign in</Link>
+              </p>
+            </>
+          )}
 
-          <AvatarUpload
-            initials={initialsOf(name) || "?"}
-            avatarUrl={avatarUrl}
-            onUploaded={setAvatarUrl}
-          />
+          {step === 1 && mode === "confirm" && (
+            <>
+              {stepHeader(
+                "Confirm Account",
+                "This is you.",
+                "Check your name — it's how clubmates will see you."
+              )}
+              <form onSubmit={handleConfirmName} className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="reg-name" className={labelClass}>Full Name</label>
+                  <input
+                    id="reg-name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="reg-email" className={labelClass}>
+                    Email Address <span className="text-[#b3b0ab] tracking-wider">— locked</span>
+                  </label>
+                  <input
+                    id="reg-email"
+                    type="email"
+                    value={email}
+                    disabled
+                    className={`${inputClass} disabled:opacity-60 disabled:bg-[#f3f3f3]`}
+                  />
+                </div>
+                <div className="pt-4 border-t border-[#e2e8f0] mt-1">
+                  <button
+                    type="submit"
+                    disabled={loading || !name.trim()}
+                    className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
+                  >
+                    {loading ? "Please wait..." : "Continue"}
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
 
-          <div className="flex flex-col gap-3">
-            <span className={labelClass}>
-              Social Links <span className="text-[#b3b0ab] tracking-wider">— optional</span>
-            </span>
-            {(
-              [
-                ["GitHub", github, setGithub, "github.com/you"],
-                ["LinkedIn", linkedin, setLinkedin, "linkedin.com/in/you"],
-                ["Instagram", instagram, setInstagram, "instagram.com/you"],
-              ] as const
-            ).map(([label, value, set, ph]) => (
-              <div key={label} className="flex items-center gap-3">
-                <span className="font-mono text-[10px] font-bold uppercase tracking-wider w-20 flex-none">
-                  {label}
-                </span>
-                <input
-                  type="text"
-                  value={value}
-                  onChange={(e) => set(e.target.value)}
-                  placeholder={ph}
-                  aria-label={`${label} URL`}
-                  className="flex-1 border-0 border-b-2 border-[#e2e8f0] bg-transparent p-2 font-ui text-[14px] focus:outline-none focus:border-[#057DBC] rounded-none"
+          {/* ─── STEP 2: Location & College (required) ─── */}
+          {step === 2 && (
+            <>
+              {stepHeader(
+                "About You",
+                "On the Record.",
+                "Where you study, where you're from — this is how clubs find their people."
+              )}
+              <form onSubmit={handleDetails} className="flex flex-col gap-5">
+                <CountryStateSelect
+                  country={location.country}
+                  state={location.state}
+                  onChange={setLocation}
                 />
-              </div>
-            ))}
-          </div>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="reg-college" className={labelClass}>Current College</label>
+                  <input
+                    id="reg-college"
+                    type="text"
+                    value={institution}
+                    onChange={(e) => setInstitution(e.target.value)}
+                    required
+                    placeholder="National Institute of Technology, Trichy"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex justify-between items-center">
+                  {backButton(1)}
+                  <button
+                    type="submit"
+                    disabled={loading || !detailsValid}
+                    className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                  >
+                    {loading ? "Saving..." : "Continue"}
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
 
-          <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex flex-col gap-3">
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
-            >
-              {loading ? "Please wait..." : "Enter Club-Hub"}
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push("/portal")}
-              className="font-mono text-[10.5px] uppercase tracking-widest text-[#757575] underline hover:text-black text-center bg-transparent border-0 cursor-pointer"
-            >
-              Skip for now — straight to the portal
-            </button>
-          </div>
-        </form>
-      )}
+          {/* ─── STEP 3: Portrait (skippable) ─── */}
+          {step === 3 && (
+            <>
+              {stepHeader(
+                "Portrait",
+                "Put a face to it.",
+                "Pick a photo and frame it however you like — or come back to this later."
+              )}
+              <AvatarUpload
+                initials={initialsOf(name) || "?"}
+                avatarUrl={avatarUrl}
+                onUploaded={setAvatarUrl}
+              />
+              <div className="pt-6 border-t border-[#e2e8f0] mt-6 flex justify-between items-center">
+                {backButton(2)}
+                <div className="flex items-center gap-4">
+                  {!avatarUrl && (
+                    <button
+                      type="button"
+                      onClick={() => goTo(4)}
+                      className="font-mono text-[10.5px] uppercase tracking-widest text-[#757575] underline hover:text-black bg-transparent border-0 cursor-pointer"
+                    >
+                      Skip
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => goTo(4)}
+                    className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors flex items-center gap-2"
+                  >
+                    Continue
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ─── STEP 4: Socials (skippable) ─── */}
+          {step === 4 && (
+            <>
+              {stepHeader(
+                "Social Links",
+                "Stay Connected.",
+                "Link your profiles so clubmates can find your work — optional."
+              )}
+              <form onSubmit={handleFinish} className="flex flex-col gap-5">
+                <div className="flex flex-col gap-4">
+                  {(
+                    [
+                      [GithubLogo, "GitHub", github, setGithub, "github.com/you"],
+                      [LinkedinLogo, "LinkedIn", linkedin, setLinkedin, "linkedin.com/in/you"],
+                      [InstagramLogo, "Instagram", instagram, setInstagram, "instagram.com/you"],
+                    ] as const
+                  ).map(([Icon, label, value, set, ph]) => (
+                    <div key={label} className="flex items-center gap-3">
+                      <span
+                        className="w-9 h-9 border-2 border-black flex items-center justify-center flex-none"
+                        title={label}
+                      >
+                        <Icon size={18} weight="fill" aria-hidden />
+                      </span>
+                      <input
+                        type="text"
+                        value={value}
+                        onChange={(e) => set(e.target.value)}
+                        placeholder={ph}
+                        aria-label={`${label} URL`}
+                        className="flex-1 border-0 border-b-2 border-[#e2e8f0] bg-transparent p-2 font-ui text-[14px] focus:outline-none focus:border-[#057DBC] rounded-none"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex justify-between items-center">
+                  {backButton(3)}
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/portal")}
+                      className="font-mono text-[10.5px] uppercase tracking-widest text-[#757575] underline hover:text-black bg-transparent border-0 cursor-pointer"
+                    >
+                      Skip for now
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                    >
+                      {loading ? "Please wait..." : "Enter Club-Hub"}
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

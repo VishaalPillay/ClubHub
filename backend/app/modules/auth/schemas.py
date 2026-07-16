@@ -28,9 +28,12 @@ class TokenOut(BaseModel):
 
 
 class GoogleTokenOut(TokenOut):
-    """TokenOut plus `is_new` so the frontend can route first-time users to the profile step."""
+    """TokenOut plus routing flags: `is_new` marks a first-time account, and
+    `profile_completed` tells the frontend whether to send the user to the portal
+    or back into the register wizard to finish the required steps."""
 
     is_new: bool
+    profile_completed: bool
 
 
 class MeOut(BaseModel):

@@ -72,9 +72,12 @@ export default function PortalPage() {
         <div className="flex items-center gap-6">
           <button
             onClick={() => router.push("/directory")}
-            className="font-ui text-[12px] font-bold uppercase tracking-widest hover:text-[#057DBC] transition-colors"
+            className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest hover:text-[#057DBC] transition-colors"
           >
             Club Directory
+            <span className="material-symbols-outlined text-[16px] max-w-0 -translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:ml-1">
+              arrow_forward
+            </span>
           </button>
         </div>
       </header>
@@ -154,7 +157,7 @@ export default function PortalPage() {
                       </div>
 
                       {/* Club Name */}
-                      <h2 className="font-display text-[48px] leading-[0.93] tracking-[-0.5px] font-bold text-black uppercase mb-3 group-hover:text-[#057DBC] transition-colors break-words">
+                      <h2 className="font-display text-[48px] leading-[0.93] tracking-[-0.5px] font-bold text-black uppercase mb-3 break-words">
                         {club.name}
                       </h2>
 
@@ -170,9 +173,9 @@ export default function PortalPage() {
                         <span className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
                           {club.code}
                         </span>
-                        <span className="font-ui text-[12px] font-bold text-[#057DBC] flex items-center gap-1 group-hover:underline">
+                        <span className="font-ui text-[12px] font-bold text-[#057DBC] flex items-center gap-1">
                           Enter
-                          <span className="material-symbols-outlined text-[16px]">
+                          <span className="material-symbols-outlined text-[16px] transition-transform duration-200 group-hover:scale-125">
                             arrow_forward
                           </span>
                         </span>
@@ -262,7 +265,7 @@ export default function PortalPage() {
                       ) : (
                         <button
                           onClick={() => setConfirmWithdraw(req.id)}
-                          className="font-mono text-[10px] uppercase text-[#757575] hover:text-red-600 underline transition-colors"
+                          className="font-mono text-[10px] uppercase px-3 py-1 border border-red-600 text-red-600 hover:bg-red-600 hover:text-white transition-colors"
                         >
                           Withdraw
                         </button>
@@ -290,19 +293,6 @@ export default function PortalPage() {
           © 2026 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
       </footer>
-
-      {/* Withdraw Confirmation Backdrop */}
-      <AnimatePresence>
-        {confirmWithdraw && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 z-40"
-            onClick={() => setConfirmWithdraw(null)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

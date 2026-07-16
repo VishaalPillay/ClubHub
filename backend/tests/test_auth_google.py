@@ -59,6 +59,7 @@ def test_new_google_user_created_and_flagged(client, google_ok):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["is_new"] is True
+    assert body["profile_completed"] is False  # must finish the register wizard
     assert body["access_token"]
     assert settings.REFRESH_COOKIE_NAME in r.cookies
 
@@ -87,6 +88,26 @@ def test_returning_google_user_signs_in(client, google_ok):
     again = client.post("/auth/google", json={"credential": "tok"})
     assert again.status_code == 200
     assert again.json()["is_new"] is False
+    assert "profile_completed" in again.json()
+
+
+def test_returning_completed_google_user_flagged_completed(client, google_ok):
+    """Once the required profile fields are filled, the next Google sign-in reports
+    profile_completed=True so the frontend routes straight to the portal."""
+    google_ok(_claims(sub="completed-sub", email="completed@user.com"))
+    first = client.post("/auth/google", json={"credential": "tok"})
+    assert first.json()["profile_completed"] is False
+
+    r = client.put(
+        "/users/me",
+        json={"country": "India", "institution": "NIT Trichy"},
+        headers=_auth(first.json()["access_token"]),
+    )
+    assert r.status_code == 200, r.text
+
+    again = client.post("/auth/google", json={"credential": "tok"})
+    assert again.json()["is_new"] is False
+    assert again.json()["profile_completed"] is True
 
 
 def test_matching_email_links_existing_password_account(client, google_ok):

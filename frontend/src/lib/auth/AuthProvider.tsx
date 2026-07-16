@@ -41,7 +41,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const profile = await getProfile();
-        if (!cancelled) setUser(profile);
+        if (cancelled) return;
+        // Registration is not finished — back into the wizard, never the portal.
+        // (Deliberately no setUser: children must not render for incomplete accounts.)
+        if (!profile.profile_completed) {
+          router.replace("/register");
+          return;
+        }
+        setUser(profile);
       } catch {
         if (!cancelled) router.replace("/login");
       }

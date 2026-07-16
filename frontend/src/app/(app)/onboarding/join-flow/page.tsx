@@ -1,20 +1,46 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { joinClub, lookupClub } from "@/lib/api/clubs";
+import { directory, joinClub, lookupClub } from "@/lib/api/clubs";
 import { JOINABLE_ROLES as ROLES } from "@/lib/roles";
 
 type Domain = { id: number; name: string; description: string | null };
 
+function JoinFlowLoading() {
+  return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="font-mono text-12 uppercase tracking-widest text-[#757575] animate-pulse">
+        Loading...
+      </div>
+    </div>
+  );
+}
+
 export default function JoinFlowPage() {
+  return (
+    <Suspense fallback={<JoinFlowLoading />}>
+      <JoinFlowContent />
+    </Suspense>
+  );
+}
+
+function JoinFlowContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const directoryClubId = searchParams.get("clubId");
+
+  // Two ways in: type an invite code (step 1 below), or arrive pre-targeted at a
+  // specific public club straight from the directory (?clubId=, skips step 1).
+  const [entryMode] = useState<"code" | "directory">(directoryClubId ? "directory" : "code");
+  const [resolving, setResolving] = useState(!!directoryClubId);
+  const [resolveError, setResolveError] = useState("");
 
   // Multi-step state
-  const [step, setStep] = useState(1); // 1 = code, 2 = role/domain, 3 = confirm
-  const [progress, setProgress] = useState(33);
+  const [step, setStep] = useState(directoryClubId ? 2 : 1); // 1 = code, 2 = role/domain, 3 = confirm
+  const [progress, setProgress] = useState(directoryClubId ? 66 : 33);
 
   // Form state
   const [code, setCode] = useState("");
@@ -29,11 +55,34 @@ export default function JoinFlowPage() {
   const [message, setMessage] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+
+  // Arrived from the directory — resolve the club's roles/domains via the same
+  // list the directory page already fetched (no invite code is ever exposed here).
+  useEffect(() => {
+    if (!directoryClubId) return;
+    const id = Number(directoryClubId);
+    directory()
+      .then((clubs) => {
+        const club = clubs.find((c) => c.id === id);
+        if (!club) {
+          setResolveError("This club is no longer available.");
+          return;
+        }
+        setClubName(club.name);
+        setClubId(club.id);
+        setDomains(club.domains ?? []);
+        setEnabledRoles(club.enabled_roles ?? null);
+      })
+      .catch(() => setResolveError("Couldn't load this club. Please try again."))
+      .finally(() => setResolving(false));
+  }, [directoryClubId]);
 
   const goTo = (s: number) => {
     setStep(s);
     setProgress(s === 1 ? 33 : s === 2 ? 66 : 99);
+    setSubmitError("");
   };
 
   // Step 1: Validate the club code
@@ -62,22 +111,44 @@ export default function JoinFlowPage() {
   // Step 3: Submit the join request
   const submitRequest = async () => {
     setLoading(true);
+    setSubmitError("");
     try {
       await joinClub({
-        club_code: code.trim().toUpperCase(),
+        club_code: entryMode === "code" ? code.trim().toUpperCase() : undefined,
+        club_id: entryMode === "directory" ? clubId ?? undefined : undefined,
         requested_role: selectedRole,
         requested_domain_id: selectedDomainId,
         message: message || null,
       });
       setSubmitted(true);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Failed to submit request.");
+      setSubmitError(e instanceof Error ? e.message : "Failed to submit request.");
     } finally {
       setLoading(false);
     }
   };
 
   const roleConfig = ROLES.find(r => r.value === selectedRole);
+
+  if (resolving) {
+    return <JoinFlowLoading />;
+  }
+
+  if (resolveError) {
+    return (
+      <div className="bg-white text-black min-h-screen flex flex-col items-center justify-center px-6 text-center">
+        <p className="font-mono text-[12px] uppercase tracking-widest text-red-600 mb-6">
+          {resolveError}
+        </p>
+        <button
+          onClick={() => router.push("/directory")}
+          className="font-ui text-[14px] font-bold border-2 border-black bg-black text-white px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors"
+        >
+          Back to Directory
+        </button>
+      </div>
+    );
+  }
 
   if (submitted) {
     return (
@@ -125,11 +196,11 @@ export default function JoinFlowPage() {
           CLUB-HUB
         </div>
         <Link
-          href="/portal"
+          href={entryMode === "directory" ? "/directory" : "/portal"}
           className="font-mono text-[11px] uppercase tracking-widest text-[#757575] hover:text-[#057DBC] transition-colors flex items-center gap-1"
         >
           <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-          Back to Portal
+          {entryMode === "directory" ? "Back to Directory" : "Back to Portal"}
         </Link>
       </header>
 
@@ -299,7 +370,7 @@ export default function JoinFlowPage() {
 
                 <div className="mt-10 pt-6 border-t border-black flex justify-between">
                   <button
-                    onClick={() => goTo(1)}
+                    onClick={() => (entryMode === "directory" ? router.push("/directory") : goTo(1))}
                     className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-white transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
@@ -343,10 +414,12 @@ export default function JoinFlowPage() {
                       <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Club</p>
                       <p className="font-ui text-[16px] font-bold">{clubName}</p>
                     </div>
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Code</p>
-                      <p className="font-mono text-[14px] uppercase">{code}</p>
-                    </div>
+                    {entryMode === "code" && (
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Code</p>
+                        <p className="font-mono text-[14px] uppercase">{code}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Requesting Role</p>
                       <span className="inline-block font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-white">
@@ -378,6 +451,12 @@ export default function JoinFlowPage() {
                     className="border-2 border-black p-3 font-ui text-[14px] outline-none focus:border-[#057DBC] resize-none placeholder:text-[#ccc]"
                   />
                 </div>
+
+                {submitError && (
+                  <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest mb-4">
+                    {submitError}
+                  </p>
+                )}
 
                 <div className="mt-4 pt-6 border-t border-black flex justify-between">
                   <button
