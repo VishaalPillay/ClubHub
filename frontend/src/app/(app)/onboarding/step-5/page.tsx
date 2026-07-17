@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
 
 export default function OnboardingStep5() {
   const router = useRouter();
@@ -30,14 +31,7 @@ export default function OnboardingStep5() {
         <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
           CLUB-HUB
         </div>
-        <div className="flex gap-4">
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            LOGIN
-          </button>
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            HELP
-          </button>
-        </div>
+        <UserAvatarBadge />
       </header>
 
       {/* Main Content Canvas */}
@@ -109,7 +103,7 @@ export default function OnboardingStep5() {
           <div className="flex justify-center border-t border-[#E2E8F0] pt-[48px]">
             <button
               onClick={() => router.push(clubId ? `/c/${clubId}/dashboard` : "/portal")}
-              className="bg-[#057DBC] border-2 border-[#000000] text-[#FFFFFF] font-[Inter] text-[16px] font-bold uppercase px-[48px] py-[16px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-100 flex items-center gap-[8px]"
+              className="bg-[#057DBC] border-2 border-[#057DBC] text-[#FFFFFF] font-[Inter] text-[16px] font-bold uppercase px-[48px] py-[16px] hover:bg-[#FFFFFF] hover:text-[#057DBC] transition-colors duration-100 flex items-center gap-[8px]"
             >
               Enter Dashboard
               <span className="material-symbols-outlined">arrow_forward</span>

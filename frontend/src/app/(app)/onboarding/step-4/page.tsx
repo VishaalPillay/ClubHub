@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClub } from "@/lib/api/clubs";
 import { createDomain } from "@/lib/api/domains";
+import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
 
 export default function OnboardingStep4() {
   const router = useRouter();
@@ -57,8 +58,16 @@ export default function OnboardingStep4() {
       localStorage.setItem("onboarding_club_code", club.code);
       localStorage.setItem("onboarding_club_id", String(club.id));
 
-      // The portal/club shell read memberships from this cache — refresh it.
-      await queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+      // The portal/club shell read memberships from this cache — step-1 already
+      // populated it with the pre-creation (clubless) list, and the app's 60s
+      // default staleTime means neither invalidateQueries (only refetches *active*
+      // observers; nothing observes this key during onboarding) nor fetchQuery
+      // (staleTime-gated — it'd just hand back that same stale cache entry) would
+      // actually hit the network here. ClubProvider would then mount on the fresh
+      // club's dashboard, see the still-clubless list, and bounce to /portal.
+      // refetchQueries always performs a real fetch regardless of staleTime;
+      // `type: "all"` includes this presently-unobserved query in that refetch.
+      await queryClient.refetchQueries({ queryKey: ["my-clubs"], type: "all" });
 
       router.push("/onboarding/step-5");
     } catch (e: unknown) {
@@ -82,14 +91,7 @@ export default function OnboardingStep4() {
         <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
           CLUB-HUB
         </div>
-        <div className="flex gap-4">
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            LOGIN
-          </button>
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            HELP
-          </button>
-        </div>
+        <UserAvatarBadge />
       </header>
 
       {/* Main Content Canvas */}

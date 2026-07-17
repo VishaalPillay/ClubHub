@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { myClubs, pendingRequests, withdrawJoin } from "@/lib/api/clubs";
@@ -20,11 +20,29 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 export default function PortalPage() {
+  return (
+    <Suspense fallback={null}>
+      <PortalContent />
+    </Suspense>
+  );
+}
+
+function PortalContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [withdrawingId, setWithdrawingId] = useState<number | null>(null);
   const [confirmWithdraw, setConfirmWithdraw] = useState<number | null>(null);
+  // Snapshot on first render only — the URL gets cleaned up right after, but the
+  // greeting for this visit should stay "You're in" rather than flip mid-view.
+  const [isFreshArrival] = useState(() => searchParams.get("welcome") === "1");
+
+  useEffect(() => {
+    if (searchParams.get("welcome") === "1") {
+      router.replace("/portal", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const { data: clubs = [], isPending: clubsLoading } = useQuery({
     queryKey: ["my-clubs"],
@@ -89,7 +107,8 @@ export default function PortalPage() {
             Club Portal
           </p>
           <h1 className="font-display text-[64px] leading-[0.93] tracking-[-0.5px] font-bold">
-            Welcome back, {user.name.split(" ")[0]}.
+            {isFreshArrival ? "You're in, " : "Welcome back, "}
+            {user.name.split(" ")[0]}.
           </h1>
         </div>
 

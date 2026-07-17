@@ -3,16 +3,34 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { myClubs } from "@/lib/api/clubs";
+import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
 
 export default function OnboardingStep1() {
   const router = useRouter();
   const [selected, setSelected] = useState<string>(""); // "join" | "create"
   const [progress, setProgress] = useState("0%");
+  const { data: clubs = [], isPending: clubsLoading } = useQuery({
+    queryKey: ["my-clubs"],
+    queryFn: myClubs,
+  });
+  const isFirstClub = clubs.length === 0;
 
   useEffect(() => {
     const timer = setTimeout(() => setProgress("20%"), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  if (clubsLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="font-mono text-[13px] uppercase tracking-widest text-[#757575] animate-pulse">
+          Loading...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col">
@@ -21,14 +39,7 @@ export default function OnboardingStep1() {
         <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
           CLUB-HUB
         </div>
-        <div className="flex gap-4">
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            LOGIN
-          </button>
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            HELP
-          </button>
-        </div>
+        <UserAvatarBadge />
       </header>
 
       {/* Main Canvas */}
@@ -50,7 +61,11 @@ export default function OnboardingStep1() {
                 Organization Configuration
               </p>
               <h1 className="font-serif text-[64px] leading-[1.05] tracking-[-0.5px] text-[#000000]">
-                Welcome, User.<br />Let&apos;s get started.
+                {isFirstClub ? (
+                  <>Your First Club!<br />Let&apos;s get started.</>
+                ) : (
+                  <>New Club,<br />Let&apos;s get started.</>
+                )}
               </h1>
             </header>
           </div>

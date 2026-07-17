@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
 
 export default function OnboardingStep2() {
   const router = useRouter();
@@ -21,14 +22,7 @@ export default function OnboardingStep2() {
         <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
           CLUB-HUB
         </div>
-        <div className="flex gap-4">
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            LOGIN
-          </button>
-          <button className="font-[Inter] text-[16px] font-bold border-2 border-[#000000] bg-[#FFFFFF] text-[#000000] px-4 py-2 hover:bg-[#000000] hover:text-[#FFFFFF] transition-none uppercase">
-            HELP
-          </button>
-        </div>
+        <UserAvatarBadge />
       </header>
 
       {/* Main Content Area */}

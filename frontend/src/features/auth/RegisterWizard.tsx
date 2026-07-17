@@ -205,7 +205,7 @@ export default function RegisterWizard() {
       if (li) changes.linkedin_url = li;
       if (ig) changes.instagram_url = ig;
       if (Object.keys(changes).length > 0) await updateProfile(changes);
-      router.push("/portal");
+      router.push("/portal?welcome=1"); // first-ever arrival — portal greets differently
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Could not save your links.");
       setLoading(false);
@@ -519,23 +519,14 @@ export default function RegisterWizard() {
                 </div>
                 <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex justify-between items-center">
                   {backButton(3)}
-                  <div className="flex items-center gap-4">
-                    <button
-                      type="button"
-                      onClick={() => router.push("/portal")}
-                      className="font-mono text-[10.5px] uppercase tracking-widest text-[#757575] underline hover:text-black bg-transparent border-0 cursor-pointer"
-                    >
-                      Skip for now
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
-                    >
-                      {loading ? "Please wait..." : "Enter Club-Hub"}
-                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                  >
+                    {loading ? "Please wait..." : "Enter Club-Hub"}
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                  </button>
                 </div>
               </form>
             </>
