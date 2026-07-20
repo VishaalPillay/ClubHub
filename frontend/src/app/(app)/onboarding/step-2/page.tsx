@@ -4,9 +4,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
+import CollegeSelect from "@/features/auth/CollegeSelect";
+import { useAuth } from "@/lib/auth/AuthProvider";
 
 export default function OnboardingStep2() {
   const router = useRouter();
+  const { user } = useAuth();
   const [form, setForm] = useState({ name: "", institution: "" });
   const [progress, setProgress] = useState("20%");
 
@@ -70,19 +73,16 @@ export default function OnboardingStep2() {
             </div>
 
             {/* College / Institution Input */}
-            <div className="flex flex-col gap-[8px]">
-              <label className="font-[Inter] text-[16px] font-bold uppercase text-[#000000]" htmlFor="club-institution">
-                College / Institution
-              </label>
-              <input
-                className="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
-                id="club-institution"
-                placeholder="e.g. Stanford University"
-                type="text"
-                value={form.institution}
-                onChange={(e) => setForm({ ...form, institution: e.target.value })}
-              />
-            </div>
+            <CollegeSelect
+              id="club-institution"
+              country={user.country ?? ""}
+              state={user.state ?? ""}
+              value={form.institution}
+              onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
+              label="College / Institution"
+              labelClassName="font-[Inter] text-[16px] font-bold uppercase text-[#000000]"
+              inputClassName="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
+            />
 
             {/* Action Area */}
             <div className="w-full mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">

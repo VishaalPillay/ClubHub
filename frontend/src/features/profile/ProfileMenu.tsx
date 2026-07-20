@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useClub } from "@/features/club/ClubProvider";
 import { updateProfile } from "@/lib/api/users";
 import AvatarUpload from "@/features/auth/AvatarUpload";
+import CollegeSelect from "@/features/auth/CollegeSelect";
 import CountryStateSelect from "@/features/auth/CountryStateSelect";
 
 type FormState = {
@@ -207,27 +208,23 @@ export default function ProfileMenu() {
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="font-ui text-16 font-bold text-black uppercase" htmlFor="institution">
-                  Institution
-                </label>
-                <input
-                  className="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
-                  id="institution"
-                  name="institution"
-                  value={form.institution}
-                  onChange={handleChange}
-                  placeholder="Your college / university"
-                  type="text"
-                />
-              </div>
-
               <CountryStateSelect
                 country={form.country}
                 state={form.state}
                 onChange={({ country, state }) =>
                   setForm((prev) => ({ ...prev, country, state }))
                 }
+              />
+
+              <CollegeSelect
+                id="institution"
+                country={form.country}
+                state={form.state}
+                value={form.institution}
+                onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
+                label="Institution"
+                labelClassName="font-ui text-16 font-bold text-black uppercase"
+                inputClassName="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
               />
 
               {urlField("github_url", "GitHub URL", "https://github.com/you")}

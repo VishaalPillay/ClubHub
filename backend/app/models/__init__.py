@@ -7,6 +7,7 @@ for Alembic autogenerate and for create_all in tests.
 from sqlmodel import SQLModel
 
 from app.models.club import Club, ClubMember, Domain
+from app.models.college_request import CollegeRequest
 from app.models.content import Announcement, Event, EventRsvp
 from app.models.request import ActionRequest, JoinRequest
 from app.models.task import PointsLedger, Task, TaskAssignment
@@ -27,4 +28,5 @@ __all__ = [
     "Announcement",
     "Event",
     "EventRsvp",
+    "CollegeRequest",
 ]

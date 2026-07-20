@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_AUTH: str = "10/minute"  # /auth/login, /auth/register, /auth/google per client IP
     RATE_LIMIT_JOIN: str = "30/minute"  # /clubs/join + /clubs/lookup per client IP
+    RATE_LIMIT_COLLEGE_REQUEST: str = "20/minute"  # /college-requests per client IP
 
     # Media storage (avatar uploads) — "local" writes under MEDIA_ROOT and serves via /media
     # (dev only; not durable on ephemeral hosts); "s3" writes to S3_BUCKET and returns

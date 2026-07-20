@@ -11,6 +11,7 @@ import { refreshAccessToken } from "@/lib/api/client";
 import { tokenStore } from "@/lib/auth/tokenStore";
 import type { Profile, UpdateProfileIn } from "@/types/api";
 import AvatarUpload from "@/features/auth/AvatarUpload";
+import CollegeSelect from "@/features/auth/CollegeSelect";
 import CountryStateSelect, { countryHasStates } from "@/features/auth/CountryStateSelect";
 import GoogleButton from "@/features/auth/GoogleButton";
 
@@ -417,18 +418,13 @@ export default function RegisterWizard() {
                   state={location.state}
                   onChange={setLocation}
                 />
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="reg-college" className={labelClass}>Current College</label>
-                  <input
-                    id="reg-college"
-                    type="text"
-                    value={institution}
-                    onChange={(e) => setInstitution(e.target.value)}
-                    required
-                    placeholder="National Institute of Technology, Trichy"
-                    className={inputClass}
-                  />
-                </div>
+                <CollegeSelect
+                  id="reg-college"
+                  country={location.country}
+                  state={location.state}
+                  value={institution}
+                  onChange={setInstitution}
+                />
                 <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex justify-between items-center">
                   {backButton(1)}
                   <button
