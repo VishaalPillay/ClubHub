@@ -13,7 +13,6 @@ type FormState = {
   institution: string;
   country: string;
   state: string;
-  age: string;
   github_url: string;
   linkedin_url: string;
   instagram_url: string;
@@ -34,7 +33,6 @@ export default function ProfileMenu() {
     institution: user.institution ?? "",
     country: user.country ?? "",
     state: user.state ?? "",
-    age: user.age != null ? String(user.age) : "",
     github_url: user.github_url ?? "",
     linkedin_url: user.linkedin_url ?? "",
     instagram_url: user.instagram_url ?? "",
@@ -50,7 +48,6 @@ export default function ProfileMenu() {
       institution: user.institution ?? "",
       country: user.country ?? "",
       state: user.state ?? "",
-      age: user.age != null ? String(user.age) : "",
       github_url: user.github_url ?? "",
       linkedin_url: user.linkedin_url ?? "",
       instagram_url: user.instagram_url ?? "",
@@ -76,7 +73,6 @@ export default function ProfileMenu() {
         institution: orNull(form.institution),
         country: orNull(form.country),
         state: orNull(form.state),
-        age: form.age.trim() === "" ? null : Number(form.age),
         github_url: orNull(form.github_url),
         linkedin_url: orNull(form.linkedin_url),
         instagram_url: orNull(form.instagram_url),
@@ -116,7 +112,7 @@ export default function ProfileMenu() {
         <span className="font-bold uppercase tracking-wide">
           {user.name.split(" ")[0]} ({currentRole.replace(/_/g, " ")})
         </span>
-        <div className="w-10 h-10 border-2 border-black overflow-hidden bg-hairline-tint hover:border-link-blue transition-150">
+        <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-hairline-tint hover:border-link-blue transition-150">
           <img alt={user.name} className="w-full h-full object-cover grayscale" src={profilePic} />
         </div>
       </div>
@@ -164,38 +160,20 @@ export default function ProfileMenu() {
                 />
               </div>
 
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 flex flex-col gap-2">
-                  <label className="font-ui text-16 font-bold text-black uppercase" htmlFor="name">
-                    Full Name
-                  </label>
-                  <input
-                    className="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
-                    id="name"
-                    name="name"
-                    value={form.name}
-                    onChange={handleChange}
-                    placeholder="Enter full name"
-                    type="text"
-                    required
-                  />
-                </div>
-                <div className="w-full md:w-32 flex flex-col gap-2">
-                  <label className="font-ui text-16 font-bold text-black uppercase" htmlFor="age">
-                    Age
-                  </label>
-                  <input
-                    className="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
-                    id="age"
-                    name="age"
-                    value={form.age}
-                    onChange={handleChange}
-                    placeholder="18"
-                    type="number"
-                    min={13}
-                    max={120}
-                  />
-                </div>
+              <div className="flex flex-col gap-2">
+                <label className="font-ui text-16 font-bold text-black uppercase" htmlFor="name">
+                  Full Name
+                </label>
+                <input
+                  className="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
+                  id="name"
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  placeholder="Enter full name"
+                  type="text"
+                  required
+                />
               </div>
 
               <div className="flex flex-col gap-2">

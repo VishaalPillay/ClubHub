@@ -15,7 +15,7 @@ export default function UserAvatarBadge() {
 
   return (
     <div
-      className="w-10 h-10 border-2 border-black overflow-hidden flex-none"
+      className="w-10 h-10 rounded-full border-2 border-black overflow-hidden flex-none"
       title={user.name}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- runtime avatar URL (local /media, S3, or ui-avatars fallback) */}

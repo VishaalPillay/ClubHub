@@ -191,17 +191,21 @@ function JoinFlowContent() {
   return (
     <div className="bg-white text-black min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white border-b-2 border-black">
-        <div className="font-display text-[28px] font-black uppercase tracking-tighter">
+      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30">
+        <div className="font-display text-[32px] font-black uppercase tracking-tighter">
           CLUB-HUB
         </div>
-        <Link
-          href={entryMode === "directory" ? "/directory" : "/portal"}
-          className="font-mono text-[11px] uppercase tracking-widest text-[#757575] hover:text-[#057DBC] transition-colors flex items-center gap-1"
-        >
-          <span className="material-symbols-outlined text-[14px]">arrow_back</span>
-          {entryMode === "directory" ? "Back to Directory" : "Back to Portal"}
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link
+            href={entryMode === "directory" ? "/directory" : "/portal"}
+            className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest no-underline text-black hover:text-[#057DBC] transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px] max-w-0 translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:mr-1">
+              arrow_back
+            </span>
+            {entryMode === "directory" ? "Back to Directory" : "Back to Portal"}
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
