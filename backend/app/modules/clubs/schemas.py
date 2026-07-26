@@ -9,6 +9,16 @@ from app.core.permissions import ROLE_HIERARCHY
 # president is auto-assigned to the creator and is never a join-requestable role.
 _SELECTABLE_ROLES: set[str] = set(ROLE_HIERARCHY) - {"president"}
 
+# "public" = any student; "institution" = only students whose profile institution matches
+# the club's; "unlisted" = not in the directory at all (invite code only).
+_VISIBILITY_VALUES: set[str] = {"public", "institution", "unlisted"}
+
+
+def _validate_visibility(v: str | None) -> str | None:
+    if v is not None and v not in _VISIBILITY_VALUES:
+        raise ValueError(f"visibility must be one of {sorted(_VISIBILITY_VALUES)}, got {v!r}.")
+    return v
+
 
 def _validate_enabled_roles(roles: list[str]) -> list[str]:
     invalid = [r for r in roles if r not in _SELECTABLE_ROLES]
@@ -35,7 +45,9 @@ class CreateClubIn(BaseModel):
 class UpdateClubIn(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
-    is_public: bool | None = None
+    institution: str | None = Field(default=None, max_length=255)
+    visibility: str | None = None
+    accepting_requests: bool | None = None
     enabled_roles: list[str] | None = None
 
     @field_validator("enabled_roles")
@@ -44,6 +56,11 @@ class UpdateClubIn(BaseModel):
         if v is None:
             return v
         return _validate_enabled_roles(v)
+
+    @field_validator("visibility")
+    @classmethod
+    def visibility_must_be_valid(cls, v: str | None) -> str | None:
+        return _validate_visibility(v)
 
 
 class JoinClubIn(BaseModel):
@@ -70,7 +87,8 @@ class ClubOut(BaseModel):
     name: str
     description: str | None
     code: str
-    is_public: bool
+    visibility: str
+    accepting_requests: bool
     enabled_roles: list[str] | None
     institution: str | None
 
@@ -78,12 +96,17 @@ class ClubOut(BaseModel):
 
 
 class MyClubItem(BaseModel):
-    """One entry in GET /clubs/my — annotated with this user's membership."""
+    """One entry in GET /clubs/my — annotated with this user's membership.
+
+    `code` is the invite secret: only visible to members who could plausibly need to
+    share it (Joint-Secretary+, the same threshold that reviews join requests). Lower
+    ranks get `null` — the frontend simply doesn't render the code row for them.
+    """
     id: int
     name: str
     description: str | None
     institution: str | None
-    code: str
+    code: str | None
     role: str
     domain_id: int | None
 
@@ -97,14 +120,16 @@ class DomainBrief(BaseModel):
 
 class DirectoryItem(BaseModel):
     """One entry in GET /clubs/directory. The join `code` is deliberately omitted —
-    it is an invite secret; public clubs are instead requestable by `id` via
-    POST /clubs/join. `enabled_roles`/`domains` let the client build that request
-    without a second round-trip."""
+    it is an invite secret; public/institution clubs are instead requestable by `id`
+    via POST /clubs/join. `enabled_roles`/`domains` let the client build that request
+    without a second round-trip. `accepting_requests=false` means the club is browsable
+    but paused on intake — the client renders "Not Recruiting" instead of a join button."""
     id: int
     name: str
     description: str | None
     institution: str | None
     enabled_roles: list[str] | None
+    accepting_requests: bool
     domains: list[DomainBrief]
 
 
@@ -119,11 +144,13 @@ class LookupOut(BaseModel):
 
 
 class PendingItem(BaseModel):
-    """One entry in GET /clubs/pending."""
+    """One entry in GET /clubs/pending. `code` is deliberately omitted — a pending
+    requester is not yet a member and may have arrived via the directory (never having
+    seen an invite code at all); leaking it here would be the same invite-secret problem
+    the directory already avoids."""
     id: int
     club_id: int
     club_name: str
-    code: str
     requested_role: str
     status: str
     created_at: datetime
@@ -139,12 +166,14 @@ class JoinOut(BaseModel):
 
 
 class ClubDetailOut(BaseModel):
-    """Response for GET /clubs/{id} and PUT /clubs/{id}."""
+    """Response for GET /clubs/{id} and PUT /clubs/{id}. Both are Vice-President+ only
+    (the settings page) — the full detail, including the invite code, is an executive view."""
     id: int
     name: str
     description: str | None
     code: str
-    is_public: bool
+    visibility: str
+    accepting_requests: bool
     enabled_roles: list[str] | None
     institution: str | None
 

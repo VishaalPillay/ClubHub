@@ -3,6 +3,7 @@ import type {
   ClubDetail,
   ClubLookup,
   ClubOut,
+  ClubVisibility,
   DirectoryClub,
   MyClub,
   PendingRequest,
@@ -68,7 +69,9 @@ export async function updateClub(
   changes: Partial<{
     name: string;
     description: string | null;
-    is_public: boolean;
+    institution: string | null;
+    visibility: ClubVisibility;
+    accepting_requests: boolean;
     enabled_roles: string[];
   }>
 ): Promise<ClubDetail> {

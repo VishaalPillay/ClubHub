@@ -6,9 +6,33 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClub } from "@/features/club/ClubProvider";
 import { getClub, updateClub } from "@/lib/api/clubs";
 import { isVPPlus } from "@/lib/roles";
-import type { ClubDetail } from "@/types/api";
+import type { ClubDetail, ClubVisibility } from "@/types/api";
 
-/** Club settings — PUT /clubs/{id} (name, description, public directory listing). VP+ only. */
+/** The three directory-visibility tiers, in descending reach. Mirrors the backend's
+ *  `visibility` VARCHAR values (app/modules/clubs/schemas.py::_VISIBILITY_VALUES). */
+const VISIBILITY_OPTIONS: {
+  value: ClubVisibility;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "public",
+    label: "Public Directory",
+    hint: "Any student on ClubHub can find this club in the directory.",
+  },
+  {
+    value: "institution",
+    label: "My College Only",
+    hint: "Only students whose profile college matches this club's appear-in-directory scope.",
+  },
+  {
+    value: "unlisted",
+    label: "Unlisted",
+    hint: "Hidden from the directory entirely — reachable only with the invite code.",
+  },
+];
+
+/** Club settings — PUT /clubs/{id} (identity, directory visibility, intake). VP+ only. */
 export default function ClubSettingsPage() {
   const { clubId, currentRole } = useClub();
   const router = useRouter();
@@ -28,7 +52,13 @@ export default function ClubSettingsPage() {
   if (!canEdit || !club) return null;
 
   // Keyed by fetch identity so the form state re-initializes if the club record changes.
-  return <SettingsForm key={`${club.id}-${club.name}-${club.is_public}`} club={club} clubId={clubId} />;
+  return (
+    <SettingsForm
+      key={`${club.id}-${club.name}-${club.visibility}-${club.accepting_requests}`}
+      club={club}
+      clubId={clubId}
+    />
+  );
 }
 
 function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
@@ -38,7 +68,9 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
   const [form, setForm] = useState({
     name: club.name,
     description: club.description ?? "",
-    is_public: club.is_public,
+    institution: club.institution ?? "",
+    visibility: club.visibility,
+    accepting_requests: club.accepting_requests,
   });
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -53,7 +85,9 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
       await updateClub(clubId, {
         name: form.name.trim(),
         description: form.description.trim() === "" ? null : form.description.trim(),
-        is_public: form.is_public,
+        institution: form.institution.trim() === "" ? null : form.institution.trim(),
+        visibility: form.visibility,
+        accepting_requests: form.accepting_requests,
       });
       queryClient.invalidateQueries({ queryKey: ["club", clubId, "detail"] });
       queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
@@ -135,17 +169,86 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
           />
         </div>
 
-        <label className="flex items-center gap-4 border-2 border-black p-4 cursor-pointer hover:bg-[#f9f9f9] transition-colors">
+        <div className="flex flex-col gap-2">
+          <label className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
+            College / Institution
+          </label>
+          <input
+            type="text"
+            value={form.institution}
+            onChange={(e) => setForm({ ...form, institution: e.target.value })}
+            placeholder="e.g. SRM Institute of Science and Technology"
+            className="border-2 border-black bg-white text-black p-3 font-ui text-[15px] focus:outline-none focus:border-[#057DBC]"
+          />
+          <p className="font-ui text-13 text-[#757575]">
+            Shown on directory cards, and it defines who &quot;My College Only&quot; means below.
+          </p>
+        </div>
+
+        {/* Directory visibility — three tiers, one choice */}
+        <fieldset className="flex flex-col gap-3 pt-2 border-t-2 border-black">
+          <legend className="font-mono text-[11px] uppercase tracking-widest text-[#757575] pt-4">
+            Directory Visibility
+          </legend>
+          {VISIBILITY_OPTIONS.map((opt) => {
+            const selected = form.visibility === opt.value;
+            // "My College Only" is meaningless without a college on the club record.
+            const disabled = opt.value === "institution" && form.institution.trim() === "";
+            return (
+              <label
+                key={opt.value}
+                className={`flex items-start gap-4 border-2 p-4 transition-colors ${
+                  disabled
+                    ? "border-[#e2e8f0] opacity-50 cursor-not-allowed"
+                    : selected
+                      ? "border-[#057DBC] bg-[#f0f8ff] cursor-pointer"
+                      : "border-black cursor-pointer hover:bg-[#f9f9f9]"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="visibility"
+                  value={opt.value}
+                  checked={selected}
+                  disabled={disabled}
+                  onChange={() => setForm({ ...form, visibility: opt.value })}
+                  className="w-5 h-5 mt-0.5 accent-[#057DBC] shrink-0"
+                />
+                <div>
+                  <div className="font-ui text-16 font-bold uppercase">{opt.label}</div>
+                  <div className="font-ui text-13 text-[#757575]">
+                    {disabled
+                      ? "Set a college above to use this option."
+                      : opt.hint}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+        </fieldset>
+
+        {/* Intake — independent of visibility */}
+        <label
+          className={`flex items-start gap-4 border-2 p-4 cursor-pointer transition-colors ${
+            form.accepting_requests
+              ? "border-black hover:bg-[#f9f9f9]"
+              : "border-[#757575] bg-[#f9f9f9]"
+          }`}
+        >
           <input
             type="checkbox"
-            checked={form.is_public}
-            onChange={(e) => setForm({ ...form, is_public: e.target.checked })}
-            className="w-5 h-5 accent-black"
+            checked={form.accepting_requests}
+            onChange={(e) => setForm({ ...form, accepting_requests: e.target.checked })}
+            className="w-5 h-5 mt-0.5 accent-black shrink-0"
           />
           <div>
-            <div className="font-ui text-16 font-bold uppercase">List in Public Directory</div>
+            <div className="font-ui text-16 font-bold uppercase">
+              Accept Join Requests
+            </div>
             <div className="font-ui text-13 text-[#757575]">
-              When enabled, students can discover this club in the directory (the invite code stays private).
+              {form.accepting_requests
+                ? "Students can send a request to join — by invite code or from the directory."
+                : "Intake is paused. The club still appears in the directory (per the setting above) but shows “Not Recruiting”, and every join request is refused — recruit by invite only."}
             </div>
           </div>
         </label>

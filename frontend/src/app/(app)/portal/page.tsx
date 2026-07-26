@@ -188,9 +188,10 @@ function PortalContent() {
                       )}
 
                       <div className="mt-auto pt-4 border-t border-[#e2e8f0] flex justify-between items-center">
-                        {/* Club Code */}
+                        {/* Invite code — the API only sends it to Joint-Secretary+, so lower
+                            ranks get null and we render nothing in its place. */}
                         <span className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
-                          {club.code}
+                          {club.code ?? ""}
                         </span>
                         <span className="font-ui text-[12px] font-bold text-[#057DBC] flex items-center gap-1">
                           Enter
@@ -246,9 +247,6 @@ function PortalContent() {
                     <div className="flex items-center gap-3">
                       <span className="inline-block font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-[#757575] text-white">
                         {ROLE_LABELS[req.requested_role] ?? req.requested_role}
-                      </span>
-                      <span className="font-mono text-[10px] text-[#757575] uppercase">
-                        {req.code}
                       </span>
                     </div>
 

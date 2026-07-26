@@ -44,7 +44,7 @@ def directory(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ) -> list[dict]:
-    return service.get_directory(session)
+    return service.get_directory(session, current_user.institution)
 
 
 @router.get("/lookup", response_model=LookupOut)
@@ -84,6 +84,7 @@ def join_club(
         body.requested_role,
         body.requested_domain_id,
         body.message,
+        current_user.institution,
     )
 
 
@@ -113,11 +114,13 @@ def create_club(
 
 
 # ── Club-scoped (bearer + X-Club-ID; path must match context) ─────────────────
+# Both the full detail (incl. invite code) and its update are Vice-President+ only — the
+# settings page is their sole consumer, and the code is an executive-only secret.
 
 @router.get("/{club_id}", response_model=ClubDetailOut)
 def get_club(
     club_id: int,
-    ctx: ClubContext = Depends(verify_club_path()),
+    ctx: ClubContext = Depends(verify_club_path("vice_president")),
     session: Session = Depends(get_session),
 ):
     return service.get_club(session, club_id)
@@ -131,5 +134,12 @@ def update_club(
     session: Session = Depends(get_session),
 ):
     return service.update_club(
-        session, club_id, body.name, body.description, body.is_public, body.enabled_roles
+        session,
+        club_id,
+        body.name,
+        body.description,
+        body.institution,
+        body.visibility,
+        body.accepting_requests,
+        body.enabled_roles,
     )

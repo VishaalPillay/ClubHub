@@ -44,12 +44,16 @@ export type UpdateProfileIn = Partial<{
 
 // ── Clubs & joining ───────────────────────────────────────────────────────────
 
+/** Who can find a club in the directory. Mirrors the backend's VARCHAR values. */
+export type ClubVisibility = "public" | "institution" | "unlisted";
+
 export type ClubOut = {
   id: number;
   name: string;
   description: string | null;
   code: string;
-  is_public: boolean;
+  visibility: ClubVisibility;
+  accepting_requests: boolean;
   enabled_roles: string[] | null;
   institution: string | null;
 };
@@ -59,7 +63,8 @@ export type MyClub = {
   name: string;
   description: string | null;
   institution: string | null;
-  code: string;
+  /** null for member/associate/lead — the invite code is Joint-Secretary+ only. */
+  code: string | null;
   role: string;
   domain_id: number | null;
 };
@@ -69,7 +74,8 @@ export type ClubDetail = {
   name: string;
   description: string | null;
   code: string;
-  is_public: boolean;
+  visibility: ClubVisibility;
+  accepting_requests: boolean;
   enabled_roles: string[] | null;
   institution: string | null;
 };
@@ -80,6 +86,8 @@ export type DirectoryClub = {
   description: string | null;
   institution: string | null;
   enabled_roles: string[] | null;
+  /** false = browsable but paused on intake ("Not Recruiting"). */
+  accepting_requests: boolean;
   domains: DomainBrief[];
 };
 
@@ -96,7 +104,6 @@ export type PendingRequest = {
   id: number;
   club_id: number;
   club_name: string;
-  code: string;
   requested_role: string;
   status: string;
   created_at: string;

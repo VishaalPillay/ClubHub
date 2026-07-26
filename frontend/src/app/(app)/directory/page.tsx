@@ -17,9 +17,9 @@ function requestableRoles(club: DirectoryClub) {
   );
 }
 
-/** Public club directory — every club with is_public=true. Click a card to request
- * to join directly (no invite code needed); an invite code is still the fallback
- * for clubs that aren't accepting open requests. */
+/** Club directory — public clubs plus institution-scoped clubs matching your own
+ * institution (the API does that filtering; unlisted clubs never appear). Click a card
+ * to request to join directly; an invite code remains the way into unlisted clubs. */
 export default function DirectoryPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -121,7 +121,13 @@ export default function DirectoryPage() {
             {filtered.map((club, idx) => {
               const isMember = myClubIds.has(club.id);
               const isRequested = pendingClubIds.has(club.id);
-              const joinable = !isMember && !isRequested && requestableRoles(club).length > 0;
+              // Leadership can pause intake while staying listed — the backend rejects
+              // such joins with CLUB_NOT_RECRUITING, so don't offer the button either.
+              const joinable =
+                !isMember &&
+                !isRequested &&
+                club.accepting_requests &&
+                requestableRoles(club).length > 0;
 
               return (
                 <motion.div
@@ -159,6 +165,10 @@ export default function DirectoryPage() {
                           <span className="material-symbols-outlined text-[16px] transition-transform duration-200 group-hover:scale-125">
                             arrow_forward
                           </span>
+                        </span>
+                      ) : !club.accepting_requests ? (
+                        <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border border-[#757575] text-[#757575]">
+                          Not Recruiting
                         </span>
                       ) : (
                         <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">

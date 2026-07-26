@@ -16,7 +16,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 type ClubContextType = {
   clubId: number;
   clubName: string;
-  clubCode: string;
+  /** null for member/associate/lead — the invite code is Joint-Secretary+ only. */
+  clubCode: string | null;
   currentRole: string;
   domainId: number | null;
   userId: number;

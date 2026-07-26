@@ -3,13 +3,19 @@
 import secrets
 
 from fastapi import status
+from sqlalchemy import and_, or_
 from sqlmodel import Session, select
 
 from app.core.exceptions import AppError
+from app.core.permissions import role_at_least
 from app.models import Club, ClubMember, Domain, JoinRequest
 
 # Roles that require a domain assignment on join.
 _DOMAIN_SCOPED_ROLES: frozenset[str] = frozenset({"member", "associate", "lead"})
+
+# The invite code is a shareable secret; only ranks that could plausibly need to hand it
+# out (the same threshold that reviews join requests) may see it via /clubs/my.
+_CODE_VISIBLE_FROM: str = "joint_secretary"
 
 # Unambiguous base-32 alphabet (no O/0, I/1 look-alikes).
 _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -82,7 +88,7 @@ def get_my_clubs(session: Session, user_id: int) -> list[dict]:
             "name": club.name,
             "description": club.description,
             "institution": club.institution,
-            "code": club.code,
+            "code": club.code if role_at_least(cm.role, _CODE_VISIBLE_FROM) else None,
             "role": cm.role,
             "domain_id": cm.domain_id,
         }
@@ -90,8 +96,15 @@ def get_my_clubs(session: Session, user_id: int) -> list[dict]:
     ]
 
 
-def get_directory(session: Session) -> list[dict]:
-    clubs = list(session.exec(select(Club).where(Club.is_public.is_(True))).all())
+def get_directory(session: Session, viewer_institution: str | None) -> list[dict]:
+    """Public clubs are visible to everyone; institution-scoped clubs only to viewers
+    whose own profile institution matches. Unlisted clubs never appear here."""
+    conditions = [Club.visibility == "public"]
+    if viewer_institution:
+        conditions.append(
+            and_(Club.visibility == "institution", Club.institution == viewer_institution)
+        )
+    clubs = list(session.exec(select(Club).where(or_(*conditions))).all())
     club_ids = [c.id for c in clubs]
 
     domains_by_club: dict[int, list[Domain]] = {}
@@ -106,6 +119,7 @@ def get_directory(session: Session) -> list[dict]:
             "description": c.description,
             "institution": c.institution,
             "enabled_roles": c.enabled_roles,
+            "accepting_requests": c.accepting_requests,
             "domains": [
                 {"id": d.id, "name": d.name, "description": d.description}
                 for d in domains_by_club.get(c.id, [])
@@ -145,7 +159,9 @@ def update_club(
     club_id: int,
     name: str | None,
     description: str | None,
-    is_public: bool | None,
+    institution: str | None,
+    visibility: str | None,
+    accepting_requests: bool | None,
     enabled_roles: list[str] | None,
 ) -> Club:
     club = get_club(session, club_id)
@@ -153,8 +169,12 @@ def update_club(
         club.name = name
     if description is not None:
         club.description = description
-    if is_public is not None:
-        club.is_public = is_public
+    if institution is not None:
+        club.institution = institution
+    if visibility is not None:
+        club.visibility = visibility
+    if accepting_requests is not None:
+        club.accepting_requests = accepting_requests
     if enabled_roles is not None:
         club.enabled_roles = enabled_roles
     session.add(club)
@@ -173,12 +193,13 @@ def get_pending_requests(session: Session, user_id: int) -> list[dict]:
         .where(JoinRequest.user_id == user_id)
     ).all()
     # Refinement: construct dicts explicitly — don't rely on from_attributes over a Row.
+    # `code` is deliberately omitted (see PendingItem) — a pending requester isn't a
+    # member and may never have seen the invite code (e.g. requested via the directory).
     return [
         {
             "id": jr.id,
             "club_id": jr.club_id,
             "club_name": club.name,
-            "code": club.code,
             "requested_role": jr.requested_role,
             "status": jr.status,
             "created_at": jr.created_at,
@@ -195,17 +216,37 @@ def join_club(
     requested_role: str,
     requested_domain_id: int | None,
     message: str | None,
+    requester_institution: str | None = None,
 ) -> JoinRequest:
-    # 1. Resolve club. `club_id` (the directory "request to join" path) only ever
-    # resolves public clubs — private clubs still require the invite code.
+    # 1. Resolve club.
+    # `club_id` (the directory "request to join" path) only ever resolves clubs the
+    # directory would actually list: never "unlisted", and "institution"-scoped clubs
+    # only for a requester whose own institution matches — otherwise a copy-pasted club
+    # URL/id would bypass the same visibility scoping the directory itself enforces.
+    # `club_code` (the invite-code path) is a deliberate override: leadership sharing the
+    # code out-of-band is itself the authorization, so it works regardless of visibility.
     if club_id is not None:
         club = session.get(Club, club_id)
-        if club is not None and not club.is_public:
-            club = None
+        if club is not None:
+            if club.visibility == "unlisted":
+                club = None
+            elif club.visibility == "institution" and (
+                not requester_institution or club.institution != requester_institution
+            ):
+                club = None
     else:
         club = session.exec(select(Club).where(Club.code == (club_code or "").upper())).first()
     if club is None:
         raise AppError(status.HTTP_404_NOT_FOUND, "No club found with that code.", "CLUB_NOT_FOUND")
+
+    # 1b. A club can stay listed/browsable while paused on intake — this blocks every
+    # submission path (code or directory), not just the directory's own button.
+    if not club.accepting_requests:
+        raise AppError(
+            status.HTTP_403_FORBIDDEN,
+            "This club is not currently accepting join requests.",
+            "CLUB_NOT_RECRUITING",
+        )
 
     # 2. State checks first (per refinement: state before payload errors).
     existing_member = session.exec(

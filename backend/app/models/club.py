@@ -19,8 +19,16 @@ class Club(SQLModel, table=True):
     owner_id: int = Field(foreign_key="users.id", ondelete="RESTRICT")
     # Which sub-roles this club uses. JSONB (indexable) per docs/adr/0001 note.
     enabled_roles: list[str] | None = Field(default=None, sa_column=Column(JSONB))
-    is_public: bool = Field(default=True)
-    institution: str | None = Field(default=None)  # for future cross-institution features
+    # Directory visibility: "public" (any student) | "institution" (only students whose
+    # profile institution matches this club's) | "unlisted" (not listed; joinable only by
+    # invite code). VARCHAR per ADR-0001 — a plain boolean already had to grow into three
+    # states, so it's stored the same way roles/statuses are: validated at the edge, never
+    # a native enum.
+    visibility: str = Field(default="public", sa_column=Column(String, nullable=False))
+    # Independent of visibility: whether the club currently accepts new join requests, by
+    # either code or the directory. A club can stay listed/browsable while paused on intake.
+    accepting_requests: bool = Field(default=True)
+    institution: str | None = Field(default=None)  # scopes "institution" visibility
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
 
 

@@ -96,7 +96,7 @@ def test_create_club_empty_enabled_roles_allowed(client):
 
 def test_directory_returns_public_clubs(client):
     token = _register(client)
-    club = _create_club(client, token)  # is_public defaults to True
+    club = _create_club(client, token)  # visibility defaults to "public"
 
     r = client.get("/clubs/directory", headers=_auth(token))
     assert r.status_code == 200
@@ -205,7 +205,7 @@ def test_join_appears_in_pending(client, session):
     pending = r.json()
     assert len(pending) == 1
     assert pending[0]["club_name"] == club["name"]
-    assert pending[0]["code"] == club["code"]
+    assert "code" not in pending[0]  # invite secret — not owed to a non-member
     assert pending[0]["requested_role"] == "member"
     assert pending[0]["status"] == "pending"
 
@@ -436,12 +436,13 @@ def test_update_club_as_president_succeeds(client):
 
     r = client.put(
         f"/clubs/{club['id']}",
-        json={"name": "Renamed Club", "is_public": False},
+        json={"name": "Renamed Club", "visibility": "unlisted", "accepting_requests": False},
         headers=_club_headers(token, club["id"]),
     )
     assert r.status_code == 200
     assert r.json()["name"] == "Renamed Club"
-    assert r.json()["is_public"] is False
+    assert r.json()["visibility"] == "unlisted"
+    assert r.json()["accepting_requests"] is False
 
 
 def test_update_club_rejects_president_in_enabled_roles(client):
@@ -492,3 +493,238 @@ def test_delete_club_cascades_children(client, session):
     assert session.exec(select(Domain).where(Domain.club_id == club["id"])).all() == []
     assert session.exec(select(ClubMember).where(ClubMember.club_id == club["id"])).all() == []
     assert session.exec(select(Task).where(Task.club_id == club["id"])).all() == []
+
+
+# ── Invite-code visibility (the code is a secret, not member-wide info) ────────
+
+def _add_member(session, client, token, club_id, role, domain_id=None):
+    session.add(
+        ClubMember(
+            user_id=_user_id(client, token), club_id=club_id, role=role, domain_id=domain_id
+        )
+    )
+    session.commit()
+
+
+def test_my_clubs_hides_code_from_low_ranks(client, session):
+    """member / associate / lead must not see the club invite code via /clubs/my."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+
+    for idx, role in enumerate(("member", "associate", "lead")):
+        token = _register(client, f"{role}@example.com", name=role.title())
+        _add_member(session, client, token, club["id"], role)
+
+        r = client.get("/clubs/my", headers=_auth(token))
+        assert r.status_code == 200, r.text
+        entry = next(c for c in r.json() if c["id"] == club["id"])
+        assert entry["role"] == role
+        assert entry["code"] is None, f"{role} must not see the invite code (idx {idx})"
+
+
+def test_my_clubs_shows_code_to_joint_secretary_and_above(client, session):
+    """Joint-Secretary+ can hand the code out, so they still see it."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+
+    # The creator is president — highest rank, sees the code.
+    mine = client.get("/clubs/my", headers=_auth(alice)).json()
+    assert next(c for c in mine if c["id"] == club["id"])["code"] == club["code"]
+
+    for role in ("joint_secretary", "secretary", "vice_president"):
+        token = _register(client, f"{role}@example.com", name=role.title())
+        _add_member(session, client, token, club["id"], role)
+
+        entry = next(
+            c for c in client.get("/clubs/my", headers=_auth(token)).json()
+            if c["id"] == club["id"]
+        )
+        assert entry["code"] == club["code"], f"{role} should see the invite code"
+
+
+def test_club_detail_requires_vice_president(client, session):
+    """GET /clubs/{id} carries the code, so it's an executive view (VP+), not member-wide."""
+    alice = _register(client, "alice@example.com")
+    bob = _register(client, "bob@example.com", name="Bob")
+    club = _create_club(client, alice)
+    _add_member(session, client, bob, club["id"], "lead")
+
+    r = client.get(f"/clubs/{club['id']}", headers=_club_headers(bob, club["id"]))
+    assert r.status_code == 403
+    assert r.json()["code"] == "FORBIDDEN_RANK"
+
+
+# ── Directory visibility tiers ─────────────────────────────────────────────────
+
+def _create_club_with(client, token, name, institution=None, enabled_roles=None):
+    r = client.post(
+        "/clubs",
+        json={
+            "name": name,
+            "description": "A test club.",
+            "institution": institution,
+            "enabled_roles": enabled_roles if enabled_roles is not None else ["member"],
+        },
+        headers=_auth(token),
+    )
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+def _set_visibility(client, token, club, **changes):
+    r = client.put(f"/clubs/{club['id']}", json=changes, headers=_club_headers(token, club["id"]))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_directory_excludes_unlisted_clubs(client):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    _set_visibility(client, alice, club, visibility="unlisted")
+
+    bob = _register(client, "bob@example.com", name="Bob")
+    ids = [c["id"] for c in client.get("/clubs/directory", headers=_auth(bob)).json()]
+    assert club["id"] not in ids
+
+
+def test_directory_institution_scope_matches_viewer(client):
+    """An institution-scoped club is listed only for viewers from that institution."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club_with(client, alice, "SRM Coders", institution="SRM")
+    _set_visibility(client, alice, club, visibility="institution")
+
+    # Same institution -> visible.
+    insider = _register(client, "insider@example.com", name="Insider")
+    client.put("/users/me", json={"institution": "SRM"}, headers=_auth(insider))
+    ids = [c["id"] for c in client.get("/clubs/directory", headers=_auth(insider)).json()]
+    assert club["id"] in ids
+
+    # Different institution -> hidden.
+    outsider = _register(client, "outsider@example.com", name="Outsider")
+    client.put("/users/me", json={"institution": "Other Uni"}, headers=_auth(outsider))
+    ids = [c["id"] for c in client.get("/clubs/directory", headers=_auth(outsider)).json()]
+    assert club["id"] not in ids
+
+    # No institution on the profile at all -> hidden.
+    anon = _register(client, "anon@example.com", name="Anon")
+    ids = [c["id"] for c in client.get("/clubs/directory", headers=_auth(anon)).json()]
+    assert club["id"] not in ids
+
+
+def test_directory_reports_accepting_requests(client):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    _set_visibility(client, alice, club, accepting_requests=False)
+
+    bob = _register(client, "bob@example.com", name="Bob")
+    entry = next(
+        c for c in client.get("/clubs/directory", headers=_auth(bob)).json()
+        if c["id"] == club["id"]
+    )
+    assert entry["accepting_requests"] is False
+
+
+# ── Join-path enforcement (visibility is access control, not just display) ─────
+
+def test_join_by_id_rejected_for_unlisted_club(client, session):
+    """A copy-pasted club id must not bypass 'unlisted' — the code is the only way in."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice, enabled_roles=["member"])
+    domain = Domain(club_id=club["id"], name="Dev")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    _set_visibility(client, alice, club, visibility="unlisted")
+
+    bob = _register(client, "bob@example.com", name="Bob")
+    r = client.post(
+        "/clubs/join",
+        json={"club_id": club["id"], "requested_role": "member",
+              "requested_domain_id": domain.id},
+        headers=_auth(bob),
+    )
+    assert r.status_code == 404
+    assert r.json()["code"] == "CLUB_NOT_FOUND"
+
+
+def test_join_by_code_still_works_for_unlisted_club(client, session):
+    """Holding the invite code IS the authorization — visibility doesn't block it."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice, enabled_roles=["member"])
+    domain = Domain(club_id=club["id"], name="Dev")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    _set_visibility(client, alice, club, visibility="unlisted")
+
+    bob = _register(client, "bob@example.com", name="Bob")
+    r = client.post(
+        "/clubs/join",
+        json={"club_code": club["code"], "requested_role": "member",
+              "requested_domain_id": domain.id},
+        headers=_auth(bob),
+    )
+    assert r.status_code == 201, r.text
+
+
+def test_join_by_id_enforces_institution_scope(client, session):
+    """Institution scoping is real access control on the join endpoint, not a UI filter."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club_with(client, alice, "SRM Coders", institution="SRM")
+    domain = Domain(club_id=club["id"], name="Dev")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    _set_visibility(client, alice, club, visibility="institution")
+
+    payload = {
+        "club_id": club["id"],
+        "requested_role": "member",
+        "requested_domain_id": domain.id,
+    }
+
+    outsider = _register(client, "outsider@example.com", name="Outsider")
+    client.put("/users/me", json={"institution": "Other Uni"}, headers=_auth(outsider))
+    r = client.post("/clubs/join", json=payload, headers=_auth(outsider))
+    assert r.status_code == 404
+    assert r.json()["code"] == "CLUB_NOT_FOUND"
+
+    insider = _register(client, "insider@example.com", name="Insider")
+    client.put("/users/me", json={"institution": "SRM"}, headers=_auth(insider))
+    r = client.post("/clubs/join", json=payload, headers=_auth(insider))
+    assert r.status_code == 201, r.text
+
+
+def test_join_blocked_when_not_accepting_requests(client, session):
+    """Intake paused blocks BOTH paths — including a valid invite code."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice, enabled_roles=["member"])
+    domain = Domain(club_id=club["id"], name="Dev")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    _set_visibility(client, alice, club, accepting_requests=False)
+
+    bob = _register(client, "bob@example.com", name="Bob")
+    for identifier in ({"club_id": club["id"]}, {"club_code": club["code"]}):
+        r = client.post(
+            "/clubs/join",
+            json={**identifier, "requested_role": "member",
+                  "requested_domain_id": domain.id},
+            headers=_auth(bob),
+        )
+        assert r.status_code == 403, r.text
+        assert r.json()["code"] == "CLUB_NOT_RECRUITING"
+
+
+def test_update_club_rejects_invalid_visibility(client):
+    token = _register(client)
+    club = _create_club(client, token)
+
+    r = client.put(
+        f"/clubs/{club['id']}",
+        json={"visibility": "everyone"},
+        headers=_club_headers(token, club["id"]),
+    )
+    assert r.status_code == 422
+    assert r.json()["code"] == "VALIDATION_ERROR"
