@@ -49,8 +49,16 @@ export function refreshAccessToken(): Promise<string | null> {
   return refreshPromise;
 }
 
-// Endpoints whose 401s must NOT trigger a silent refresh (they ARE the auth flow).
-const AUTH_FLOW_PATHS = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"];
+// Endpoints whose 401s must NOT trigger a silent refresh (they ARE the auth flow). A 401
+// here means the credential was rejected, not that a session expired — refreshing would
+// fail too and bounce a signed-out visitor to /login instead of showing them the error.
+const AUTH_FLOW_PATHS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+  "/auth/logout",
+  "/auth/google",
+];
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 

@@ -1,5 +1,6 @@
 """Auth business logic (thin router -> fat service)."""
 
+import logging
 from datetime import timedelta
 
 from fastapi import status
@@ -17,6 +18,15 @@ from app.core.security import (
 )
 from app.models import RefreshToken, User
 from app.models.base import utcnow
+
+logger = logging.getLogger("app")
+
+# Tolerance for clock drift between this host and Google when checking a GIS ID token's
+# iat/exp. google-auth defaults to 0, which rejects a token outright if our clock is even
+# one second behind Google's ("Token used too early") — a state any host can drift into,
+# and one containerized/virtualized clocks reach routinely. Small enough that an expired
+# token is never meaningfully honoured (GIS tokens live an hour).
+GOOGLE_CLOCK_SKEW_SECONDS = 10
 
 
 def register_user(session: Session, name: str, email: str, password: str) -> User:
@@ -62,9 +72,14 @@ def authenticate_google(session: Session, credential: str) -> tuple[User, bool]:
 
     try:
         claims = google_id_token.verify_oauth2_token(
-            credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+            credential,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+            clock_skew_in_seconds=GOOGLE_CLOCK_SKEW_SECONDS,
         )
     except ValueError as exc:  # bad signature, wrong audience, expired, malformed
+        # The client only ever sees a generic 401; log the reason or this is undebuggable.
+        logger.warning("Google ID token verification failed: %s", exc)
         raise AppError(
             status.HTTP_401_UNAUTHORIZED, "Invalid Google credential.", "INVALID_GOOGLE_TOKEN"
         ) from exc

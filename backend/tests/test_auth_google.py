@@ -30,7 +30,7 @@ def google_ok(monkeypatch):
         monkeypatch.setattr(
             auth_service.google_id_token,
             "verify_oauth2_token",
-            lambda credential, request, audience: claims,
+            lambda credential, request, audience, **kwargs: claims,
         )
 
     return _install
@@ -134,13 +134,32 @@ def test_matching_email_links_existing_password_account(client, google_ok):
 def test_invalid_credential_rejected(client, monkeypatch):
     monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", CLIENT_ID)
 
-    def _boom(credential, request, audience):
+    def _boom(credential, request, audience, **kwargs):
         raise ValueError("bad token")
 
     monkeypatch.setattr(auth_service.google_id_token, "verify_oauth2_token", _boom)
     r = client.post("/auth/google", json={"credential": "garbage"})
     assert r.status_code == 401
     assert r.json()["code"] == "INVALID_GOOGLE_TOKEN"
+
+
+def test_verification_tolerates_clock_skew(client, monkeypatch):
+    """A host clock trailing Google's by a second must not reject every sign-in.
+
+    google-auth defaults clock_skew_in_seconds=0, which raises "Token used too early"
+    the moment our clock is behind Google's — so the skew has to be passed explicitly.
+    """
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", CLIENT_ID)
+    seen = {}
+
+    def _capture(credential, request, audience, **kwargs):
+        seen.update(kwargs)
+        return _claims(sub="skew-sub", email="skew@user.com")
+
+    monkeypatch.setattr(auth_service.google_id_token, "verify_oauth2_token", _capture)
+    r = client.post("/auth/google", json={"credential": "tok"})
+    assert r.status_code == 200, r.text
+    assert seen.get("clock_skew_in_seconds", 0) > 0
 
 
 def test_unverified_email_rejected(client, google_ok):
