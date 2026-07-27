@@ -96,7 +96,7 @@ export default function LeaderboardPage() {
                 <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e2e2e2] shrink-0">
                   <img
                     alt={item.name}
-                    className="w-full h-full object-cover grayscale"
+                    className="w-full h-full object-cover"
                     src={`https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=e2e2e2&color=000&size=150`}
                   />
                 </div>

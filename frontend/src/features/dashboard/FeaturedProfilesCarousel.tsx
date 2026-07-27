@@ -49,7 +49,7 @@ export default function FeaturedProfilesCarousel() {
           <img
             key={profile.user_id}
             alt={profile.name}
-            className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-300"
+            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=e2e2e2&color=000&size=400`}
           />
           {/* Domain Tag */}

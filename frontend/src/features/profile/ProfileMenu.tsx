@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { useClub } from "@/features/club/ClubProvider";
+import { useClubOptional } from "@/features/club/ClubProvider";
 import { updateProfile } from "@/lib/api/users";
 import AvatarUpload from "@/features/auth/AvatarUpload";
 import CollegeSelect from "@/features/auth/CollegeSelect";
@@ -23,7 +23,7 @@ const orNull = (v: string): string | null => (v.trim() === "" ? null : v.trim())
 
 export default function ProfileMenu() {
   const { user, setUser, signOut } = useAuth();
-  const { currentRole } = useClub();
+  const club = useClubOptional();
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -110,10 +110,11 @@ export default function ProfileMenu() {
         onClick={openModal}
       >
         <span className="font-bold uppercase tracking-wide">
-          {user.name.split(" ")[0]} ({currentRole.replace(/_/g, " ")})
+          {user.name.split(" ")[0]}
+          {club ? ` (${club.currentRole.replace(/_/g, " ")})` : ""}
         </span>
         <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-hairline-tint hover:border-link-blue transition-150">
-          <img alt={user.name} className="w-full h-full object-cover grayscale" src={profilePic} />
+          <img alt={user.name} className="w-full h-full object-cover" src={profilePic} />
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { directory, myClubs, pendingRequests } from "@/lib/api/clubs";
 import { JOINABLE_ROLES } from "@/lib/roles";
+import ProfileMenu from "@/features/profile/ProfileMenu";
 import type { DirectoryClub } from "@/types/api";
 
 /** Roles this club is actually requestable for right now — domain-scoped roles
@@ -70,6 +71,7 @@ export default function DirectoryPage() {
               arrow_forward
             </span>
           </button>
+          <ProfileMenu />
         </div>
       </header>
 
