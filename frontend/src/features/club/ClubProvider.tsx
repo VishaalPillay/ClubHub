@@ -71,3 +71,9 @@ export function useClub(): ClubContextType {
   if (!ctx) throw new Error("useClub must be used within ClubProvider");
   return ctx;
 }
+
+/** Like useClub, but null outside a ClubProvider instead of throwing — for chrome
+ *  (e.g. ProfileMenu) shared between club-scoped pages and identity-scoped ones. */
+export function useClubOptional(): ClubContextType | null {
+  return useContext(ClubContext);
+}

@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GithubLogo, LinkedinLogo } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Toast, { type ToastTone } from "@/components/ui/Toast";
 import { useClub } from "@/features/club/ClubProvider";
+import WingedLetter from "@/features/members/WingedLetter";
 import { listDomains, createDomain, updateDomain, deleteDomain } from "@/lib/api/domains";
 import { listMembers, updateMemberRole, removeMember } from "@/lib/api/members";
 import { createActionRequest } from "@/lib/api/requests";
@@ -38,6 +40,19 @@ export default function MembersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [actionModal, setActionModal] = useState<{ type: 'Promote' | 'Kick', memberId: number, memberName: string, memberDomainId: number } | null>(null);
   const [actionReason, setActionReason] = useState("");
+
+  // Send-off animation state machine, replacing the old blocking alert():
+  //   form → (confirm succeeds) folding → flying → toast
+  // `folding` collapses the modal into a letter; `flight` then owns the winged fly-away
+  // and carries the message to show once it lands.
+  const [submitting, setSubmitting] = useState(false);
+  const [folding, setFolding] = useState(false);
+  const [flight, setFlight] = useState<
+    { tone: "angel" | "devil"; message: string } | null
+  >(null);
+  const [toast, setToast] = useState<{ text: string; tone: ToastTone } | null>(null);
+
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const [isNewDomainModalOpen, setIsNewDomainModalOpen] = useState(false);
   const [newDomainData, setNewDomainData] = useState({ name: "", desc: "" });
@@ -91,33 +106,67 @@ export default function MembersPage() {
 
   const [actionNewRole, setActionNewRole] = useState("associate");
 
-  const handleActionSubmit = async () => {
-    if (!actionModal) return;
-
-    try {
-      if (isExecutive) {
-        if (actionModal.type === 'Promote') {
-          await updateMemberRole(clubId, actionModal.memberId, actionNewRole, actionModal.memberDomainId ?? domainId);
-        } else {
-          await removeMember(clubId, actionModal.memberId);
-        }
-      } else {
-        // Lead or Associate raising an action request
-        await createActionRequest(clubId, {
-          target_id: actionModal.memberId,
-          action_type: actionModal.type.toLowerCase() as 'promote' | 'kick',
-          new_role: actionModal.type === 'Promote' ? actionNewRole : null,
-          reason: actionReason,
-        });
-        alert(`Action request for "${actionModal.type}" submitted. Officials will be notified.`);
-      }
-      refetch();
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Action failed.");
-    }
+  /** Clear the action modal + its form back to a neutral state. */
+  const resetActionForm = () => {
     setActionModal(null);
     setActionReason("");
     setActionNewRole("associate");
+    setFolding(false);
+    setSubmitting(false);
+  };
+
+  const handleActionSubmit = async () => {
+    if (!actionModal || submitting) return;
+    const isPromote = actionModal.type === "Promote";
+    const { memberName } = actionModal;
+    setSubmitting(true);
+
+    try {
+      let message: string;
+      if (isExecutive) {
+        if (isPromote) {
+          await updateMemberRole(clubId, actionModal.memberId, actionNewRole, actionModal.memberDomainId ?? domainId);
+          message = `${memberName} is now ${humanizeRole(actionNewRole)}.`;
+        } else {
+          await removeMember(clubId, actionModal.memberId);
+          message = `${memberName} has been removed from the club.`;
+        }
+      } else {
+        // Lead or Associate raising an action request for officials to approve.
+        await createActionRequest(clubId, {
+          target_id: actionModal.memberId,
+          action_type: actionModal.type.toLowerCase() as 'promote' | 'kick',
+          new_role: isPromote ? actionNewRole : null,
+          reason: actionReason,
+        });
+        message = `Request to ${isPromote ? "promote" : "remove"} ${memberName} sent — officials will review it.`;
+      }
+      // Refresh behind the overlay so the roster is already correct when it clears.
+      refetch();
+      setFlight({ tone: isPromote ? "angel" : "devil", message });
+      setFolding(true); // the modal now collapses; onAnimationComplete launches the letter
+    } catch (e: unknown) {
+      setToast({ text: e instanceof Error ? e.message : "Action failed.", tone: "error" });
+      resetActionForm();
+    }
+  };
+
+  /** Fold finished — drop the modal so only the winged letter remains. */
+  const handleFoldComplete = () => {
+    if (!folding) return; // guard: also fires for the modal's entrance animation
+    setActionModal(null);
+    setActionReason("");
+    setActionNewRole("associate");
+    setSubmitting(false);
+  };
+
+  /** The letter has flown off — surface the outcome. */
+  const handleFlightDone = () => {
+    if (flight) {
+      setToast({ text: flight.message, tone: flight.tone === "angel" ? "success" : "error" });
+    }
+    setFlight(null);
+    setFolding(false);
   };
 
   const handleCreateDomain = async () => {
@@ -126,8 +175,12 @@ export default function MembersPage() {
       setIsNewDomainModalOpen(false);
       setNewDomainData({ name: "", desc: "" });
       refetch();
+      setToast({ text: `Domain "${newDomainData.name}" created.`, tone: "success" });
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Failed to create domain.");
+      setToast({
+        text: e instanceof Error ? e.message : "Failed to create domain.",
+        tone: "error",
+      });
     }
   };
 
@@ -137,8 +190,12 @@ export default function MembersPage() {
         await deleteDomain(clubId, deleteDomainModalId);
         setDeleteDomainModalId(null);
         refetch();
+        setToast({ text: "Domain deleted.", tone: "info" });
       } catch (e: unknown) {
-        alert(e instanceof Error ? e.message : "Failed to delete domain.");
+        setToast({
+          text: e instanceof Error ? e.message : "Failed to delete domain.",
+          tone: "error",
+        });
       }
     }
   };
@@ -152,8 +209,12 @@ export default function MembersPage() {
         });
         setUpdateDomainData(null);
         refetch();
+        setToast({ text: "Domain updated.", tone: "success" });
       } catch (e: unknown) {
-        alert(e instanceof Error ? e.message : "Failed to update domain.");
+        setToast({
+          text: e instanceof Error ? e.message : "Failed to update domain.",
+          tone: "error",
+        });
       }
     }
   };
@@ -277,7 +338,7 @@ export default function MembersPage() {
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === leads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-7 flex items-center gap-3">
                                   <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e2e2e2] shrink-0">
-                                    <img alt={member.name} className="w-full h-full object-cover grayscale" src={member.pic} />
+                                    <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate flex flex-col">
                                     <span>{member.name}</span>
@@ -317,7 +378,7 @@ export default function MembersPage() {
                                 <div className="col-span-1 text-center font-display text-xl font-bold text-caption-gray">#{member.rank}</div>
                                 <div className="col-span-4 flex items-center gap-3">
                                   <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e2e2e2] shrink-0">
-                                    <img alt={member.name} className="w-full h-full object-cover grayscale" src={member.pic} />
+                                    <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate">{member.name}</div>
                                 </div>
@@ -368,25 +429,39 @@ export default function MembersPage() {
         })}
       </div>
 
+      {/* Action modal + its send-off flight share one backdrop, so the letter flies
+          against the same dimmed page instead of the overlay blinking between stages. */}
       <AnimatePresence>
-        {actionModal && (
+        {(actionModal || flight) && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 overflow-hidden"
           >
+            {actionModal && (
             <motion.div
-              initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              initial={{ scale: 0.95 }}
+              // The fold: collapse to a thin horizontal band, like creasing a letter shut.
+              animate={folding ? { scaleY: 0.05, scaleX: 0.9 } : { scale: 1, scaleY: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: folding ? 0.32 : 0.2, ease: [0.4, 0, 0.2, 1] }}
+              onAnimationComplete={handleFoldComplete}
+              style={{ originY: 0.5 }}
               className="bg-white border-2 border-black w-full max-w-md flex flex-col"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
                 <h2 className="text-white font-mono text-12 uppercase tracking-widest">
                   {actionModal.type} Member
                 </h2>
-                <button onClick={() => setActionModal(null)} className="text-white hover:text-red-500 transition-colors">
+                <button onClick={resetActionForm} className="text-white hover:text-red-500 transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
                 </button>
               </div>
-              <div className="p-6">
+              {/* Contents fade first and fast, so the fold reads as paper, not as squashed text. */}
+              <motion.div
+                className="p-6"
+                animate={{ opacity: folding ? 0 : 1 }}
+                transition={{ duration: 0.14, ease: [0.4, 0, 0.2, 1] }}
+              >
                 <p className="font-ui text-16 mb-6">
                   Are you sure you want to {actionModal.type.toLowerCase()} <strong>{actionModal.memberName}</strong>?
                 </p>
@@ -424,11 +499,17 @@ export default function MembersPage() {
                   />
                 </div>
                 <div className="flex justify-end gap-4">
-                  <button onClick={() => setActionModal(null)} className="font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={handleActionSubmit} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-white transition-colors ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-white hover:text-[#057DBC]' : 'bg-red-600 border-red-600 hover:bg-white hover:text-red-600'}`}>Confirm</button>
+                  <button onClick={resetActionForm} disabled={submitting} className="font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors disabled:opacity-40">Cancel</button>
+                  <button onClick={handleActionSubmit} disabled={submitting} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-white transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-white hover:text-[#057DBC]' : 'bg-red-600 border-red-600 hover:bg-white hover:text-red-600'}`}>
+                    {submitting ? "Sending..." : "Confirm"}
+                  </button>
                 </div>
-              </div>
+              </motion.div>
             </motion.div>
+            )}
+
+            {/* The folded letter sprouts wings and flies off with the outcome. */}
+            {flight && <WingedLetter tone={flight.tone} onDone={handleFlightDone} />}
           </motion.div>
         )}
       </AnimatePresence>
@@ -506,6 +587,8 @@ export default function MembersPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Toast message={toast?.text ?? null} tone={toast?.tone} onDismiss={dismissToast} />
 
     </div>
   );

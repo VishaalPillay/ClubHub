@@ -102,7 +102,17 @@ export default function OnboardingStep5() {
           {/* Primary Call to Action */}
           <div className="flex justify-center border-t border-[#E2E8F0] pt-[48px]">
             <button
-              onClick={() => router.push(clubId ? `/c/${clubId}/dashboard` : "/portal")}
+              onClick={() => {
+                // Wizard is genuinely done — clear the hand-off keys so a later "Create
+                // New Club" starts clean and this club's onboarding_club_id can't trip
+                // step-4's already-created guard for that next, unrelated club.
+                localStorage.removeItem("onboarding_club_name");
+                localStorage.removeItem("onboarding_club_institution");
+                localStorage.removeItem("onboarding_club_domains");
+                localStorage.removeItem("onboarding_club_code");
+                localStorage.removeItem("onboarding_club_id");
+                router.push(clubId ? `/c/${clubId}/dashboard` : "/portal");
+              }}
               className="bg-[#057DBC] border-2 border-[#057DBC] text-[#FFFFFF] font-[Inter] text-[16px] font-bold uppercase px-[48px] py-[16px] hover:bg-[#FFFFFF] hover:text-[#057DBC] transition-colors duration-100 flex items-center gap-[8px]"
             >
               Enter Dashboard

@@ -49,6 +49,15 @@ export default function ClubSettingsPage() {
     enabled: canEdit,
   });
 
+  // Lives here, not in SettingsForm — a successful save changes club.visibility /
+  // accepting_requests, which remounts SettingsForm below (see its key), and a state
+  // held there would be wiped out before the user ever saw the confirmation.
+  const [justSaved, setJustSaved] = useState(false);
+  const flashSaved = () => {
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 2500);
+  };
+
   if (!canEdit || !club) return null;
 
   // Keyed by fetch identity so the form state re-initializes if the club record changes.
@@ -57,11 +66,23 @@ export default function ClubSettingsPage() {
       key={`${club.id}-${club.name}-${club.visibility}-${club.accepting_requests}`}
       club={club}
       clubId={clubId}
+      justSaved={justSaved}
+      onSaved={flashSaved}
     />
   );
 }
 
-function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
+function SettingsForm({
+  club,
+  clubId,
+  justSaved,
+  onSaved,
+}: {
+  club: ClubDetail;
+  clubId: number;
+  justSaved: boolean;
+  onSaved: () => void;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -73,7 +94,6 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
     accepting_requests: club.accepting_requests,
   });
   const [saving, setSaving] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -91,8 +111,7 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
       });
       queryClient.invalidateQueries({ queryKey: ["club", clubId, "detail"] });
       queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
-      setSavedFlash(true);
-      setTimeout(() => setSavedFlash(false), 2500);
+      onSaved();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save.");
     } finally {
@@ -185,47 +204,52 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
           </p>
         </div>
 
-        {/* Directory visibility — three tiers, one choice */}
-        <fieldset className="flex flex-col gap-3 pt-2 border-t-2 border-black">
-          <legend className="font-mono text-[11px] uppercase tracking-widest text-[#757575] pt-4">
-            Directory Visibility
-          </legend>
-          {VISIBILITY_OPTIONS.map((opt) => {
-            const selected = form.visibility === opt.value;
-            // "My College Only" is meaningless without a college on the club record.
-            const disabled = opt.value === "institution" && form.institution.trim() === "";
-            return (
-              <label
-                key={opt.value}
-                className={`flex items-start gap-4 border-2 p-4 transition-colors ${
-                  disabled
-                    ? "border-[#e2e8f0] opacity-50 cursor-not-allowed"
-                    : selected
-                      ? "border-[#057DBC] bg-[#f0f8ff] cursor-pointer"
-                      : "border-black cursor-pointer hover:bg-[#f9f9f9]"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="visibility"
-                  value={opt.value}
-                  checked={selected}
-                  disabled={disabled}
-                  onChange={() => setForm({ ...form, visibility: opt.value })}
-                  className="w-5 h-5 mt-0.5 accent-[#057DBC] shrink-0"
-                />
-                <div>
-                  <div className="font-ui text-16 font-bold uppercase">{opt.label}</div>
-                  <div className="font-ui text-13 text-[#757575]">
-                    {disabled
-                      ? "Set a college above to use this option."
-                      : opt.hint}
+        {/* Directory visibility — three tiers, one choice. The divider lives on this
+            wrapper, not the fieldset: a border on a fieldset that has a legend child
+            gets visually cut by the browser's native legend/border layout (a stray
+            partial line beside the label), so the fieldset itself stays borderless. */}
+        <div className="pt-2 border-t-2 border-black">
+          <fieldset className="flex flex-col gap-3">
+            <legend className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
+              Directory Visibility
+            </legend>
+            {VISIBILITY_OPTIONS.map((opt) => {
+              const selected = form.visibility === opt.value;
+              // "My College Only" is meaningless without a college on the club record.
+              const disabled = opt.value === "institution" && form.institution.trim() === "";
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex items-start gap-4 border-2 p-4 transition-colors ${
+                    disabled
+                      ? "border-[#e2e8f0] opacity-50 cursor-not-allowed"
+                      : selected
+                        ? "border-[#057DBC] bg-[#f0f8ff] cursor-pointer"
+                        : "border-black cursor-pointer hover:bg-[#f9f9f9]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="visibility"
+                    value={opt.value}
+                    checked={selected}
+                    disabled={disabled}
+                    onChange={() => setForm({ ...form, visibility: opt.value })}
+                    className="w-5 h-5 mt-0.5 accent-[#057DBC] shrink-0"
+                  />
+                  <div>
+                    <div className="font-ui text-16 font-bold uppercase">{opt.label}</div>
+                    <div className="font-ui text-13 text-[#757575]">
+                      {disabled
+                        ? "Set a college above to use this option."
+                        : opt.hint}
+                    </div>
                   </div>
-                </div>
-              </label>
-            );
-          })}
-        </fieldset>
+                </label>
+              );
+            })}
+          </fieldset>
+        </div>
 
         {/* Intake — independent of visibility */}
         <label
@@ -259,7 +283,7 @@ function SettingsForm({ club, clubId }: { club: ClubDetail; clubId: number }) {
             disabled={saving || !form.name.trim()}
             className="flex-1 bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40"
           >
-            {saving ? "Saving..." : savedFlash ? "Saved!" : "Save Changes"}
+            {saving ? "Saving..." : justSaved ? "Saved!" : "Save Changes"}
           </button>
           <button
             type="button"

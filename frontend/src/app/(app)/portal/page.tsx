@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { myClubs, pendingRequests, withdrawJoin } from "@/lib/api/clubs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
+import ProfileMenu from "@/features/profile/ProfileMenu";
 import type { MyClub } from "@/types/api";
 
 const ROLE_COLORS: Record<string, string> = {
@@ -97,6 +98,7 @@ function PortalContent() {
               arrow_forward
             </span>
           </button>
+          <ProfileMenu />
         </div>
       </header>
 

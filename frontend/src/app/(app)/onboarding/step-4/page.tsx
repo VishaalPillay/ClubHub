@@ -25,11 +25,30 @@ export default function OnboardingStep4() {
 
   const [progress, setProgress] = useState("60%");
   const [loading, setLoading] = useState(false);
+  const [readyToShow, setReadyToShow] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setProgress("80%"), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    // A club from this wizard run was already created — e.g. the browser BACK button
+    // was used from step-5, remounting this page with FINISH still clickable. Since
+    // onboarding_club_name/institution/domains are never cleared until step-5's own
+    // "Enter Dashboard" click, clicking FINISH again would silently POST /clubs a
+    // second time with the same payload. localStorage (unlike component state) survives
+    // the remount, so it's what a redirect guard here can actually check. Read after
+    // mount, in a callback (not the effect body), to avoid an SSR hydration mismatch.
+    const t = setTimeout(() => {
+      if (localStorage.getItem("onboarding_club_id")) {
+        router.replace("/onboarding/step-5");
+        return;
+      }
+      setReadyToShow(true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [router]);
 
   const handleFinish = async () => {
     setLoading(true);
@@ -83,6 +102,8 @@ export default function OnboardingStep4() {
     if (LOCKED_ROLES.includes(role)) return;
     setRoles((prev) => ({ ...prev, [role]: !prev[role] }));
   };
+
+  if (!readyToShow) return null;
 
   return (
     <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col font-[Inter]">
