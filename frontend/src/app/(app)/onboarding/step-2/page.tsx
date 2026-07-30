@@ -10,7 +10,10 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 export default function OnboardingStep2() {
   const router = useRouter();
   const { user } = useAuth();
-  const [form, setForm] = useState({ name: "", institution: "" });
+  // The club's institution is always the creator's own — it's what "My College Only"
+  // visibility matches against later (see the settings page), so it can't be a
+  // freely-typed value that drifts from the profile it's meant to represent.
+  const [form, setForm] = useState({ name: "", institution: user.institution ?? "" });
   const [progress, setProgress] = useState("20%");
 
   useEffect(() => {
@@ -72,17 +75,23 @@ export default function OnboardingStep2() {
               />
             </div>
 
-            {/* College / Institution Input */}
-            <CollegeSelect
-              id="club-institution"
-              country={user.country ?? ""}
-              state={user.state ?? ""}
-              value={form.institution}
-              onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
-              label="College / Institution"
-              labelClassName="font-[Inter] text-[16px] font-bold uppercase text-[#000000]"
-              inputClassName="w-full border-2 border-[#000000] bg-transparent rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#000000] placeholder:text-[#999999] focus:outline-none focus:ring-0 focus:border-[#057DBC] transition-colors"
-            />
+            {/* College / Institution — locked to the creator's own profile institution. */}
+            <div className="flex flex-col gap-[8px]">
+              <CollegeSelect
+                id="club-institution"
+                country={user.country ?? ""}
+                state={user.state ?? ""}
+                value={form.institution}
+                onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
+                disabled
+                label="College / Institution"
+                labelClassName="font-[Inter] text-[16px] font-bold uppercase text-[#000000]"
+                inputClassName="w-full border-2 border-[#757575] bg-[#f3f3f3] rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#757575] cursor-not-allowed"
+              />
+              <p className="font-[Inter] text-[13px] text-[#757575]">
+                Matches your profile — update it from your profile menu, not here.
+              </p>
+            </div>
 
             {/* Action Area */}
             <div className="w-full mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">

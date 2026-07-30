@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { directory, myClubs, pendingRequests } from "@/lib/api/clubs";
 import { JOINABLE_ROLES } from "@/lib/roles";
 import ProfileMenu from "@/features/profile/ProfileMenu";
+import AppNav from "@/features/navigation/AppNav";
 import type { DirectoryClub } from "@/types/api";
 
 /** Roles this club is actually requestable for right now — domain-scoped roles
@@ -54,23 +55,15 @@ export default function DirectoryPage() {
   return (
     <div className="bg-white text-black min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30">
+      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30 relative">
         <button
           onClick={() => router.push("/portal")}
-          className="font-display text-[32px] font-black uppercase tracking-tighter hover:text-link-blue transition-colors"
+          className="font-display text-[32px] font-black uppercase tracking-tighter hover:text-link-blue transition-colors z-10"
         >
           CLUB-HUB
         </button>
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => router.push("/portal")}
-            className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest hover:text-[#057DBC] transition-colors"
-          >
-            My Portal
-            <span className="material-symbols-outlined text-[16px] max-w-0 -translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:ml-1">
-              arrow_forward
-            </span>
-          </button>
+        <AppNav />
+        <div className="flex items-center gap-6 z-10">
           <ProfileMenu />
         </div>
       </header>

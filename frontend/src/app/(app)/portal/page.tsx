@@ -8,6 +8,7 @@ import { myClubs, pendingRequests, withdrawJoin } from "@/lib/api/clubs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
 import ProfileMenu from "@/features/profile/ProfileMenu";
+import AppNav from "@/features/navigation/AppNav";
 import type { MyClub } from "@/types/api";
 
 const ROLE_COLORS: Record<string, string> = {
@@ -84,20 +85,12 @@ function PortalContent() {
   return (
     <div className="bg-white text-black min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30">
-        <div className="font-display text-[32px] font-black uppercase tracking-tighter">
+      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30 relative">
+        <div className="font-display text-[32px] font-black uppercase tracking-tighter z-10">
           CLUB-HUB
         </div>
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => router.push("/directory")}
-            className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest hover:text-[#057DBC] transition-colors"
-          >
-            Club Directory
-            <span className="material-symbols-outlined text-[16px] max-w-0 -translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:ml-1">
-              arrow_forward
-            </span>
-          </button>
+        <AppNav />
+        <div className="flex items-center gap-6 z-10">
           <ProfileMenu />
         </div>
       </header>
