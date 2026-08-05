@@ -14,18 +14,10 @@ export default function AuthShell({
   active: "login" | "register";
   children: React.ReactNode;
 }) {
-  const tab = (mode: "login" | "register", label: string, href: string) => (
-    <Link
-      href={href}
-      className={`font-ui text-[14px] font-bold border-2 border-black px-4 py-2 uppercase no-underline transition-colors ${
-        active === mode
-          ? "bg-black text-white"
-          : "bg-white text-black hover:bg-black hover:text-white"
-      }`}
-    >
-      {label}
-    </Link>
-  );
+  const other =
+    active === "login"
+      ? { label: "Register", href: "/register" }
+      : { label: "Login", href: "/login" };
 
   return (
     <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col">
@@ -36,10 +28,12 @@ export default function AuthShell({
         >
           CLUB-HUB
         </Link>
-        <div className="flex gap-3">
-          {tab("login", "Login", "/login")}
-          {tab("register", "Register", "/register")}
-        </div>
+        <Link
+          href={other.href}
+          className="font-ui text-[14px] font-bold border-2 border-black px-4 py-2 uppercase no-underline bg-black text-white transition-colors hover:bg-white hover:text-black"
+        >
+          {other.label}
+        </Link>
       </header>
 
       <main className="flex-grow flex items-center justify-center w-full max-w-[1600px] mx-auto px-6 py-12">

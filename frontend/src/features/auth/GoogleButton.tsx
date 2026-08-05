@@ -58,10 +58,34 @@ export default function GoogleButton({
     if (!CLIENT_ID || !slotRef.current) return;
     const slot = slotRef.current;
     let cancelled = false;
+    let initialized = false;
+    let lastWidth = 0;
 
-    const render = () => {
+    // Re-paints Google's button at the slot's *current* width. Called both once
+    // GIS is ready and from the ResizeObserver below, because the slot can still
+    // be 0-wide (or mid-transition, e.g. RegisterWizard's framer-motion slide)
+    // the moment the script finishes loading — painting once at that stale width
+    // is what left the button narrower than its border frame.
+    const paint = () => {
       const id = window.google?.accounts?.id;
-      if (cancelled || !id || !slot) return;
+      const width = slot.clientWidth;
+      if (cancelled || !id || !width || width === lastWidth) return;
+      lastWidth = width;
+      slot.innerHTML = ""; // effects can run twice (dev StrictMode) — never stack two buttons
+      id.renderButton(slot, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        text,
+        width,
+        logo_alignment: "center",
+      });
+    };
+
+    const init = () => {
+      const id = window.google?.accounts?.id;
+      if (cancelled || !id || initialized) return;
+      initialized = true;
       id.initialize({
         client_id: CLIENT_ID,
         callback: async ({ credential }) => {
@@ -74,19 +98,11 @@ export default function GoogleButton({
           }
         },
       });
-      slot.innerHTML = ""; // effects can run twice (dev StrictMode) — never stack two buttons
-      id.renderButton(slot, {
-        type: "standard",
-        theme: "outline",
-        size: "large",
-        text,
-        width: slot.clientWidth || 360,
-        logo_alignment: "center",
-      });
+      paint();
     };
 
     if (window.google?.accounts?.id) {
-      render();
+      init();
     } else {
       let script = document.querySelector<HTMLScriptElement>(`script[src="${GSI_SRC}"]`);
       if (!script) {
@@ -95,12 +111,16 @@ export default function GoogleButton({
         script.async = true;
         document.head.appendChild(script);
       }
-      script.addEventListener("load", render);
+      script.addEventListener("load", init);
       script.addEventListener("error", () => !cancelled && setFailed(true));
     }
 
+    const observer = new ResizeObserver(() => paint());
+    observer.observe(slot);
+
     return () => {
       cancelled = true;
+      observer.disconnect();
     };
   }, [text]);
 
