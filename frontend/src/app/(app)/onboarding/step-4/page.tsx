@@ -13,12 +13,13 @@ export default function OnboardingStep4() {
   const queryClient = useQueryClient();
   
   // President and Member are mandatory — always enabled, cannot be toggled off.
+  // Every other role starts unselected so the user chooses their own hierarchy.
   const [roles, setRoles] = useState({
     president: true,
     secretary: false,
-    lead: true,
+    lead: false,
     member: true,
-    vicePresident: true,
+    vicePresident: false,
     jointSecretary: false,
     associateLead: false,
   });
