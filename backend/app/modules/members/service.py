@@ -41,6 +41,9 @@ def _to_member_dict(member: ClubMember, user: User, domain_name: str | None) -> 
         "domain_name": domain_name,
         "points": member.points,
         "joined_at": member.joined_at,
+        "github_url": user.github_url,
+        "linkedin_url": user.linkedin_url,
+        "instagram_url": user.instagram_url,
     }
 
 

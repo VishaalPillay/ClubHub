@@ -30,3 +30,6 @@ class MemberOut(BaseModel):
     domain_name: str | None
     points: int
     joined_at: datetime
+    github_url: str | None
+    linkedin_url: str | None
+    instagram_url: str | None

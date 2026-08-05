@@ -126,6 +126,9 @@ export type Member = {
   domain_name: string | null;
   points: number;
   joined_at: string;
+  github_url: string | null;
+  linkedin_url: string | null;
+  instagram_url: string | null;
 };
 
 // ── Requests (join + governance) ──────────────────────────────────────────────

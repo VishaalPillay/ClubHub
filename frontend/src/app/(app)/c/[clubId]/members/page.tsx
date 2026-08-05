@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GithubLogo, LinkedinLogo } from "@phosphor-icons/react";
+import { GithubLogo, InstagramLogo, LinkedinLogo } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Toast, { type ToastTone } from "@/components/ui/Toast";
 import { useClub } from "@/features/club/ClubProvider";
@@ -19,8 +19,43 @@ type MemberRow = {
   domain_id: number | null;
   points: number;
   pic: string;
+  github_url: string | null;
+  linkedin_url: string | null;
+  instagram_url: string | null;
   rank?: number;
 };
+
+/** LinkedIn/GitHub/Instagram — links to the member's actual profile when set, else a
+ * dimmed non-interactive placeholder so the socials column never shifts row-to-row. */
+function SocialIcons({ member }: { member: MemberRow }) {
+  const links: Array<{ url: string | null; Icon: typeof LinkedinLogo; label: string }> = [
+    { url: member.linkedin_url, Icon: LinkedinLogo, label: "LinkedIn" },
+    { url: member.github_url, Icon: GithubLogo, label: "GitHub" },
+    { url: member.instagram_url, Icon: InstagramLogo, label: "Instagram" },
+  ];
+  return (
+    <div className="col-span-2 flex justify-center gap-3 text-black">
+      {links.map(({ url, Icon, label }) =>
+        url ? (
+          <a
+            key={label}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#057DBC] transition-colors"
+            aria-label={label}
+          >
+            <Icon size={20} weight="fill" />
+          </a>
+        ) : (
+          <span key={label} className="text-caption-gray cursor-not-allowed" aria-label={`${label} not provided`}>
+            <Icon size={20} weight="fill" />
+          </span>
+        )
+      )}
+    </div>
+  );
+}
 
 type DomainCard = {
   id: number;
@@ -84,6 +119,9 @@ export default function MembersPage() {
     domain_id: m.domain_id,
     points: m.points || 0,
     pic: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=e2e2e2&color=000&size=150`,
+    github_url: m.github_url,
+    linkedin_url: m.linkedin_url,
+    instagram_url: m.instagram_url,
   }));
 
   const domains: DomainCard[] = domainsData.map((d) => ({
@@ -345,10 +383,7 @@ export default function MembersPage() {
                                     <span className="font-mono text-[10px] text-caption-gray uppercase tracking-widest mt-0.5">{member.role}</span>
                                   </div>
                                 </div>
-                                <div className="col-span-2 flex justify-center gap-3 text-black">
-                                  <a href="#" className="hover:text-[#057DBC] transition-colors" aria-label="LinkedIn"><LinkedinLogo size={20} weight="fill" /></a>
-                                  <a href="#" className="hover:text-[#057DBC] transition-colors" aria-label="GitHub"><GithubLogo size={20} weight="fill" /></a>
-                                </div>
+                                <SocialIcons member={member} />
                                 <div className="col-span-3 flex justify-end gap-2 text-black">
                                   {(['president', 'vice_president'].includes(currentRole) || (isExecutive && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-white transition-colors">Promote</button>}
                                   {(isExecutive || (currentRole === 'lead' && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-white transition-colors">Kick</button>}
@@ -383,10 +418,7 @@ export default function MembersPage() {
                                   <div className="font-ui text-16 font-bold truncate">{member.name}</div>
                                 </div>
                                 <div className="col-span-2 text-right font-display text-xl font-bold">{member.points.toLocaleString()}</div>
-                                <div className="col-span-2 flex justify-center gap-3 text-black">
-                                  <a href="#" className="hover:text-[#057DBC] transition-colors" aria-label="LinkedIn"><LinkedinLogo size={20} weight="fill" /></a>
-                                  <a href="#" className="hover:text-[#057DBC] transition-colors" aria-label="GitHub"><GithubLogo size={20} weight="fill" /></a>
-                                </div>
+                                <SocialIcons member={member} />
                                 <div className="col-span-3 flex justify-end gap-2 text-black">
                                   {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-white transition-colors">Promote</button>}
                                   {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead', 'associate'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-white transition-colors">Kick</button>}
