@@ -1,0 +1,21 @@
+# Keeps the build context small and stops local state leaking into the image.
+# Note the build needs package-lock.json and src/, so this is deliberately narrow.
+node_modules
+.next
+out
+build
+
+# Secrets and local overrides — NEXT_PUBLIC_* arrive as build args instead.
+.env
+.env.*
+
+.git
+.gitignore
+.vscode
+.idea
+README.md
+Dockerfile
+.dockerignore
+npm-debug.log*
+*.tsbuildinfo
+.DS_Store

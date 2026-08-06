@@ -14,7 +14,7 @@
     "axios": "^1.15.2",
     "country-state-city": "^3.2.1",
     "framer-motion": "^12.38.0",
-    "next": "16.2.4",
+    "next": "^16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-easy-crop": "^6.2.2"
@@ -25,7 +25,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "^16.2.12",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

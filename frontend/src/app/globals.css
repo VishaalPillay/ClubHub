@@ -1,17 +1,29 @@
 @import "tailwindcss";
 
 /**
- * WIRED Editorial System — Tailwind v4 Locked-Down Theme
+ * WIRED Editorial System — Tailwind v4 theme
  *
- * In Tailwind v4, ALL configuration lives here in CSS via @theme.
- * This REPLACES defaults using `@theme` — the equivalent of `theme: {}`
- * (not extend) in v3. Only what is declared below can be used.
+ * In Tailwind v4, all configuration lives here in CSS via @theme. There is no
+ * tailwind.config.ts: v4 does not auto-load one, and without an `@config`
+ * directive it would simply be dead weight (the stale v3 file was deleted).
  *
- * WIRED law is enforced at the config level:
+ * ⚠ @theme MERGES with Tailwind's defaults — it does NOT replace them.
+ * Replacement requires an explicit namespace reset (`--color-*: initial;`) or a
+ * full `--*: initial;`, neither of which is used here. So `shadow-lg`,
+ * `rounded-lg`, `bg-amber-900`, `text-3xl` and `bg-linear-to-b` all still
+ * compile. (Verified by running this file through the installed compiler.)
+ *
+ * The WIRED law below is therefore a convention enforced by code review, not a
+ * constraint enforced by the build:
  * - Zero box shadows
  * - Only 3 border-radius values (none, full, pill)
  * - Strict WIRED color palette only
- * - No gradients in the theme
+ * - No gradients
+ *
+ * The one sanctioned exception is the landing page's newspaper-on-a-desk scene,
+ * which needs real shadows and gradients. It is fenced into
+ * `src/features/newspaper/newspaper.css` — a scoped stylesheet imported by that
+ * route alone — rather than being unlocked here for the whole app.
  */
 
 /* ─── Disable all Tailwind v4 defaults we don't want ────────────────────── */
