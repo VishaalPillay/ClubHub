@@ -1,0 +1,48 @@
+%% ClubHub — AWS deployment (Mode A). Designed, costed, never deployed.
+%% Canonical source for the diagram inlined in AWS/README.md.
+%% GitHub renders Mermaid natively, so this stays diffable in review — unlike the .drawio,
+%% which is the higher-fidelity editable source and exports to architecture.png.
+flowchart TB
+    user["Members<br/><i>browser</i>"]
+    gh["GitHub<br/><i>Actions · OIDC</i>"]
+
+    subgraph aws["AWS Cloud — ap-south-1 (Mumbai)"]
+        r53["Route 53<br/><i>app · api</i>"]
+        amp["Amplify Hosting<br/><i>Next.js 16 SSR</i>"]
+        cf["CloudFront<br/><i>media · OAC</i>"]
+        s3[("S3<br/><i>avatars · private</i>")]
+        sm["Secrets Manager<br/><i>JWT · DB creds</i>"]
+        ecr["ECR<br/><i>API image</i>"]
+        cw["CloudWatch<br/><i>logs · billing alarm</i>"]
+
+        subgraph vpc["VPC — 2 AZs, no NAT gateway"]
+            subgraph pub["Public subnet"]
+                alb["ALB<br/><i>HTTPS · ACM · /health</i>"]
+                ecs["ECS Fargate<br/><i>FastAPI :8000</i><br/>256 CPU · 512 MiB"]
+            end
+            subgraph iso["Isolated subnet — no internet route"]
+                rds[("RDS PostgreSQL 16<br/><i>db.t4g.micro</i>")]
+            end
+        end
+    end
+
+    user -->|HTTPS| r53
+    r53 -->|app.domain| amp
+    r53 -->|api.domain| alb
+    amp -->|API calls| alb
+    alb -->|forward :8000| ecs
+    ecs -->|SQL 5432 TLS| rds
+    ecs -->|fetch at boot| sm
+    ecs -->|put avatar WebP| s3
+    cf -->|origin OAC| s3
+    user -->|media| cf
+    gh -->|build · push image| ecr
+    ecr -->|pull on deploy| ecs
+    gh -.->|git push| amp
+    ecs -.-> cw
+    rds -.-> cw
+
+    classDef edge fill:#e8f0fe,stroke:#4285f4
+    classDef data fill:#fce8e6,stroke:#ea4335
+    class alb,cf,r53 edge
+    class rds,s3 data

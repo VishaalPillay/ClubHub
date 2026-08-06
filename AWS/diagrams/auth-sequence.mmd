@@ -1,0 +1,42 @@
+%% Refresh-token rotation with reuse detection — the most interesting mechanism in ClubHub,
+%% and one the original AWS diagram never drew. Contract: docs/adr/0002-auth-token-contract.md.
+%% Deployment-independent: this behaves identically on Fargate and on the droplet.
+sequenceDiagram
+    autonumber
+    actor U as Browser
+    participant F as Frontend<br/>(axios client)
+    participant A as API<br/>(/auth/*)
+    participant D as Postgres<br/>(refresh_tokens)
+
+    Note over U,D: Login — one access token in the body, one opaque refresh token in a cookie
+
+    U->>F: submit credentials
+    F->>A: POST /auth/login
+    A->>D: INSERT refresh_tokens (sha256 hash, expires_at +30d)
+    A-->>F: 200 { access_token }  +  Set-Cookie: clubhub_refresh<br/>HttpOnly · Secure · SameSite=Lax · Path=/auth
+    Note right of F: access token held IN MEMORY only<br/>(never localStorage)
+
+    Note over U,D: 15 minutes later — the access token expires
+
+    F->>A: GET /clubs/my (Bearer, expired)
+    A-->>F: 401
+    Note right of F: interceptor single-flights the refresh<br/>so N parallel 401s cause ONE rotate
+    F->>A: POST /auth/refresh (cookie sent automatically)
+    A->>D: SELECT by token_hash
+    D-->>A: row: revoked_at IS NULL, not expired
+    A->>D: UPDATE old SET revoked_at = now()<br/>INSERT new token
+    A-->>F: 200 { access_token } + Set-Cookie (rotated)
+    F->>A: retry the original request
+    A-->>F: 200
+
+    Note over U,D: Attack — a stolen token is replayed after it was rotated
+
+    rect rgb(253, 236, 234)
+        U->>A: POST /auth/refresh (OLD, already-revoked token)
+        A->>D: SELECT by token_hash
+        D-->>A: row found, revoked_at IS NOT NULL
+        Note right of A: revoked_at is checked BEFORE expires_at.<br/>A revoked row must therefore outlive the<br/>token's validity for this branch to fire —<br/>which is why the prune job keeps 30d + 7d.
+        A->>D: revoke ALL refresh tokens for this user
+        A-->>U: 401 REFRESH_REUSED
+        Note over U,D: every session for that user is now dead —<br/>the legitimate user is logged out too, by design
+    end

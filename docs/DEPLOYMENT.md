@@ -1,301 +1,335 @@
-# ClubHub — Deployment Runbook (AWS, Mode A)
+# ClubHub — Deployment Runbook
 
-This is the step-by-step guide to take ClubHub from your laptop to a live URL on AWS, and to
-teach you what each step does. Architecture overview: [clubhub-aws-architecture.drawio](./clubhub-aws-architecture.drawio).
+Take ClubHub from your laptop to a live URL, on a stack the GitHub Student Developer Pack pays
+for. Target cost: **$14.40/month, fully covered by credit for 24 months.**
 
-**The shape of it:** the backend + all infrastructure are defined as code in [`infra/`](../infra)
-(AWS CDK). You run `cdk deploy` once from your laptop to bring it up, then GitHub Actions
-redeploys on every push. The frontend runs on AWS Amplify Hosting, connected straight to GitHub.
+> Looking for the AWS design? It was built and deliberately not deployed — see
+> [`AWS/`](../AWS/README.md) and [ADR-0004](./adr/0004-hosting-platform.md).
 
-> **Mental model.** Everything inside AWS is described by the CDK app. `cdk deploy` reads that
-> description and makes your account match it. To change infrastructure, you edit TypeScript and
-> deploy again — never click around the console (that creates "drift" the code doesn't know about).
+**The shape of it.** One DigitalOcean droplet runs everything behind Caddy, which gets TLS
+certificates automatically. The marketing landing page is a separate static site on Cloudflare
+Pages. Avatars go to Cloudflare R2.
+
+```mermaid
+flowchart TB
+    u["Members<br/><i>browser</i>"]
+    subgraph cf["Cloudflare (free)"]
+        dns["DNS"]
+        pages["Pages<br/><i>landing/ static export</i>"]
+        r2[("R2<br/><i>avatars · 10 GB</i>")]
+    end
+    subgraph do["DigitalOcean droplet — blr1, 2 GB, $12/mo"]
+        caddy["Caddy<br/><i>auto-TLS · :80 :443</i>"]
+        web["web<br/><i>next start :3000</i>"]
+        api["api<br/><i>FastAPI :8000</i>"]
+        db[("db<br/><i>Postgres 16</i>")]
+    end
+    u --> dns
+    dns -->|"&lt;domain&gt; · www"| pages
+    dns -->|"app · api"| caddy
+    caddy -->|app.| web
+    caddy -->|api.| api
+    web -->|"XHR to api.&lt;domain&gt;"| caddy
+    api --> db
+    api -->|"put avatar"| r2
+    u -->|"media.&lt;domain&gt;"| r2
+    pages -.->|"CTAs link to app."| caddy
+
+    classDef box fill:#e8f0fe,stroke:#4285f4
+    class caddy,dns box
+```
+
+Everything below assumes `<domain>` is your domain (e.g. `clubhub.me`). Substitute throughout.
 
 ---
 
-## 0. Prerequisites (install once)
+## 0. Prerequisites
 
-On your laptop you need:
+| Thing | Where | Note |
+|---|---|---|
+| GitHub Student Developer Pack | [education.github.com/pack](https://education.github.com/pack) | Verification can take 24–72h — **start here** |
+| Domain | Namecheap `.me`, free via the Pack | Renewal is ~$20/yr; budget for it or migrate |
+| DigitalOcean account | Via the Pack ($13/mo × 24 months) | A payment method is required even with credit |
+| Cloudflare account | Free | DNS + Pages + R2 |
+| Google Cloud project | Free | OAuth web client for Google sign-in |
+| Local | Docker, Node 20+, an SSH key | |
 
-- **AWS account** — you have a fresh one with $200 credits. Good.
-- **AWS CLI v2** — `aws --version`. Install from the AWS docs if missing.
-- **Node.js 20+** — `node --version` (you already have it for the frontend).
-- **Docker Desktop** — running. `cdk deploy` builds the API image locally, so Docker must be up.
-- **A domain name** — you chose the custom-domain path. Buy one anywhere (Route 53, Namecheap,
-  etc.). We'll use `clubhub.example` in examples — substitute yours everywhere.
+> **Sequencing matters.** Steps 1 and 2 are gated on external clocks (student verification, DNS
+> propagation). Start them on day one; everything else can proceed in parallel.
 
 ---
 
-## 1. Point the AWS CLI at your account
+## 1. Domain and DNS
 
-**Concept.** The CLI (and CDK) act as *you* by using credentials tied to an IAM identity. For a
-solo project the simplest safe setup is an **IAM Identity Center (SSO)** user, or an IAM user with
-an access key. Either way you end up with a working `aws` CLI.
+1. Claim the `.me` domain through the Pack's Namecheap offer.
+2. Create a free Cloudflare account, **Add a site**, enter your domain.
+3. Cloudflare gives you two nameservers. Set them at Namecheap (*Domain → Nameservers → Custom DNS*).
+   Propagation takes up to 24h; usually far less.
+4. Once Cloudflare shows the zone as **Active**, add the records from step 5 below.
+
+> **Do not register under `co.me`, `net.me` or similar.** Those are public suffixes, which would
+> put `app.` and `api.` on different registrable domains and break the auth cookie. A plain
+> `<name>.me` is what you want — see [ADR-0002](./adr/0002-auth-token-contract.md).
+
+---
+
+## 2. The droplet
+
+Create a droplet: **Ubuntu 24.04 LTS**, **Basic → Regular → 2 GB / 1 vCPU / 50 GB ($12/mo)**,
+region **Bangalore (blr1)**, **SSH key** authentication, and tick **Enable backups** (+$2.40/mo).
+
+> **Do not take the $6 / 1 GB tier.** `next build` alone peaks near 1–1.5 GB and shares the box
+> with Postgres, uvicorn, Pillow and Caddy.
+
+Then harden it and install Docker:
 
 ```bash
-aws configure          # paste Access Key ID + Secret, set region = ap-south-1, output = json
-aws sts get-caller-identity   # verify: prints your account id + user ARN
-```
-
-Set your working region once so CDK picks it up:
-
-```bash
-# Windows PowerShell
-$env:CDK_DEFAULT_REGION = "ap-south-1"
-# macOS/Linux
-export CDK_DEFAULT_REGION=ap-south-1
-```
-
-> Region choice: **ap-south-1 (Mumbai)** is closest to you. The one exception is CloudFront,
-> which is global and whose optional custom-domain certificate must live in us-east-1 — we sidestep
-> that by serving avatars from the default CloudFront domain (no cert needed). See `infra/lib/media.ts`.
-
----
-
-## 2. Register the domain in Route 53 (DNS)
-
-**Concept.** DNS turns `api.clubhub.example` into an IP address. AWS's DNS service is **Route 53**,
-and a **hosted zone** is the container for one domain's records. The CDK looks up this zone to
-create the API's record and validate its TLS certificate automatically — so the zone must exist
-first.
-
-1. Route 53 console → **Hosted zones → Create hosted zone** → enter your domain → Create.
-2. Route 53 shows 4 **NS (nameserver)** values. At your registrar, set the domain's nameservers to
-   those 4. (If you registered the domain *in* Route 53, this is already done.)
-3. Wait for propagation (minutes to a couple hours). Verify:
-   ```bash
-   aws route53 list-hosted-zones --query "HostedZones[].Name"
-   ```
-
----
-
-## 3. Bootstrap CDK (one time per account+region)
-
-**Concept.** Before CDK can deploy, it needs a small set of shared resources in your account (an S3
-bucket + ECR repo for assets, and IAM roles it assumes to deploy). Creating them is called
-**bootstrapping**. You do it once.
-
-```bash
-cd infra
-npm install                       # already done if you followed along; safe to repeat
-npx cdk bootstrap                 # uses your CLI creds + region
-```
-
-You'll see it create a `CDKToolkit` CloudFormation stack. That's expected.
-
----
-
-## 4. Deploy the stack 🎉
-
-**Concept.** This single command builds the API Docker image, pushes it, and creates the VPC, RDS,
-S3, CloudFront, ALB, Fargate service, TLS cert, DNS record, and cost budget — in dependency order.
-First run takes **~15–25 min** (RDS and CloudFront are slow to create).
-
-```bash
-cd infra
-npx cdk deploy \
-  -c domainName=clubhub.example \
-  -c googleClientId=YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com \
-  -c alertEmail=you@example.com
-```
-
-- `-c domainName=...` turns on HTTPS + the `api.clubhub.example` DNS record. Omit it for a first
-  HTTP-only bring-up on the raw ALB address.
-- `-c googleClientId=...` is injected into the API container (also set it on the frontend, step 6).
-- `-c alertEmail=...` creates the monthly **$40 budget** email alert.
-
-CDK prints a **diff** and asks to approve IAM/security changes — review, then `y`. When it finishes
-it prints **Outputs**. Copy these — you need them next:
-
-```
-ClubHubStack.ApiUrl          = https://api.clubhub.example
-ClubHubStack.MediaCdnDomain  = d1234abcd.cloudfront.net
-ClubHubStack.MediaBucketName = clubhubstack-mediaavatarsbucket-xxxx
-ClubHubStack.DbEndpoint      = clubhubstack-...rds.amazonaws.com
-```
-
-**Verify the API is live:**
-
-```bash
-curl https://api.clubhub.example/health      # -> {"status":"ok","version":"0.1.0"}
-```
-
-Open `https://api.clubhub.example/docs` — the Swagger UI should load.
-
-> **What just happened under the hood.** CDK built the image → pushed to ECR → CloudFormation
-> created RDS (in the isolated subnet) and generated its password into Secrets Manager → created the
-> ALB + Fargate service → the task booted, read the secrets, assembled `DATABASE_URL`, ran
-> `alembic upgrade head`, then started uvicorn → the ALB's `/health` check went green → the target
-> became "healthy" and traffic flows.
-
----
-
-## 5. Configure Google sign-in for production
-
-**Concept.** Google only issues sign-in tokens to origins you've explicitly allowed. Your prod
-frontend is a new origin.
-
-- Google Cloud Console → **APIs & Services → Credentials** → your OAuth **Web** client →
-  **Authorized JavaScript origins** → add `https://app.clubhub.example` (keep `http://localhost:3000`
-  for dev) → Save.
-- The **same** client ID goes in two places: the backend (`-c googleClientId=` above, verifies
-  tokens) and the frontend (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`, next step, renders the button).
-
----
-
-## 6. Deploy the frontend on AWS Amplify Hosting
-
-**Concept.** The Next.js app can't be a plain static upload — it has server-rendered and dynamic
-(`c/[clubId]`) routes, so it needs a Node runtime. **Amplify Hosting** builds and runs Next.js SSR
-for you and wires up HTTPS + CDN + a Git-push deploy pipeline — no servers to manage.
-
-1. Amplify console → **Create new app → Deploy from GitHub** → authorize → pick this repo + branch
-   `main`.
-2. **App root / monorepo**: set the app's root directory to `frontend`. Amplify auto-detects Next.js.
-3. **Environment variables** (these are inlined into the build):
-   - `NEXT_PUBLIC_API_URL = https://api.clubhub.example`
-   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID = <same web client id>`
-4. Deploy. Amplify gives you a `*.amplifyapp.com` URL — check it renders.
-5. **Custom domain**: Amplify → **Hosting → Custom domains** → add `clubhub.example`, map the root
-   or `app` subdomain to this app. Because your DNS is already in Route 53, Amplify creates the
-   records + certificate automatically. End state: `https://app.clubhub.example`.
-
-> Cross-origin cookies note: because the frontend (`app.clubhub.example`) and API
-> (`api.clubhub.example`) share the registrable domain `clubhub.example`, the refresh cookie's
-> `SameSite=Lax` is sent on the cross-subdomain API calls — no code change needed. This is exactly
-> why we chose a custom domain over raw AWS domains.
-
----
-
-## 7. Turn on automatic deploys (GitHub Actions → AWS via OIDC)
-
-The [CI workflow](../.github/workflows/ci.yml) already runs tests on every push. To let the
-[Deploy workflow](../.github/workflows/deploy.yml) run `cdk deploy` for you, give GitHub a role to
-assume — **without storing any AWS keys**.
-
-**Concept.** You register GitHub as a trusted **OIDC identity provider** in your account, then
-create a role GitHub may assume *only* from this repo. The workflow gets minutes-long credentials.
-
-**7a. Create the OIDC provider** (once per account):
-
-```bash
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
-```
-
-**7b. Create the deploy role.** Save this trust policy as `trust.json` (replace ACCOUNT_ID and the
-repo `VishaalPillay/ClubHub` with your GitHub `owner/repo`):
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Principal": { "Federated": "arn:aws:iam::ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com" },
-    "Action": "sts:AssumeRoleWithWebIdentity",
-    "Condition": {
-      "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-      "StringLike": { "token.actions.githubusercontent.com:sub": "repo:VishaalPillay/ClubHub:ref:refs/heads/main" }
-    }
-  }]
-}
+ssh root@<droplet-ip>
 ```
 
 ```bash
-aws iam create-role --role-name clubhub-gha-deploy \
-  --assume-role-policy-document file://trust.json
-
-# cdk deploy works by assuming the CDK bootstrap roles, so the CI role only needs to be allowed
-# to assume those (least privilege — it can't do arbitrary AWS actions itself).
-aws iam put-role-policy --role-name clubhub-gha-deploy \
-  --policy-name assume-cdk-roles \
-  --policy-document '{
-    "Version":"2012-10-17",
-    "Statement":[{"Effect":"Allow","Action":"sts:AssumeRole","Resource":"arn:aws:iam::ACCOUNT_ID:role/cdk-*"}]
-  }'
+adduser clubhub && usermod -aG sudo clubhub && rsync --archive --chown=clubhub:clubhub ~/.ssh /home/clubhub
 ```
 
-**7c. Tell the workflow about it.** In GitHub → repo **Settings → Secrets and variables → Actions →
-Variables**, add:
+Disable password login (`/etc/ssh/sshd_config`: `PasswordAuthentication no`, `PermitRootLogin no`),
+then `systemctl restart ssh`. Firewall:
+
+```bash
+ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw --force enable
+```
+
+**Add 2 GB of swap — this is not optional**, it is what turns a build OOM-kill into a slow build:
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab && sysctl -w vm.swappiness=10
+```
+
+Install Docker:
+
+```bash
+curl -fsSL https://get.docker.com | sh && usermod -aG docker clubhub
+```
+
+> **Note on UFW and Docker.** Docker's iptables rules bypass UFW for *published* ports. That is
+> precisely why `docker-compose.prod.yml` lets only Caddy publish anything — the compose file is a
+> security boundary, not just a topology.
+
+---
+
+## 3. Cloudflare R2 (avatar storage)
+
+1. **R2 → Create bucket** → `clubhub-media`.
+2. **Settings → Custom Domains → Connect domain** → `media.<domain>`. Cloudflare creates the DNS
+   record and certificate.
+3. **R2 → API → Create API token**, *Object Read & Write*, scoped to this bucket. Save the Access
+   Key ID and Secret — the secret is shown once.
+4. Note your account ID; the endpoint is `https://<account_id>.r2.cloudflarestorage.com`.
+
+> **Use `media.<domain>`, never the `*.r2.dev` URL.** Avatar URLs are written verbatim into
+> `users.avatar_url` and never rewritten, so a provider hostname makes the storage backend a
+> one-way door. This is the single most consequential line in `.env.prod` — see
+> [ADR-0004](./adr/0004-hosting-platform.md).
+
+---
+
+## 4. Google OAuth
+
+In [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services → Credentials**,
+create an **OAuth client ID → Web application**. Under *Authorized JavaScript origins* add:
+
+- `https://app.<domain>`
+- `http://localhost:3000` (keep for local dev)
+
+No redirect URIs are needed — this is the GIS ID-token flow, not a redirect flow. Origin changes
+can take a few hours to take effect, so do this early.
+
+The client ID goes in **both** `GOOGLE_CLIENT_ID` (backend) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+(frontend build arg). While it is empty the button hides and `/auth/google` returns 503.
+
+---
+
+## 5. DNS records
+
+| Name | Type | Value | Proxy |
+|---|---|---|---|
+| `<domain>` | CNAME | `<project>.pages.dev` | 🟠 **Proxied** |
+| `www` | CNAME | `<project>.pages.dev` | 🟠 **Proxied** |
+| `app` | A | `<droplet-ip>` | ⚪ **DNS only** |
+| `api` | A | `<droplet-ip>` | ⚪ **DNS only** |
+| `media` | — | created by R2 in step 3 | 🟠 Proxied |
+
+> ### ⚠ The single biggest launch trap
+>
+> **`app` and `api` must be grey-cloud (DNS only).** If they are proxied, Cloudflare terminates
+> TLS at its edge, Caddy's ACME challenge never reaches the droplet, and certificate issuance
+> fails. With Cloudflare's SSL mode on *Flexible* you additionally get an infinite redirect loop.
+> **The symptoms look like a Caddy bug and are not.**
+>
+> Verify: `dig +short app.<domain>` must return the droplet IP, not a Cloudflare address.
+
+---
+
+## 6. First deploy
+
+```bash
+sudo mkdir -p /srv/clubhub && sudo chown clubhub:clubhub /srv/clubhub && git clone https://github.com/VishaalPillay/ClubHub.git /srv/clubhub
+```
+
+Edit `Caddyfile` — replace `app.example.me` / `api.example.me` with your domains and set a real
+`email` for Let's Encrypt expiry notices.
+
+Write the secrets file:
+
+```bash
+cp /srv/clubhub/.env.prod.example /srv/clubhub/.env.prod && chmod 600 /srv/clubhub/.env.prod
+```
+
+Fill in every blank. Generate the two secrets:
+
+```bash
+python3 -c "import secrets; print('JWT_SECRET_KEY=' + secrets.token_hex(32)); print('POSTGRES_PASSWORD=' + secrets.token_urlsafe(32))"
+```
+
+> `JWT_SECRET_KEY` is required by **both** the app and `alembic upgrade head` — `alembic/env.py`
+> imports the app config, so a missing secret fails the migration, not just the server.
+
+Bring it up:
+
+```bash
+cd /srv/clubhub && docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Watch certificate issuance — this is where a mis-set orange cloud reveals itself:
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f caddy
+```
+
+---
+
+## 7. The landing page (Cloudflare Pages)
+
+**Workers & Pages → Create → Pages → Connect to Git**, select the repo, then:
+
+| Setting | Value |
+|---|---|
+| Production branch | `main` |
+| Framework preset | None (or *Next.js (Static HTML Export)*) |
+| Build command | `npm run build` |
+| Build output directory | `out` |
+| Root directory | `landing` |
+
+Environment variables (**Production** and **Preview**):
 
 | Variable | Value |
 |---|---|
-| `AWS_DEPLOY_ROLE_ARN` | `arn:aws:iam::ACCOUNT_ID:role/clubhub-gha-deploy` |
-| `AWS_REGION` | `ap-south-1` |
-| `DOMAIN_NAME` | `clubhub.example` |
-| `GOOGLE_CLIENT_ID` | `<your web client id>` |
-| `ALERT_EMAIL` | `you@example.com` |
+| `NODE_VERSION` | `20` |
+| `NEXT_PUBLIC_APP_URL` | `https://app.<domain>` |
+| `NEXT_PUBLIC_SITE_URL` | `https://<domain>` |
 
-Now every push to `main` that touches `backend/**` or `infra/**` redeploys automatically.
-
----
-
-## 8. Full smoke test (production)
-
-- `curl https://api.clubhub.example/health` → `{"status":"ok"}`.
-- Open `https://app.clubhub.example` → landing renders.
-- Register with email → profile step → lands on `/portal`.
-- **Google sign-in** works; a new Google user goes to the profile step, a returning one to `/portal`.
-- Upload an avatar → it appears; the URL is `https://<cloudfront>/avatars/...` and loads as WebP.
-- Reload a logged-in tab → stays logged in (silent `/auth/refresh` — the Secure, SameSite=Lax cookie).
-- Create a club → dashboard/tasks/leaderboard all work.
+These are inlined at build time, so set them **before** the first production build. Then **Custom
+domains** → add `<domain>` and `www.<domain>`.
 
 ---
 
-## 9. Cost & the credits cliff
+## 8. Smoke test
 
-At list price this stack is ~**$46–52/mo**, but your $200 credits + 6-month free plan cover it — so
-effectively **free for ~4 months**. The budget alarm emails you at $40.
+Run in this order — each step is the cheapest probe of the layer beneath it.
 
-**Before credits run out, drop to Mode B (~$5–20/mo):**
-
-1. Snapshot RDS (console → RDS → Snapshots), or `pg_dump` the database.
-2. Launch **one Lightsail instance** (~$10/mo), install Docker + Docker Compose.
-3. Run the app there with a compose file: the `api` image + a `postgres` container (restore your
-   dump into it) + Caddy/nginx for TLS. The app is already containerized, so this is a redeploy,
-   not a rewrite.
-4. Keep the S3 bucket + CloudFront for avatars (pennies). Keep the frontend on Amplify (cheap) or
-   move it onto the box too.
-5. `cdk destroy` the Mode-A stack (see below) to stop the Fargate/RDS/ALB charges.
+1. `curl https://api.<domain>/health` → `{"status":"ok","version":"0.1.0"}`, valid certificate.
+2. `https://app.<domain>/` → redirects to `/login`.
+3. Register with email → country/college step → lands on `/portal`.
+4. **Reload the logged-in tab → still logged in.** This one action exercises the whole
+   cookie / CORS / `COOKIE_SECURE` / same-site contract.
+5. Google sign-in → new user goes to the profile step, returning user straight to `/portal`.
+6. **Upload an avatar** → it renders, and the URL is `https://media.<domain>/avatars/…`.
+   **Do not skip this.** `boto3` is imported lazily, so bad R2 credentials fail *here* and nowhere
+   earlier.
+7. Create a club → dashboard, tasks, leaderboard.
+8. Hit `/auth/login` more than 10×/min → `429 RATE_LIMITED`. Then resend with
+   `-H 'X-Forwarded-For: 1.2.3.4'` and confirm it **still** 429s — that proves the rate-limit key
+   can't be spoofed.
+9. Landing page apex → CTA reaches `app.<domain>/register`; the app's wordmark returns to the apex.
 
 ---
 
-## 10. Teardown (stop all charges)
+## 9. Operations
+
+### Deploying
 
 ```bash
-cd infra
-npx cdk destroy
+/srv/clubhub/scripts/deploy.sh
 ```
 
-This deletes the stack. Two things are deliberately **kept**: the S3 avatars bucket
-(`RemovalPolicy.RETAIN`) and a final RDS snapshot (`RemovalPolicy.SNAPSHOT`) — so user data and the
-database aren't silently destroyed. Delete those by hand if you truly want them gone.
+`git pull` + `up -d --build` + health wait. **Move to a registry-based pipeline when this OOMs, or
+takes the site down for more than ~60s** — that is the trigger, decided in advance. The upgrade is
+to build images in GitHub Actions, push to GHCR, and reduce the droplet's job to `pull` + swap.
+
+### Cron
+
+```bash
+sudo crontab -e
+```
+
+```cron
+15 3 * * *  /srv/clubhub/scripts/backup.sh              >> /var/log/clubhub-backup.log 2>&1
+45 3 * * 0  /srv/clubhub/scripts/prune-refresh-tokens.sh >> /var/log/clubhub-prune.log  2>&1
+```
+
+Set `RCLONE_REMOTE` in `backup.sh`'s environment to replicate dumps off-box to R2. **A backup that
+only exists on the droplet does not protect against losing the droplet.**
+
+### Rehearse a restore — before you announce
+
+```bash
+docker compose -f docker-compose.prod.yml exec -T db createdb -U clubhub restore_test
+docker compose -f docker-compose.prod.yml exec -T db pg_restore -U clubhub -d restore_test < /srv/backups/clubhub-<date>.dump
+```
+
+An untested backup is a hypothesis.
+
+### Migrations
+
+Routine migrations apply automatically on boot. For anything destructive or long-running, do it
+deliberately:
+
+```bash
+./scripts/backup.sh && docker compose -f docker-compose.prod.yml run --rm api alembic upgrade head && docker compose -f docker-compose.prod.yml up -d --build
+```
 
 ---
 
-## 11. Troubleshooting (common first-deploy issues)
+## 10. Troubleshooting
 
 | Symptom | Cause & fix |
 |---|---|
-| `cdk deploy` hangs on the service, then rolls back | The task isn't passing `/health`. Check **CloudWatch → Log groups → clubhub-api** for the container's startup logs (migration errors, bad DB creds). The deployment circuit breaker auto-rolls-back. |
-| Task logs: `could not connect to server` | RDS security-group rule or subnet issue. Confirm the task is in the VPC and `allowDefaultPortFrom` is present (it is, in `api.ts`). |
-| `cdk deploy` fails: cannot pull image / no Docker | Docker Desktop isn't running. Start it and retry. |
-| Certificate stuck "pending validation" | The Route 53 hosted zone isn't authoritative yet (NS not propagated). Finish step 2 first. |
-| 502 from the ALB | The container crashed after passing health once, or the port is wrong (must be 8000). Check logs. |
-| Frontend loads but API calls fail (CORS) | `CORS_ORIGINS` must equal your exact frontend origin. It's derived from `domainName`; if your frontend is on a different host, redeploy with the right `domainName` or adjust `api.ts`. |
-| Avatars upload but don't display | `S3_PUBLIC_BASE_URL` must be `https://<MediaCdnDomain>`. It's set automatically; confirm the CloudFront distribution deployed. |
+| Caddy logs show ACME challenge failures | `app`/`api` are orange-clouded in Cloudflare. Set them to **DNS only** and check with `dig +short`. |
+| Infinite redirect loop on `app.<domain>` | Same cause, plus Cloudflare SSL mode set to *Flexible*. Grey-cloud the record. |
+| `ImportError: The requests library is not installed` | A dependency present only via a dev extra. Reproduce with `docker build --build-arg INSTALL_DEV=false ./backend` — CI's `prod-image` job guards this. |
+| Rate limiting never triggers / is bypassable | uvicorn is ignoring proxy headers. Confirm `FORWARDED_ALLOW_IPS=*` on the `api` service **and** `header_up X-Forwarded-For {remote_host}` in the Caddyfile. |
+| `next build` killed during deploy | Out of memory. Confirm the 2 GB swapfile is active (`free -h`), or move to the GHCR pipeline. |
+| Changed `NEXT_PUBLIC_*` but nothing happened | They are inlined at **build** time. Needs `up -d --build`, not `restart`. |
+| Avatar upload fails with an opaque R2 error | botocore checksum defaults. Uncomment `AWS_REQUEST_CHECKSUM_CALCULATION=when_required` in `.env.prod`. |
+| Logged out on every page reload | `COOKIE_SECURE` false over HTTPS, or `CORS_ORIGINS` doesn't exactly match the app origin. |
+| API healthy but CORS errors in the browser | `CORS_ORIGINS` must be exactly `https://app.<domain>` — no trailing slash, not the apex. |
+
+Logs: `docker compose -f docker-compose.prod.yml logs -f api` (or `caddy`, `web`, `db`).
 
 ---
 
-## Reference: what's in `infra/`
+## 11. Cost and the scaling ceiling
 
-| File | Responsibility |
+| Item | Monthly |
 |---|---|
-| `bin/clubhub.ts` | App entry; reads `-c` context (domainName, googleClientId, alertEmail). |
-| `lib/clubhub-stack.ts` | Composes the four constructs into one stack. |
-| `lib/network.ts` | VPC — public + isolated subnets, no NAT. |
-| `lib/database.ts` | RDS PostgreSQL 16 + generated Secrets Manager credentials. |
-| `lib/media.ts` | Private S3 avatars bucket + CloudFront (OAC). |
-| `lib/api.ts` | ECR image asset + Fargate service + ALB + TLS cert + Route 53 + cost budget. |
+| Droplet (2 GB) | $12.00 |
+| Weekly backups | $2.40 |
+| Cloudflare DNS + Pages + R2 | $0.00 |
+| Domain (year 1, Student Pack) | $0.00 |
+| **Total** | **$14.40** — inside the $13/mo credit, ~$1.40 of true spend |
+
+**What breaks first:** Postgres memory. The droplet runs Postgres, Node and Python in 2 GB, and
+`next build` transiently doubles the pressure.
+
+**The exits, in order:** resize the droplet ($24/mo, one reboot) → DigitalOcean Managed Postgres
+($15/mo, removes the backup burden) → split web and API onto separate droplets → return to the
+[AWS design](../AWS/README.md), whose CDK app still synthesizes at tag `aws-cdk-final`.

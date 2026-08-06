@@ -65,3 +65,48 @@ change when refresh/OAuth land later.
   some browsers on non-localhost http). Any HTTPS deployment MUST set it.
 - The frontend origin must appear verbatim in `CORS_ORIGINS` (credentials mode requires exact
   origins; already enforced — never `*`).
+
+### Addendum (2026-08): deployment binding
+
+**The domain layout is part of this contract, not a deployment detail.** `SameSite=Lax` means the
+browser sends the cookie on *same-site* requests. `app.<domain>` and `api.<domain>` share the
+registrable domain `<domain>`, so a `POST /auth/refresh` from the app is same-site despite being
+cross-**origin** — the cookie is sent, and CORS with `allow_credentials=True` handles the rest.
+
+This is why hosting the two halves on unrelated hosts is not an option. On `*.vercel.app` +
+`*.onrender.com` both are public suffixes, so the halves are cross-site: the browser would
+withhold the cookie on every refresh, `/auth/refresh` would return `NO_REFRESH_TOKEN`, and the
+axios interceptor would bounce every user to `/login` **on every page reload**. No `Domain=`
+attribute can fix that — you cannot set a cookie on a public suffix.
+
+Concretely, for the current deployment:
+
+- `COOKIE_SECURE=true`, and the cookie stays host-only (no `Domain=`) on `api.<domain>` — tighter
+  than sharing it across subdomains, and sufficient because only `/auth/*` needs it.
+- `CORS_ORIGINS` is **exactly** `https://app.<domain>`. The marketing landing page at the apex is
+  a separate static deployment that makes zero API calls, so it is deliberately *not* an allowed
+  origin.
+- `samesite="lax"` in `app/modules/auth/router.py` therefore needs **no code change**. If a future
+  deployment ever does split the halves across registrable domains, it needs a `COOKIE_SAMESITE`
+  setting threaded through both `_set_refresh_cookie` and `delete_cookie`, set to `none` — and it
+  should expect Safari's ITP to block the cookie anyway.
+
+### Addendum (2026-08): `refresh_tokens` retention
+
+Rotation inserts a row every ~15 minutes per active session and only ever marks the previous row
+revoked, so the table grows without bound. It is now pruned weekly
+(`scripts/prune-refresh-tokens.sh`):
+
+```sql
+DELETE FROM refresh_tokens WHERE expires_at < now() - interval '7 days';
+```
+
+**The window is a security parameter, not a housekeeping one.** `rotate_refresh_token` checks
+`revoked_at` **before** `expires_at`. That ordering is what turns a replayed token into
+`REFRESH_REUSED` and revokes every session for the user. Delete a revoked row too eagerly and the
+same replay degrades to a quiet `INVALID_REFRESH` — the attack still fails, but it is no longer
+*detected*, and it no longer burns the attacker's other stolen sessions.
+
+Keeping rows for their full 30-day validity plus 7 days of grace preserves detection across the
+entire window in which a stolen token could plausibly be replayed. Shortening it silently weakens
+the reuse-detection guarantee above.
