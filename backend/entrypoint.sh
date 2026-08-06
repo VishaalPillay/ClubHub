@@ -29,5 +29,21 @@ if [ "${RELOAD:-false}" = "true" ]; then
   RELOAD_FLAG="--reload"
 fi
 
+# --proxy-headers makes uvicorn trust X-Forwarded-{For,Proto} from the reverse proxy, but only
+# from peers listed in --forwarded-allow-ips. That default (127.0.0.1) is wrong under compose:
+# Caddy reaches this container over the Docker bridge as 172.x.x.x, so without FORWARDED_ALLOW_IPS
+# uvicorn SILENTLY ignores every proxy header and request.client.host stays the bridge gateway.
+# docker-compose.prod.yml sets it to "*", which is safe ONLY because port 8000 is never published
+# to the host — Caddy is the sole possible peer. Publishing 8000 and keeping "*" would be a
+# spoofing hole; the compose file and this flag are one unit.
+#
+# Deliberately NO --workers: slowapi's rate-limit counters live in-process (app/core/ratelimit.py),
+# so N workers would make every configured limit N times looser with no error. One worker is a
+# correctness constraint here, not a sizing choice. See ADR-0003.
 echo "[entrypoint] Starting API: uvicorn app.main:app ${RELOAD_FLAG}"
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 ${RELOAD_FLAG}
+exec uvicorn app.main:app \
+  --host 0.0.0.0 \
+  --port "${PORT:-8000}" \
+  --proxy-headers \
+  --forwarded-allow-ips="${FORWARDED_ALLOW_IPS:-127.0.0.1}" \
+  ${RELOAD_FLAG}

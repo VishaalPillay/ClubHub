@@ -61,8 +61,16 @@ class Settings(BaseSettings):
     MEDIA_ROOT: str = "media"
     MEDIA_BASE_URL: str = "http://localhost:8000/media"
     S3_BUCKET: str = ""
-    S3_REGION: str = ""
-    S3_PUBLIC_BASE_URL: str = ""  # e.g. CloudFront domain; defaults to the bucket URL when empty
+    S3_REGION: str = ""  # Cloudflare R2 requires the literal "auto"
+    # S3-compatible endpoint (Cloudflare R2, MinIO, …). Empty = real AWS S3.
+    # R2: https://<account_id>.r2.cloudflarestorage.com
+    # Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY, which boto3 reads
+    # straight from the environment — deliberately not modelled here.
+    S3_ENDPOINT_URL: str = ""
+    # MUST be a hostname we own (e.g. https://media.<domain>), never a provider hostname.
+    # This URL is persisted verbatim into users.avatar_url (users/service.py), so binding it
+    # to a provider domain would make the storage backend a one-way door. See ADR-0004.
+    S3_PUBLIC_BASE_URL: str = ""  # defaults to the bucket URL when empty
     MAX_UPLOAD_MB: int = 5
 
     @property

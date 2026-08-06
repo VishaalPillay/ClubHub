@@ -17,7 +17,11 @@ dependencies = [
     "email-validator>=2.1",
     "python-multipart>=0.0.9",
     # Google sign-in: verifies GIS ID tokens against GOOGLE_CLIENT_ID (POST /auth/google).
-    "google-auth>=2.29",
+    # The [requests] extra is REQUIRED, not optional: auth/service.py imports
+    # google.auth.transport.requests at module scope, and that module needs `requests`.
+    # Nothing else in this dependency closure pulls it in, so a production build
+    # (INSTALL_DEV=false) fails at import without the extra. CI's prod-image job proves this.
+    "google-auth[requests]>=2.29",
     # Avatar uploads: Pillow validates/resizes images; boto3 is the s3 storage backend.
     "pillow>=10.3",
     "boto3>=1.34",
