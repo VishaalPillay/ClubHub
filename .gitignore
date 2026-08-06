@@ -11,6 +11,10 @@ __pycache__/
 
 # Environment variables file (for secrets)
 .env
+# Production secrets, written by hand on the droplet (chmod 600). Never commit this —
+# it holds JWT_SECRET_KEY, the Postgres password and the R2 API credentials.
+.env.prod
+!.env.prod.example
 
 # Other common Python artifacts
 .pytest_cache/
