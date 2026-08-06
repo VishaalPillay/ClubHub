@@ -68,6 +68,30 @@ jobs:
         run: pytest
 
   # --------------------------------------------------------------------------
+  # Production image: build WITHOUT the dev extras and prove the app still imports.
+  #
+  # This job exists because of a real bug it would have caught. The `backend` job above
+  # installs `.[dev]`, which transitively pulls in `requests` via testcontainers. Production
+  # installs plain `.`, and auth/service.py imports google.auth.transport.requests at module
+  # scope — so the app imported fine in CI and in compose while being unable to start in a
+  # production container. Nothing else in the runtime dependency closure provides `requests`.
+  #
+  # Any dependency that is only present because of a dev extra fails here, loudly, in ~2 min.
+  # --------------------------------------------------------------------------
+  prod-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the production image (no dev extras)
+        run: docker build -t clubhub-api-prod --build-arg INSTALL_DEV=false ./backend
+
+      - name: Import the app with production dependencies only
+        # DEBUG=true only bypasses the JWT-secret startup guard; it does not affect imports.
+        run: docker run --rm -e DEBUG=true clubhub-api-prod python -c "import app.main"
+
+  # --------------------------------------------------------------------------
   # Frontend: eslint + a production build (catches type errors and build breaks).
   # No env needed — NEXT_PUBLIC_* have safe fallbacks, so the build is self-contained.
   # --------------------------------------------------------------------------

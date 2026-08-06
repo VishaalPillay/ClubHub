@@ -1,0 +1,42 @@
+# Caddy handles TLS for the two droplet-hosted origins. The marketing site is NOT here —
+# it is served by Cloudflare Pages from the apex domain.
+#
+# Automatic HTTPS is on by default: Caddy obtains and renews Let's Encrypt certificates,
+# redirects HTTP -> HTTPS, and sets HSTS. No TLS directives needed.
+#
+# PREREQUISITE — the app and api DNS records must be "DNS only" (grey cloud) in Cloudflare.
+# If they are proxied (orange cloud), Cloudflare terminates TLS at its edge, Caddy's ACME
+# challenge cannot reach this box, and certificate issuance fails. With Cloudflare's SSL mode
+# on Flexible you additionally get an infinite redirect loop. The symptoms look like a Caddy
+# bug and are not. Verify with: dig +short app.<domain>   -> the droplet IP.
+
+{
+	# Replace with a real address — Let's Encrypt uses it for expiry warnings.
+	email you@example.com
+}
+
+# ─── The Next.js application ──────────────────────────────────────────────────────
+app.example.me {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# ─── The FastAPI backend ──────────────────────────────────────────────────────────
+api.example.me {
+	encode zstd gzip
+
+	# Sits just above the app's own MAX_UPLOAD_MB=5 so that normal oversized avatars still
+	# reach the handler and come back as the standard {detail, code: "FILE_TOO_LARGE"}
+	# envelope the frontend switches on. Caddy's bare 413 is only a guard for absurd bodies.
+	request_body {
+		max_size 6MB
+	}
+
+	reverse_proxy api:8000 {
+		# REPLACE the header, do not append to it. Any inbound X-Forwarded-For is
+		# attacker-controlled; overwriting it with the real peer means leftmost == rightmost
+		# == truth, so uvicorn's --proxy-headers and slowapi's client_ip() agree and neither
+		# can be spoofed into minting fresh rate-limit buckets on /auth/login.
+		header_up X-Forwarded-For {remote_host}
+	}
+}

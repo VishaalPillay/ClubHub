@@ -1,0 +1,107 @@
+# Production stack for the single droplet: Caddy -> {web, api} -> db.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# SECURITY BOUNDARY, not just a topology. Caddy is the ONLY service that publishes ports.
+# Docker's iptables rules bypass UFW for published ports, so anything with a `ports:` entry
+# is reachable from the internet regardless of the firewall. `expose:` keeps a service on the
+# compose network only — that is what makes FORWARDED_ALLOW_IPS="*" on the api safe, and what
+# keeps Postgres unreachable from outside the box.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # caddy_data holds the ACME account key and issued certificates. Losing this volume
+      # means re-issuing on every restart, which will hit Let's Encrypt rate limits.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        # Inlined into the client bundle at build time — changing these needs
+        # `up -d --build`, not a restart. See frontend/Dockerfile.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+        NEXT_PUBLIC_LANDING_URL: ${NEXT_PUBLIC_LANDING_URL}
+    restart: unless-stopped
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  api:
+    build:
+      context: ./backend
+      args:
+        # No dev extras in production. CI's prod-image job builds with this same value
+        # and proves `import app.main` still works without them.
+        INSTALL_DEV: "false"
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      # Trust proxy headers from any peer. Safe ONLY because port 8000 is never published,
+      # so Caddy on the compose network is the sole possible peer. See backend/entrypoint.sh.
+      FORWARDED_ALLOW_IPS: "*"
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # python:3.12-slim ships no curl and no wget.
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health')
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Generous: the entrypoint runs `alembic upgrade head` before uvicorn binds.
+      start_period: 60s
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Deliberately NO `ports:` — the dev compose publishes 5432, production must not.
+    volumes:
+      - clubhub_pgdata:/var/lib/postgresql/data
+    # Tuned for a 2 GB box shared with Next, uvicorn+Pillow and Caddy. max_connections is
+    # well above the app's ceiling (pool_size 5 + max_overflow 5, one worker) so psql and
+    # the nightly pg_dump always have room.
+    command: postgres -c shared_buffers=256MB -c max_connections=50
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# No adminer here — it is a dev-only convenience and would be an unauthenticated
+# database console on the public internet.
+
+volumes:
+  clubhub_pgdata:
+  caddy_data:
+  caddy_config:
