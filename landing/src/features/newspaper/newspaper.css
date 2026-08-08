@@ -1,0 +1,1962 @@
+@layer theme, base, components, utilities;
+
+/**
+ * ClubHub — Newspaper-on-a-desk landing page.
+ * Scoped stylesheet. Every selector is prefixed `.np-` and lives under
+ * `.np-scope`, which exists on exactly ONE element in the whole app
+ * (frontend/src/app/page.tsx). Nothing here leaks into the app shell.
+ *
+ * ─── WHY THIS FILE EXISTS ────────────────────────────────────────────────────
+ * globals.css deliberately ships zero shadows and zero gradients — that's a real
+ * product invariant for the WIRED-flat app surfaces. A newspaper lying on a wooden
+ * desk needs both. Rather than adding --shadow-* tokens to @theme (which would make
+ * `shadow-paper` a global utility on every route forever), the exception is fenced
+ * into this one file, imported only by the landing route.
+ *
+ * ─── HARD RULES ──────────────────────────────────────────────────────────────
+ * 1. NO @apply, NO theme(). A standalone CSS file has no Tailwind context in v4.
+ *    Write plain CSS against var(--color-*) — those are real runtime custom
+ *    properties emitted by @theme in globals.css.
+ * 2. @layer components, never unlayered. Compiled order is
+ *    `theme, base, components, utilities`, so rules here beat globals.css's
+ *    `*:focus{outline:none}` and `a{text-decoration:underline}` (both in `base`)
+ *    with NO !important, while still losing to Tailwind utilities.
+ *
+ * ─── ☠ NEVER PUT THESE ON .np-stack OR .np-sheet ☠ ───────────────────────────
+ * Per CSS Transforms 2, `transform-style: preserve-3d` silently computes to
+ * `flat` if the element also has any grouping property:
+ *
+ *     overflow ≠ visible  ·  opacity < 1  ·  filter  ·  backdrop-filter
+ *     clip-path  ·  mask-*  ·  mix-blend-mode ≠ normal  ·  isolation: isolate
+ *     contain: paint | content | strict  ·  content-visibility (ANY value —
+ *     it implies paint containment)  ·  will-change naming any of the above
+ *
+ * The failure mode is NOT a crash. The pages just skew and interpenetrate, which
+ * looks like a maths bug — so you go read useSheetMotion.ts and find nothing wrong.
+ * Devtools check: computed `transform-style` on .np-sheet must read `preserve-3d`.
+ *
+ * Direct consequences, all load-bearing:
+ *   · Never animate sheet opacity — fade a child overlay instead.
+ *   · `overflow: clip` goes on .np-stage (which is transform-style: flat). Never .np-stack.
+ *   · The paper-fibre `mix-blend-mode` texture must be a LEAF inside a face.
+ *   · `container-type` / `content-visibility` may only ever go on .np-page-body,
+ *     which is a 2D leaf subtree INSIDE a face — never on the face or the sheet.
+ *   · Keep the 3D chain exactly two levels deep: .np-stack → .np-sheet → faces (leaves).
+ */
+
+@layer components {
+  /* ══ TUNABLES ══════════════════════════════════════════════════════════════
+     Deliberately custom properties so the whole scene is tweakable live in
+     devtools without a rebuild. */
+  .np-scope {
+    /* — stage geometry —
+       Height-driven, NOT width-driven. Deriving the width from the available
+       height pins the sheet to a constant broadsheet aspect at every viewport;
+       a width-driven sheet goes square on short-and-wide laptops (1366×768) and
+       the content no longer fits. 1.38 clears the densest page's natural content
+       ratio (page 1, ~1.345) with a little headroom; measure.mjs in the
+       scratchpad reports the real numbers after any content change. */
+    --np-persp: 2200px;
+    --np-page-h: 88svh;
+    --np-page-w: min(46vw, 760px, calc(var(--np-page-h) / 1.38));
+
+    /* — paper — */
+    --np-paper: #f5f2ec;
+    --np-paper-edge: #e6e0d3;
+    --np-ink: #16150f;
+    --np-ink-soft: #3c382e;
+    --np-ink-mute: #6f6a5c;
+    --np-hair: #cec7b6;
+    --np-hair-quiet: #e0d9ca;
+
+    /* — desk — */
+    --np-desk-base: #6b4a2f;
+
+    /* — shadows (the whole reason this file is scoped) — */
+    --np-shadow-rest: 0 1px 2px rgb(0 0 0 / 0.28), 0 8px 22px -6px rgb(0 0 0 / 0.34);
+    --np-shadow-lift: 0 24px 48px -12px rgb(0 0 0 / 0.5);
+
+    position: relative;
+    color: var(--np-ink);
+  }
+
+  /* ══ MOBILE — the portrait tabloid ═════════════════════════════════════════
+     Below lg the broadsheet becomes a tall single-column tabloid and the desk
+     zooms in so the paper fills the screen. Same turn mechanic throughout.
+
+     The type scale is re-declared wholesale rather than given clamp floors:
+     a floor would break the proportional scaling that makes the page aspect a
+     reliable fit guarantee (see the paper-mode scale below). A tabloid column
+     is narrower, so the multipliers go UP — the sheet is smaller but the text
+     must stay readable, and the taller aspect absorbs the extra height. */
+  @media (width < 1024px) {
+    .np-scope {
+      --np-persp: 1400px;
+      --np-page-h: 86svh;
+      --np-page-w: min(92vw, calc(var(--np-page-h) / 1.70));
+    }
+
+    .np-scope[data-mode="paper"] .np-page-body {
+      --np-t-nameplate: 15cqw;
+      --np-t-lead: 8.6cqw;
+      --np-t-h2: 6.4cqw;
+      --np-t-h3: 4.2cqw;
+      --np-t-h4: 3.4cqw;
+      --np-t-deck: 3.5cqw;
+      --np-t-body: 2.9cqw;
+      --np-t-cap: 2.3cqw;
+      --np-t-micro: 1.95cqw;
+    }
+
+    .np-scope[data-mode="paper"] .np-stage {
+      perspective-origin: 50% 46%;
+    }
+
+    /* A tabloid is one column. The container queries can't decide this for us:
+       a mobile sheet and a 1366-laptop sheet land at nearly the same container
+       width (~365 vs ~417) but want opposite layouts, because the mobile type
+       scale is ~40% larger. Viewport context is the thing that actually differs,
+       so this override is a media query on purpose. */
+    .np-scope[data-mode="paper"] .np-split-57,
+    .np-scope[data-mode="paper"] .np-split-75,
+    .np-scope[data-mode="paper"] .np-split-11 {
+      grid-template-columns: 1fr;
+      gap: 2.4cqw;
+    }
+
+    /* Teasers collapse to a compact index — labels only. */
+    .np-scope[data-mode="paper"] .np-teasers {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .np-scope[data-mode="paper"] .np-teaser-body,
+    .np-scope[data-mode="paper"] .np-teaser-arrow {
+      display: none;
+    }
+
+    .np-scope[data-mode="paper"] .np-ruled-3,
+    .np-scope[data-mode="paper"] .np-ruled-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .np-scope[data-mode="paper"] .np-cols,
+    .np-scope[data-mode="paper"] .np-cols-2 {
+      column-count: 1;
+    }
+
+    /* Every photograph goes landscape. Stacked in one column, a portrait crop
+       would take a third of the sheet on its own. */
+    .np-scope[data-mode="paper"] .np-photo[data-crop] {
+      aspect-ratio: 16 / 9;
+    }
+  }
+
+  /* ══ MODE: PLAIN ═══════════════════════════════════════════════════════════
+     The server-rendered document. Eight <article>s in normal flow, fully
+     visible, zero JS. This is what Googlebot, curl, Reader Mode, print, and
+     no-JS visitors get — and what reduced-motion users keep.
+     `data-mode="paper"` is only ever set client-side, after hydration. */
+  .np-scope {
+    background: var(--color-white);
+  }
+
+  .np-scope .np-stage {
+    display: block;
+  }
+
+  .np-scope .np-sheet-slot {
+    display: block;
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .np-scope .np-sheet {
+    display: block;
+    background: var(--np-paper);
+    border: 2px solid var(--color-black);
+    margin-bottom: 48px;
+  }
+
+  /* Paper-mode-only furniture, hidden in the plain document.
+     MUST be gated on [data-mode="plain"]: ungated, `display: none` at
+     specificity (0,2,0) also won in paper mode, because the paper rules for
+     these elements set `position`/`background` but never `display`. That
+     silently disabled the cast shadow and both shading gradients — the flip ran
+     with none of its lighting and the discard pile rendered as a blank slab.
+
+     `.np-face--back` is NOT in this list any more. It used to be, because the
+     verso was pure decoration; it now holds a real page, and hiding it here
+     would drop half the edition out of the crawlable document. */
+  .np-scope[data-mode="plain"] .np-cast,
+  .np-scope[data-mode="plain"] .np-shade,
+  .np-scope[data-mode="plain"] .np-corner {
+    display: none;
+  }
+
+  /* ══ MODE: PAPER ═══════════════════════════════════════════════════════════
+     The 3D newspaper on a desk. Every rule below is gated on
+     `[data-mode="paper"]`, which only ever exists client-side after hydration.
+
+     The 3D chain is exactly two levels deep and must stay that way:
+         .np-stack (preserve-3d) → .np-sheet (preserve-3d) → .np-face (leaves)
+     `.np-stage` is the CAMERA: it owns `perspective` but stays
+     transform-style: flat, so it may legally carry `overflow: clip`. */
+  .np-scope[data-mode="paper"] {
+    background: var(--np-desk-base);
+  }
+
+  .np-scope[data-mode="paper"] .np-track {
+    position: relative;
+    /* svh, NEVER dvh: a collapsing URL bar would change the track height
+       mid-scroll, which changes scrollYProgress for an unchanged scrollTop and
+       yanks the page mid-turn. */
+    height: calc((var(--np-steps) + 1) * 100svh);
+  }
+
+  /* The WebGL canvas fills the sticky stage. R3F already sizes its container to
+     the parent, so this is belt and braces plus the stacking context. */
+  .np-scope .np-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .np-scope[data-mode="paper"] .np-stage {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    perspective: var(--np-persp);
+    perspective-origin: 50% 42%;
+    overflow: clip;
+  }
+
+  .np-scope[data-mode="paper"] .np-stack {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+
+  /* `display: contents` keeps the 3D chain two levels deep — the slot generates
+     no box, so .np-sheet and .np-cast become direct children of .np-stack.
+     Custom properties (--np-i) still inherit through it. */
+  .np-scope[data-mode="paper"] .np-sheet-slot {
+    display: contents;
+  }
+
+  .np-scope[data-mode="paper"] .np-sheet {
+    position: absolute;
+    /* An unturned sheet sits CENTRED, and its fold is its own left edge
+       (transform-origin: 0 50%) — so a turned sheet swings across to sit flush
+       against it, sharing that edge. The two are adjacent leaves of one open
+       spread, bound at 50% - page-w/2.
+
+       This offset is deliberately the resting geometry rather than a spine at
+       dead centre, because it is also the SAFE one: `.np-stack` is panned to
+       centre the spread while the paper is open (see NewspaperShell), and if
+       that pan is ever zero — first frame, a measure that has not landed, JS
+       disabled mid-flip — what renders is a single centred page. The
+       spine-at-centre alternative fails to a page shoved off the right edge. */
+    left: calc(50% - var(--np-page-w) / 2);
+    top: calc((100svh - var(--np-page-h)) / 2);
+    width: var(--np-page-w);
+    height: var(--np-page-h);
+    margin: 0;
+    border: 0;
+    transform-origin: 0 50%;
+    transform-style: preserve-3d;
+    background: var(--np-paper);
+    box-shadow: var(--np-shadow-rest);
+    /* Unread sheets are coplanar at z=0 and would otherwise paint in DOM order,
+       which is backwards for a stack. Sheets at a non-zero z sort themselves
+       geometrically and ignore this. */
+    z-index: calc(100 - var(--np-i));
+  }
+
+  /* Parked-and-turned sheets hold their pose from a static inline transform set
+     in NewspaperSheet.tsx — it cannot live here, because framer-motion's inline
+     `transform` outranks any stylesheet rule. Only the stacking is CSS: they sit
+     at z=2, above the unread stack, and being coplanar among themselves the
+     z-index keeps the earliest-turned at the bottom of the pile. */
+  .np-scope[data-mode="paper"] .np-sheet[data-turned] {
+    z-index: var(--np-i);
+  }
+
+  /* box-shadow is a paint property — animating it per frame guarantees a missed
+     frame budget. Toggle it on the index change instead; all per-frame shadow
+     work is transform + opacity on .np-cast. */
+  .np-scope[data-mode="paper"] .np-sheet[data-live] {
+    will-change: transform;
+    transition: box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--np-shadow-lift);
+  }
+
+  .np-scope[data-mode="paper"] .np-face {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* An OPAQUE background is the single most effective guard against WebKit's
+       backface bleed-through. Never make a face transparent. */
+    background: var(--np-paper);
+  }
+
+  /* backface-visibility is itself a layer-promotion trigger in Blink and WebKit,
+     so it goes only on sheets that are already promoted — the three live ones
+     and the turned pile (promoted by their static 3D transform). Never on the
+     parked unread sheets, which is where the budget is actually won. */
+  .np-scope[data-mode="paper"] .np-sheet[data-live] .np-face,
+  .np-scope[data-mode="paper"] .np-sheet[data-turned] .np-face {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  /* The 0.01px nudge breaks exact coplanarity with the parent — WebKit renders
+     coplanar backface-hidden children through each other otherwise. */
+  .np-scope[data-mode="paper"] .np-face--front {
+    transform: translateZ(0.01px);
+  }
+
+  .np-scope[data-mode="paper"] .np-face--back {
+    transform: rotateY(180deg) translateZ(0.01px);
+  }
+
+  .np-scope[data-mode="paper"] .np-cast {
+    position: absolute;
+    /* Tracks the sheet it falls from — same origin, same leaf. */
+    left: calc(50% - var(--np-page-w) / 2);
+    top: calc((100svh - var(--np-page-h)) / 2);
+    width: var(--np-page-w);
+    height: var(--np-page-h);
+    transform-origin: 0 50%;
+    pointer-events: none;
+    z-index: 90;
+    background: linear-gradient(
+      to right,
+      rgb(0 0 0 / 0.5) 0%,
+      rgb(0 0 0 / 0.22) 34%,
+      rgb(0 0 0 / 0) 78%
+    );
+  }
+
+  /* Both shades are anchored at the fold, which fakes the slight curl a flat
+     sheet cannot produce on its own. */
+  .np-scope .np-shade {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .np-scope .np-shade--front {
+    background: linear-gradient(
+      to right,
+      rgb(0 0 0 / 0.55) 0%,
+      rgb(0 0 0 / 0.12) 22%,
+      rgb(0 0 0 / 0) 60%
+    );
+  }
+
+  .np-scope .np-shade--back {
+    background: linear-gradient(
+      to left,
+      rgb(0 0 0 / 0.62) 0%,
+      rgb(0 0 0 / 0.18) 26%,
+      rgb(0 0 0 / 0.04) 70%
+    );
+  }
+
+  /* The verso used to be ~14 nodes of faked furniture — a ghost letterform,
+     gradient "text", and one mirrored line of show-through. It is gone: every
+     sheet now carries a real page on its back, which is what a leaf of newsprint
+     actually is, and what makes the pile behind you readable rather than
+     decorative. See NewspaperSheet.tsx. */
+
+  /* ══ THE DELIVERY ══════════════════════════════════════════════════════════
+     The rolled paper thrown onto the desk. See Intro.tsx for why it is built
+     out of strips rather than being a single bent element.
+
+     It occupies the SHEET'S EXACT BOX, because that box is what the roll has to
+     unroll into: at progress 1 every strip is flat and the roll is pixel-aligned
+     with the front page underneath it, so the hand-off is a cross-fade rather
+     than a jump. Intro.tsx measures this element to get its geometry. */
+  .np-scope .np-intro {
+    position: absolute;
+    left: calc(50% - var(--np-page-w) / 2);
+    top: calc((100svh - var(--np-page-h)) / 2);
+    width: var(--np-page-w);
+    height: var(--np-page-h);
+    z-index: 150;
+    transform-style: preserve-3d;
+    pointer-events: none;
+  }
+
+  .np-scope .np-roll {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+
+  .np-scope .np-strip {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    height: 100%;
+    margin-left: -0.5px;
+    transform-origin: 50% 50%;
+    background-color: var(--np-paper);
+    /* Newsprint at a glance — column rules and the suggestion of type. Nothing
+       readable: a rolled paper shows you nothing but its own edge. */
+    background-image:
+      repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 7px),
+      linear-gradient(to right, rgb(0 0 0 / 0.05) 0 1px, transparent 1px);
+    box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.05);
+  }
+
+  /* Cylindrical shading, baked per strip from its resting angle and faded out
+     with the unroll — a flat page must not keep the stripes of the tube. */
+  .np-scope .np-strip i {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  .np-scope .np-roll-band {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    padding: 7px 14px;
+    background: rgb(18 14 10 / 0.92);
+    color: #f2ece0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    white-space: nowrap;
+  }
+
+  /* While the bundle is still in the air there is no paper to look at. Once it
+     starts unrolling the blank sheet appears underneath and the copy fades up,
+     so the roll flattens INTO a page rather than being swapped for one.
+
+     `visibility`, never `opacity`: opacity on .np-stack is a grouping property
+     and would flatten the entire 3D scene (see the warning block at the top of
+     this file). */
+  .np-scope[data-intro="throw"] .np-stack {
+    visibility: hidden;
+  }
+
+  .np-scope[data-intro] .np-page-body {
+    opacity: 0;
+  }
+
+  .np-scope .np-page-body {
+    transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ── The desk ──────────────────────────────────────────────────────────── */
+  .np-scope .np-desk {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* Procedural wood — a stand-in until a real desk plate lands in public/desk/.
+     Grain runs near-horizontal (a desk shot from above reads that way), at low
+     contrast: this only has to be a believable surface for the paper to sit on,
+     not a convincing photograph. Replacing DESK.plate retires it entirely. */
+  .np-scope .np-desk-proc {
+    position: absolute;
+    inset: 0;
+    background-color: #6b4a2f;
+    background-image:
+      repeating-linear-gradient(
+        1.5deg,
+        rgb(0 0 0 / 0.055) 0 3px,
+        rgb(255 255 255 / 0.02) 3px 7px,
+        transparent 7px 26px
+      ),
+      repeating-linear-gradient(
+        -0.8deg,
+        rgb(0 0 0 / 0.04) 0 1px,
+        transparent 1px 61px
+      ),
+      radial-gradient(ellipse 40% 120% at 22% 40%, rgb(0 0 0 / 0.07), transparent 60%),
+      radial-gradient(ellipse 30% 90% at 78% 65%, rgb(255 255 255 / 0.03), transparent 60%),
+      linear-gradient(168deg, #7f5a38 0%, #6a4830 44%, #503522 100%);
+  }
+
+  .np-scope .np-desk-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 76% 68% at 42% 34%,
+      rgb(255 245 225 / 0.16) 0%,
+      rgb(0 0 0 / 0) 46%,
+      rgb(0 0 0 / 0.42) 100%
+    );
+  }
+
+  /* ── Corner affordance ─────────────────────────────────────────────────── */
+  .np-scope[data-mode="paper"] .np-corner {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 8.5%;
+    aspect-ratio: 1;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    z-index: 5;
+    background: linear-gradient(
+      315deg,
+      rgb(0 0 0 / 0.14) 0%,
+      rgb(0 0 0 / 0.05) 42%,
+      transparent 62%
+    );
+    transition: background-color 150ms linear;
+  }
+
+  .np-scope[data-mode="paper"] .np-corner::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 62%;
+    aspect-ratio: 1;
+    background: linear-gradient(315deg, var(--np-paper-edge) 0 50%, transparent 50%);
+    border-left: 1px solid var(--np-hair);
+    border-top: 1px solid var(--np-hair);
+    opacity: 0;
+    transition: opacity 150ms linear;
+  }
+
+  .np-scope[data-mode="paper"] .np-corner:hover::after,
+  .np-scope[data-mode="paper"] .np-corner:focus-visible::after {
+    opacity: 1;
+  }
+
+  /* The way back. Mirrored to the bottom-LEFT, which is honest rather than
+     decorative: the fold is the sheet's own left edge, so that is the side the
+     page you just turned is lying on. With the controls bar gone this is the
+     only pointer route to the previous page. */
+  .np-scope[data-mode="paper"] .np-corner--prev {
+    right: auto;
+    left: 0;
+    background: linear-gradient(
+      45deg,
+      rgb(0 0 0 / 0.14) 0%,
+      rgb(0 0 0 / 0.05) 42%,
+      transparent 62%
+    );
+  }
+
+  .np-scope[data-mode="paper"] .np-corner--prev::after {
+    right: auto;
+    left: 0;
+    background: linear-gradient(45deg, var(--np-paper-edge) 0 50%, transparent 50%);
+    border-left: 0;
+    border-right: 1px solid var(--np-hair);
+  }
+
+  /* ── Progress hairline ─────────────────────────────────────────────────── */
+  .np-scope .np-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--color-black);
+    transform-origin: 0 50%;
+    z-index: 70;
+  }
+
+  /* ══ PAGE BODY — the shared editorial type system ═══════════════════════════
+     Sized in `cqw` (1% of the page's own inline size) so the entire newspaper
+     scales as one physical object whether the sheet is 430px or 720px wide.
+     This is why container queries are the right tool here and viewport media
+     queries are not: the sheet is a fixed-size box that has no idea how wide
+     the viewport is. */
+  .np-scope .np-page-body {
+    container-type: inline-size;
+    container-name: page;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    /* NO padding here. `cqw` on the container element itself resolves against
+       the VIEWPORT, not the container — so viewport-relative padding ate a
+       disproportionate share of a narrower sheet and pushed the query container
+       below the two-column breakpoint, silently stacking every page at 1366.
+       Padding lives on the children, inside the container, where cqw is
+       sheet-relative. Consequence: the query container is now exactly the sheet
+       width, which is what the breakpoints below are calibrated against. */
+    background: var(--np-paper);
+    overflow: hidden;
+
+    --np-t-nameplate: clamp(38px, 13cqw, 112px);
+    --np-t-lead: clamp(26px, 7.4cqw, 60px);
+    --np-t-h2: clamp(21px, 5.4cqw, 44px);
+    --np-t-h3: clamp(15px, 3.2cqw, 26px);
+    --np-t-h4: clamp(12.5px, 2.5cqw, 19px);
+    --np-t-deck: clamp(12.5px, 2.7cqw, 21px);
+    --np-t-body: clamp(10.5px, 2.05cqw, 15px);
+    --np-t-cap: clamp(8px, 1.55cqw, 11.5px);
+    --np-t-micro: clamp(6.5px, 1.28cqw, 9.5px);
+  }
+
+  /* In paper mode the type scale is PURELY proportional — no clamp floors.
+     A floor makes type relatively larger on a narrower sheet, so content grows
+     taller relative to its width and the fixed-height page overflows. Dropping
+     the floors keeps chars-per-line (and therefore line count, and therefore
+     content aspect ratio) invariant at every viewport, which is what makes the
+     1.30 page aspect above a reliable guarantee rather than a guess.
+     The mobile reflow re-scales these wholesale rather than reinstating floors. */
+  .np-scope[data-mode="paper"] .np-page-body,
+  .np-scope[data-render="page"] .np-page-body {
+    --np-t-nameplate: 13cqw;
+    --np-t-lead: 7.4cqw;
+    --np-t-h2: 5.4cqw;
+    --np-t-h3: 3.2cqw;
+    --np-t-h4: 2.5cqw;
+    --np-t-deck: 2.7cqw;
+    --np-t-body: 2.05cqw;
+    --np-t-cap: 1.55cqw;
+    --np-t-micro: 1.28cqw;
+  }
+
+  /* ══ RENDER MODE ═══════════════════════════════════════════════════════════
+     What `scripts/render-pages.mjs` photographs.
+
+     The pages the 3D scene shows are textures, and this is where they come from:
+     the real HTML, laid out at exactly the sheet geometry, in normal flow so a
+     browser can screenshot each one. It is neither of the two reading modes —
+     plain mode has a different (clamped) type scale, and paper mode no longer
+     puts the pages in the DOM at all now that the scene is WebGL.
+
+     So this attribute is the ONLY thing keeping the texture pipeline
+     re-runnable when the copy changes. It shares the paper-mode type scale
+     above rather than restating it, which is the whole point: one source of
+     truth for the typography the textures are baked from. */
+  .np-scope[data-render="page"] .np-page-body {
+    width: 574px;
+    height: 792px;
+    container-type: inline-size;
+  }
+
+  /**
+   * The em base for everything inside a page.
+   *
+   * This MUST live on a child of `.np-page-body`, never on `.np-page-body`
+   * itself: a container query container cannot query itself, so a `cqw` value
+   * used on `.np-page-body` skips it and resolves against the next ancestor
+   * container — or, failing that, the viewport. Setting `font-size: 2.05cqw`
+   * there silently produced ~39px type at 1920 instead of ~13px.
+   *
+   * With the base here, every `em` padding and gap inside a page scales with the
+   * sheet, which is what keeps each page's content aspect ratio constant and
+   * makes the 1.30 page aspect a reliable fit guarantee.
+   */
+  .np-scope .np-page-inner {
+    font-size: var(--np-t-body);
+    flex: 1;
+    min-height: 0;
+    padding: 3.4cqw 4.1cqw 0;
+  }
+
+  /* Running foot — terminates every page at the bottom of the sheet. */
+  .np-scope .np-page-foot {
+    flex: none;
+    padding: 1.6cqw 4.1cqw 3.4cqw;
+    font-size: var(--np-t-body);
+  }
+
+  .np-scope .np-page-foot-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 2cqw;
+    padding-top: 0.7cqw;
+  }
+
+  .np-scope[data-mode="plain"] .np-page-foot {
+    display: none;
+  }
+
+  /* Newsprint tooth. A LEAF overlay — see the warning block above. */
+  .np-scope .np-page-body::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.55;
+    mix-blend-mode: multiply;
+    background-image: radial-gradient(circle, rgb(0 0 0 / 0.05) 0.5px, transparent 0.6px);
+    background-size: 3px 3px;
+  }
+
+  .np-scope .np-page-body {
+    position: relative;
+  }
+
+  /* — headings — */
+  .np-scope .np-page-body :is(h1, h2, h3, h4) {
+    font-family: var(--font-display);
+    color: var(--np-ink);
+    text-wrap: balance;
+  }
+
+  .np-scope .np-nameplate {
+    font-size: var(--np-t-nameplate);
+    white-space: nowrap;
+    font-weight: 700;
+    line-height: 0.78;
+    letter-spacing: -0.045em;
+    text-transform: uppercase;
+    text-align: center;
+    margin: 0;
+  }
+
+  .np-scope .np-lead-head {
+    font-size: var(--np-t-lead);
+    font-weight: 700;
+    line-height: 0.92;
+    letter-spacing: -0.03em;
+    margin: 0;
+  }
+
+  .np-scope .np-head {
+    font-size: var(--np-t-h2);
+    font-weight: 400;
+    line-height: 1.0;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .np-scope .np-subhead {
+    font-size: var(--np-t-h3);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.012em;
+    margin: 0;
+  }
+
+  .np-scope .np-minihead {
+    font-size: var(--np-t-h4);
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0;
+  }
+
+  /* — body copy: justified with hyphenation, like real newsprint — */
+  /* Left-aligned, not justified. Real newsprint justifies, but at these narrow
+     web measures the browser opens rivers of white space between words — the
+     newspaper feel here comes from the rules, mastheads and drop caps instead.
+     `.np-cols` opts back into justification where the measure is controlled. */
+  .np-scope .np-body {
+    font-family: var(--font-body);
+    font-size: var(--np-t-body);
+    line-height: 1.5;
+    color: var(--np-ink-soft);
+    text-align: left;
+    hyphens: auto;
+    margin: 0;
+  }
+
+  .np-scope .np-cols .np-body {
+    text-align: justify;
+  }
+
+  .np-scope .np-body + .np-body {
+    text-indent: 1.4em;
+    margin-top: 0.25em;
+  }
+
+  .np-scope .np-deck {
+    font-family: var(--font-body);
+    font-size: var(--np-t-deck);
+    line-height: 1.42;
+    color: var(--np-ink-soft);
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  /* — furniture: eyebrows, folios, datelines — */
+  .np-scope .np-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--np-ink);
+    margin: 0;
+  }
+
+  .np-scope .np-micro {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--np-ink-mute);
+    margin: 0;
+  }
+
+  .np-scope .np-byline {
+    font-family: var(--font-body);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 2.2;
+    color: var(--np-ink-mute);
+    margin: 0;
+  }
+
+  /* — drop cap: the single most "newspaper" typographic move — */
+  .np-scope .np-dropcap::first-letter {
+    float: left;
+    font-family: var(--font-display);
+    font-size: 3.05em;
+    line-height: 0.82;
+    font-weight: 700;
+    padding: 0.04em 0.09em 0 0;
+    color: var(--np-ink);
+  }
+
+  /* — rules — */
+  .np-scope .np-rule {
+    border: 0;
+    border-top: 2px solid var(--color-black);
+    margin: 0;
+  }
+
+  .np-scope .np-rule-thin {
+    border: 0;
+    border-top: 1px solid var(--np-hair);
+    margin: 0;
+  }
+
+  .np-scope .np-rule-double {
+    border: 0;
+    border-top: 3px double var(--color-black);
+    margin: 0;
+  }
+
+  /* — multi-column text, driven by the page's own width — */
+  .np-scope .np-cols {
+    column-count: 1;
+    column-gap: 3.4cqw;
+    column-rule: 1px solid var(--np-hair);
+  }
+
+  @container page (min-width: 400px) {
+    .np-scope .np-cols {
+      column-count: 2;
+    }
+  }
+
+  @container page (min-width: 620px) {
+    .np-scope .np-cols {
+      column-count: 3;
+    }
+  }
+
+  .np-scope .np-cols-2 {
+    column-count: 1;
+    column-gap: 3.4cqw;
+    column-rule: 1px solid var(--np-hair);
+  }
+
+  @container page (min-width: 400px) {
+    .np-scope .np-cols-2 {
+      column-count: 2;
+    }
+  }
+
+  .np-scope .np-nobreak {
+    break-inside: avoid;
+  }
+
+  /* — photographs: printed, not rendered — */
+  .np-scope .np-photo[data-crop="wide"] {
+    aspect-ratio: 16 / 10;
+  }
+
+  .np-scope .np-photo[data-crop="tall"] {
+    aspect-ratio: 4 / 5;
+  }
+
+  .np-scope .np-photo[data-crop="square"] {
+    aspect-ratio: 1;
+  }
+
+  .np-scope .np-photo {
+    position: relative;
+    overflow: hidden;
+    background: var(--np-paper-edge);
+    border: 1px solid var(--np-hair);
+  }
+
+  .np-scope .np-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: grayscale(1) contrast(1.28) brightness(1.04);
+  }
+
+  /* Halftone screen — synthesized, no asset required. LEAF element. */
+  .np-scope .np-photo::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    opacity: 0.42;
+    background-image: radial-gradient(circle, rgb(0 0 0 / 0.62) 0.68px, transparent 0.8px);
+    background-size: 3px 3px;
+  }
+
+  .np-scope .np-figure {
+    margin: 0;
+  }
+
+  /* "Art to come" — real newspaper furniture, not a broken image. */
+  .np-scope .np-photo-hold {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: repeating-linear-gradient(
+      -45deg,
+      var(--np-hair-quiet) 0 1px,
+      transparent 1px 9px
+    );
+  }
+
+  .np-scope .np-photo-hold .np-micro {
+    background: var(--np-paper);
+    padding: 0.5em 0.9em;
+    border: 1px solid var(--np-hair);
+  }
+
+  .np-scope .np-figcaption {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    color: var(--np-ink-mute);
+    padding-top: 0.6em;
+    line-height: 1.5;
+  }
+
+  /* — boxed sidebars — */
+  .np-scope .np-box {
+    border: 2px solid var(--color-black);
+    padding: 2.4cqw 2.6cqw;
+  }
+
+  .np-scope .np-box-invert {
+    background: var(--color-black);
+    color: #f2efe8;
+    border: 2px solid var(--color-black);
+    padding: 2.4cqw 2.6cqw;
+  }
+
+  .np-scope .np-box-invert :is(h1, h2, h3, h4),
+  .np-scope .np-box-invert .np-eyebrow {
+    color: #f7f4ee;
+  }
+
+  .np-scope .np-box-invert .np-body,
+  .np-scope .np-box-invert .np-deck {
+    color: #cdc8bb;
+  }
+
+  .np-scope .np-box-invert .np-micro {
+    color: #9c968a;
+  }
+
+  /* — links & CTAs inside the paper —
+     Scoped with :not() so the generic anchor reset (specificity 0,2,1) cannot
+     out-rank the CTA rules below (0,2,0) and clobber their colour. */
+  .np-scope .np-page-body a:not([class*="np-cta"]) {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .np-scope .np-cta {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    padding: 0.95em 1.9em;
+    border: 2px solid var(--color-black);
+    background: var(--color-black);
+    color: #f7f4ee;
+    transition: background-color 150ms linear, color 150ms linear;
+  }
+
+  .np-scope .np-cta:hover {
+    background: transparent;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-cta-ghost {
+    display: inline-block;
+    font-family: var(--font-ui);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    padding: 0.95em 1.9em;
+    border: 2px solid var(--color-black);
+    background: transparent;
+    color: var(--np-ink);
+    transition: background-color 150ms linear, color 150ms linear;
+  }
+
+  .np-scope .np-cta-ghost:hover {
+    background: var(--color-black);
+    color: #f7f4ee;
+  }
+
+  /* The edition's single chromatic moment — page 8's back-page advertisement.
+     DESIGN-wired reserves #057dbc for inline body links; using it once, on the
+     final CTA, is the deliberate exception the old ClosingCTA already made. */
+  .np-scope .np-cta-blue {
+    background: var(--color-link-blue);
+    border-color: var(--color-link-blue);
+    color: #ffffff;
+  }
+
+  .np-scope .np-cta-blue:hover {
+    background: var(--color-black);
+    border-color: var(--color-black);
+    color: #f7f4ee;
+  }
+
+  /* ══ PAGE LAYOUT PRIMITIVES ════════════════════════════════════════════════
+     A deliberately small set. Everything is expressed in cqw so a page composes
+     identically at any sheet width; the 1-column collapse below 400cqw is the
+     mobile tabloid reflow. */
+  /* Vertical rhythm is deliberately tight: in paper mode each page is a
+     fixed-height sheet with `overflow: hidden`, so slack here is content lost.
+     Run scratchpad/measure.mjs after any content change to confirm every page
+     still fits at 1440×900. */
+  .np-scope .np-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4cqw;
+  }
+
+  .np-scope .np-flow-tight {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8cqw;
+  }
+
+  .np-scope .np-split-57,
+  .np-scope .np-split-75,
+  .np-scope .np-split-11 {
+    display: grid;
+    gap: 3.2cqw;
+    align-items: start;
+  }
+
+  @container page (min-width: 400px) {
+    .np-scope .np-split-57 {
+      grid-template-columns: 5fr 7fr;
+    }
+    .np-scope .np-split-75 {
+      grid-template-columns: 7fr 5fr;
+    }
+    .np-scope .np-split-11 {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Hairline grid — the repo's `gap-px over a background` idiom. */
+  .np-scope .np-ruled {
+    display: grid;
+    gap: 1px;
+    background: var(--color-black);
+    border: 2px solid var(--color-black);
+    grid-template-columns: 1fr;
+  }
+
+  .np-scope .np-ruled > * {
+    background: var(--np-paper);
+    padding: 1.8cqw 1.9cqw;
+  }
+
+  .np-scope .np-ruled--invert > * {
+    background: var(--color-black);
+    color: #ddd8cc;
+  }
+
+  @container page (min-width: 400px) {
+    .np-scope .np-ruled-2,
+    .np-scope .np-ruled-3,
+    .np-scope .np-ruled-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container page (min-width: 400px) {
+    .np-scope .np-ruled-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .np-scope .np-ruled-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .np-scope .np-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2cqw;
+  }
+
+  .np-scope .np-spacer {
+    flex: 1;
+  }
+
+  /* ══ MASTHEAD ══════════════════════════════════════════════════════════════
+     Page 1's nameplate band, following the reference broadsheet: dateline left,
+     nameplate centre, standing tagline right. */
+  .np-scope .np-masthead-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 2cqw;
+    padding: 2.4cqw 0 1.6cqw;
+  }
+
+  .np-scope .np-masthead-side {
+    max-width: 26ch;
+    line-height: 1.6;
+    letter-spacing: 0.1em;
+  }
+
+  .np-scope .np-masthead-side--right {
+    text-align: right;
+    margin-left: auto;
+  }
+
+  .np-scope .np-masthead-credits {
+    display: flex;
+    justify-content: space-between;
+    gap: 2cqw;
+    padding-bottom: 1.5cqw;
+  }
+
+  /* The reading-mode switch, set as masthead small print — the same slot a real
+     paper uses for "also available in large type". Deliberately looks printed
+     rather than clickable at rest; it is a standing notice, not a button. */
+  .np-scope .np-plainnotice {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--np-ink-mute);
+    border-bottom: 1px solid var(--np-hair);
+    transition:
+      color 150ms linear,
+      border-color 150ms linear;
+  }
+
+  .np-scope .np-plainnotice:hover {
+    color: var(--np-ink);
+    border-bottom-color: var(--np-ink);
+  }
+
+  /* Running head on pages 2–8. */
+  .np-scope .np-runhead {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: baseline;
+    gap: 2cqw;
+    padding: 1.1cqw 0;
+  }
+
+  .np-scope .np-runhead-right {
+    text-align: right;
+  }
+
+  /* Front-page teaser row — table of contents and navigation at once. */
+  .np-scope .np-teasers {
+    display: grid;
+    gap: 1px;
+    background: var(--np-hair);
+    grid-template-columns: 1fr;
+    margin-top: 1px;
+  }
+
+  @container page (min-width: 415px) {
+    .np-scope .np-teasers {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container page (min-width: 415px) {
+    .np-scope .np-teasers {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .np-scope .np-teaser {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45em;
+    background: var(--np-paper);
+    border: 0;
+    padding: 1.6cqw 1.5cqw 1.4cqw;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: background-color 150ms linear;
+  }
+
+  .np-scope .np-teaser:hover {
+    background: #ebe6db;
+  }
+
+  .np-scope .np-teaser-body {
+    font-family: var(--font-body);
+    font-size: var(--np-t-cap);
+    line-height: 1.45;
+    color: var(--np-ink-soft);
+  }
+
+  .np-scope .np-teaser-arrow {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-cap);
+    color: var(--np-ink-mute);
+    margin-top: auto;
+  }
+
+  /* The section rule — real navigation, set as newspaper furniture. */
+  .np-scope .np-sections {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0 3.4cqw;
+    padding: 1.15cqw 0;
+  }
+
+  .np-scope .np-section-link {
+    position: relative;
+    background: none;
+    border: 0;
+    padding: 0.15em 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--np-ink);
+    border-bottom: 2px solid transparent;
+    transition: border-color 150ms linear, color 150ms linear;
+  }
+
+  .np-scope .np-section-link:hover {
+    border-bottom-color: var(--color-black);
+  }
+
+  .np-scope .np-section-link[aria-current="true"] {
+    border-bottom-color: var(--color-black);
+  }
+
+  /* Separator dots between section labels, like the reference. */
+  .np-scope .np-sections .np-section-link + .np-section-link::before {
+    content: "•";
+    position: absolute;
+    left: -1.9cqw;
+    border: 0;
+    color: var(--np-ink-mute);
+    font-weight: 400;
+  }
+
+  /* ══ LETTERS (page 7) ══════════════════════════════════════════════════════ */
+  .np-scope .np-letter {
+    margin: 0;
+    border-top: 2px solid var(--color-black);
+    padding-top: 1em;
+  }
+
+  .np-scope .np-quote {
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: var(--np-t-deck);
+    line-height: 1.32;
+    color: var(--np-ink);
+    margin: 0 0 0.7em;
+    text-wrap: pretty;
+  }
+
+  .np-scope .np-step {
+    display: grid;
+    grid-template-columns: 2.4em minmax(0, 1fr);
+    gap: 0.8em;
+    align-items: start;
+  }
+
+  .np-scope .np-step-no {
+    font-family: var(--font-display);
+    font-size: var(--np-t-h4);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--np-ink);
+  }
+
+  /* ══ BACK PAGE (page 8) ════════════════════════════════════════════════════ */
+  .np-scope .np-faq {
+    border-bottom: 1px solid var(--np-hair-quiet);
+  }
+
+  .np-scope .np-faq summary {
+    display: flex;
+    align-items: baseline;
+    gap: 0.8em;
+    list-style: none;
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: var(--np-t-h4);
+    font-weight: 700;
+    padding: 0.75em 0;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-faq summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* The +/− glyph is drawn from content so the markup carries no duplicate
+     spans, and it flips purely on the native [open] state — still zero JS. */
+  .np-scope .np-faq-glyph {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--np-ink-mute);
+    flex: none;
+    width: 1em;
+  }
+
+  .np-scope .np-faq-glyph::before {
+    content: "+";
+  }
+
+  .np-scope .np-faq[open] .np-faq-glyph::before {
+    content: "−";
+  }
+
+  .np-scope .np-faq > p {
+    padding: 0 0 0.9em 1.8em;
+  }
+
+  .np-scope .np-advert {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9cqw;
+    text-align: center;
+    padding: 1.6cqw 0;
+  }
+
+  .np-scope .np-colophon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2cqw;
+    padding-top: 1.2cqw;
+  }
+
+  .np-scope .np-colophon-nav {
+    display: flex;
+    gap: 1.6cqw;
+  }
+
+  .np-scope .np-colophon-nav a {
+    border-bottom: 1px solid var(--np-hair);
+  }
+
+  /* ══ ROLE LADDER (page 6) ══════════════════════════════════════════════════
+     Seven rungs as a vertical masthead box. The president rung stays inverted,
+     as it was in the old RolesLadder grid. */
+  .np-scope .np-ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 2px solid var(--color-black);
+    border-bottom: 0;
+  }
+
+  /* Rank number gutter, then title over description. Two columns, never three —
+     the ladder has to survive being placed in a narrow page column, where a
+     third `1fr` track collapses to one word per line. */
+  .np-scope .np-rung {
+    display: grid;
+    grid-template-columns: 2.9em minmax(0, 1fr);
+    gap: 0.15em 0.8em;
+    align-items: baseline;
+    padding: 0.7em 1em;
+    border-bottom: 1px solid var(--np-hair);
+  }
+
+  .np-scope .np-rung-no {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .np-scope .np-rung-title,
+  .np-scope .np-rung-body {
+    grid-column: 2;
+  }
+
+  .np-scope .np-rung--top {
+    background: var(--color-black);
+    border-bottom-color: var(--color-black);
+  }
+
+  .np-scope .np-rung-no {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    letter-spacing: 0.16em;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-rung-title {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-rung-body {
+    font-family: var(--font-ui);
+    font-size: var(--np-t-cap);
+    line-height: 1.45;
+    color: var(--np-ink-soft);
+  }
+
+  .np-scope .np-rung--top .np-rung-no {
+    color: #8d8779;
+  }
+
+  .np-scope .np-rung--top .np-rung-title {
+    color: #f7f4ee;
+  }
+
+  .np-scope .np-rung--top .np-rung-body {
+    color: #cdc8bb;
+  }
+
+  /* ══ LISTINGS (page 5) ═════════════════════════════════════════════════════ */
+  .np-scope .np-listings {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .np-scope .np-listing {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9em;
+    align-items: baseline;
+    padding: 0.6em 0;
+    border-bottom: 1px solid var(--np-hair-quiet);
+  }
+
+  .np-scope .np-listing dt {
+    margin: 0;
+  }
+
+  .np-scope .np-listing dd {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25em;
+  }
+
+  /* ══ LEAGUE TABLE ══════════════════════════════════════════════════════════
+     Page 4's standings, set like a sports-page results table. */
+  .np-scope .np-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-ui);
+    font-size: var(--np-t-cap);
+  }
+
+  .np-scope .np-table th {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    text-align: left;
+    color: var(--np-ink-mute);
+    padding: 0.6em 0.7em;
+    border-top: 2px solid var(--color-black);
+    border-bottom: 1px solid var(--color-black);
+  }
+
+  .np-scope .np-table td {
+    padding: 0.62em 0.7em;
+    border-bottom: 1px solid var(--np-hair-quiet);
+    color: var(--np-ink-soft);
+  }
+
+  .np-scope .np-table tbody tr:first-child td {
+    background: #ece7db;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-table .np-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ══ PLATES ════════════════════════════════════════════════════════════════
+     The product-UI mocks, ported from features/marketing/FeatureStories.tsx and
+     ProductMock.tsx. Their structure is unchanged; the hard-coded px type sizes
+     are re-expressed against the page's cqw scale so a plate stays legible
+     whether the sheet is 430px or 720px wide. */
+  .np-scope .np-plate {
+    border: 2px solid var(--color-black);
+    background: #fdfcf9;
+    font-family: var(--font-ui);
+  }
+
+  .np-scope .np-plate-bar {
+    display: flex;
+    justify-content: space-between;
+    gap: 1em;
+    padding: 0.75em 1.1em;
+    border-bottom: 2px solid var(--color-black);
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-plate-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85em;
+    padding: 0.68em 1.1em;
+    border-bottom: 1px solid var(--np-hair-quiet);
+    font-size: var(--np-t-cap);
+  }
+
+  .np-scope .np-plate-row:last-child {
+    border-bottom: 0;
+  }
+
+  .np-scope .np-plate-name {
+    flex: 1;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .np-scope .np-plate-grid {
+    display: grid;
+    gap: 1px;
+    background: var(--color-black);
+  }
+
+  .np-scope .np-plate-cell {
+    background: #fdfcf9;
+    padding: 0.9em 0.85em;
+  }
+
+  .np-scope .np-plate-pad {
+    padding: 1.1em;
+  }
+
+  /* role pills */
+  .np-scope .np-pill {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border: 1px solid var(--color-black);
+    padding: 0.2em 0.55em;
+    white-space: nowrap;
+  }
+
+  .np-scope .np-pill--on {
+    background: var(--color-black);
+    color: #f7f4ee;
+  }
+
+  /* initials avatar */
+  .np-scope .np-avatar {
+    width: 2.15em;
+    height: 2.15em;
+    border-radius: 50%;
+    border: 2px solid var(--color-black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    font-weight: 700;
+    flex: none;
+  }
+
+  .np-scope .np-avatar--on {
+    background: var(--color-black);
+    color: #f7f4ee;
+  }
+
+  /* task checkbox */
+  .np-scope .np-check {
+    width: 0.82em;
+    height: 0.82em;
+    border: 2px solid var(--color-black);
+    flex: none;
+  }
+
+  .np-scope .np-check--on {
+    background: var(--color-black);
+  }
+
+  .np-scope .np-done {
+    text-decoration: line-through;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-pts {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* leaderboard bars */
+  .np-scope .np-bar {
+    position: relative;
+    height: 0.9em;
+    background: #e8e4da;
+  }
+
+  .np-scope .np-bar-fill {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    background: var(--color-black);
+  }
+
+  /* dashboard tabs + metrics */
+  .np-scope .np-tabrow {
+    display: flex;
+    border-bottom: 1px solid var(--np-hair-quiet);
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+  }
+
+  .np-scope .np-tab {
+    padding: 0.6em 1.1em;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-tab--on {
+    border-bottom: 2px solid var(--color-black);
+    font-weight: 700;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-metric-n {
+    font-family: var(--font-display);
+    font-size: var(--np-t-h3);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .np-scope .np-tag {
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    background: var(--color-black);
+    color: #f7f4ee;
+    padding: 0.25em 0.6em;
+  }
+
+  .np-scope .np-code {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    border: 2px dashed var(--color-black);
+    padding: 0.8em 1.1em;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: var(--np-t-h4);
+    letter-spacing: 0.14em;
+  }
+
+  /* ══ FOCUS ═════════════════════════════════════════════════════════════════
+     globals.css has `*:focus { outline: none }` in @layer base with no
+     :focus-visible replacement (a WCAG 2.4.7 failure app-wide — worth its own
+     ticket). Layer order alone lets us restore it here, no !important needed.
+
+     Deliberately NOT `[tabindex]` — the page <article> carries tabIndex={-1} as a
+     programmatic scroll/focus target, and ringing a whole page is noise. */
+  .np-scope :is(a, button, summary):focus-visible {
+    outline: 2px solid var(--color-link-blue);
+    outline-offset: 3px;
+  }
+
+  /* ══ SCROLL ════════════════════════════════════════════════════════════════
+     `:has()` auto-scopes this to the landing route with zero JS and zero cleanup
+     bugs — no effect setting styles on <html> and no risk of leaving them behind.
+
+     CSS scroll-snap USED to live here and is deliberately gone. Lenis owns the
+     scroll position in paper mode, and a snap engine plus a lerp both writing
+     the same scrollTop judders at every page boundary. Its replacement is the
+     debounced settle in useLenis.ts, which is strictly better anyway: there is
+     no readable state between pages (at pos 3.5 the sheet is edge-on), so the
+     only question was ever *when* to land, and "once the reader stops pushing"
+     beats "whenever a snap port drifts into range".
+
+     `scroll-behavior: smooth` is gone for the same reason — native smooth
+     scrolling and Lenis fight over the same property. Programmatic jumps go
+     through `lenis.scrollTo`. */
+  html:has(.np-scope[data-mode="paper"]) {
+    overscroll-behavior-y: contain;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html:has(.np-scope) {
+      scroll-behavior: auto;
+    }
+  }
+
+  /* ══ CONTROLS ══════════════════════════════════════════════════════════════
+     Fixed, and rendered OUTSIDE .np-stage — a `perspective` ancestor becomes the
+     containing block for fixed descendants and would trap and skew this bar. */
+  .np-scope .np-controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 20px;
+    background: rgb(18 14 10 / 0.9);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid rgb(255 255 255 / 0.14);
+    color: #efe9dd;
+  }
+
+  .np-scope[data-mode="plain"] .np-controls {
+    position: sticky;
+    background: var(--color-black);
+    backdrop-filter: none;
+  }
+
+  .np-scope .np-controls-mark {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+  }
+
+  .np-scope .np-pager {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .np-scope .np-pager button {
+    background: none;
+    border: 1px solid rgb(255 255 255 / 0.32);
+    color: #efe9dd;
+    width: 26px;
+    height: 26px;
+    line-height: 1;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 150ms linear, opacity 150ms linear;
+  }
+
+  .np-scope .np-pager button:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.16);
+  }
+
+  .np-scope .np-pager button:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  .np-scope .np-folio {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .np-scope .np-controls-sections {
+    margin-left: auto;
+  }
+
+  /* The section rule inherits the paper's cqw type scale, which is meaningless
+     out here on the blotter — pin it to fixed px instead. */
+  .np-scope .np-sections--compact {
+    padding: 0;
+    gap: 0 22px;
+  }
+
+  .np-scope .np-sections--compact .np-section-link {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: #cfc7b8;
+  }
+
+  .np-scope .np-sections--compact .np-section-link::before {
+    left: -13px;
+    color: rgb(255 255 255 / 0.3);
+  }
+
+  .np-scope .np-sections--compact .np-section-link:hover,
+  .np-scope .np-sections--compact .np-section-link[aria-current="true"] {
+    color: #ffffff;
+    border-bottom-color: #ffffff;
+  }
+
+  .np-scope .np-controls-auth {
+    display: flex;
+    gap: 8px;
+  }
+
+  .np-scope .np-authbtn {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-decoration: none;
+    letter-spacing: 0.04em;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    padding: 6px 14px;
+    transition: background-color 150ms linear, color 150ms linear;
+  }
+
+  .np-scope .np-authbtn:hover {
+    background: #ffffff;
+    color: #14110c;
+  }
+
+  .np-scope .np-authbtn--solid {
+    background: #ffffff;
+    color: #14110c;
+  }
+
+  .np-scope .np-authbtn--solid:hover {
+    background: transparent;
+    color: #ffffff;
+  }
+
+  @media (width < 900px) {
+    .np-scope .np-controls-sections {
+      display: none;
+    }
+
+    .np-scope .np-controls {
+      gap: 12px;
+      justify-content: space-between;
+    }
+
+    .np-scope .np-folio {
+      font-size: 10px;
+    }
+
+    .np-scope .np-controls-auth .np-authbtn:not(.np-authbtn--solid) {
+      display: none;
+    }
+  }
+
+  /* ══ SCREEN-READER UTILITIES ═══════════════════════════════════════════════ */
+  .np-skiplinks {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    z-index: 200;
+    display: flex;
+    gap: 8px;
+  }
+
+  .np-skip {
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    background: var(--color-black);
+    color: #ffffff;
+    border: 0;
+    padding: 12px 18px;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .np-skip:focus {
+    width: auto;
+    height: auto;
+    clip-path: none;
+  }
+
+  .np-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* ══ PRINT ═════════════════════════════════════════════════════════════════
+     Print always gets plain mode — same code path as reduced-motion. */
+  @media print {
+    .np-scope .np-desk,
+    .np-scope .np-controls,
+    .np-scope .np-corner,
+    .np-scope .np-progress {
+      display: none !important;
+    }
+
+    .np-scope .np-sheet-slot {
+      break-after: page;
+    }
+  }
+}

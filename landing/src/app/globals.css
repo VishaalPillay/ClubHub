@@ -1,0 +1,125 @@
+/* MUST be the first statement in this file — it pins the cascade-layer order.
+ *
+ * newspaper.css declares the identical order on its own line 1, but this file is imported
+ * by layout.tsx and therefore evaluates first, so the order is fixed here. Getting it wrong
+ * is not a build error, it is a silent visual regression: newspaper.css puts its rules in
+ * `components` specifically so they beat the `a { text-decoration: underline }` and
+ * `*:focus { outline: none }` rules below WITHOUT !important. Move the reset out of
+ * `@layer base` (unlayered rules beat every layered one) and links pick up double
+ * underlines and focus rings reappear across the whole paper.
+ */
+@layer theme, base, components, utilities;
+
+/* ─── THEME TOKENS ────────────────────────────────────────────────────────────
+ * The seven custom properties newspaper.css consumes but does not define. In the app
+ * these come from Tailwind v4's @theme block in frontend/src/app/globals.css; here they
+ * are plain custom properties because the landing page uses ZERO Tailwind utility
+ * classes (every selector is `.np-*`), so it carries no Tailwind dependency at all.
+ *
+ * Keep these values in sync with frontend/src/app/globals.css by hand. That duplication
+ * is deliberate — see landing/README.md. Do not "fix" it by importing across projects.
+ */
+@layer theme {
+  :root {
+    --color-black: #000000;
+    --color-white: #ffffff;
+    --color-link-blue: #057dbc;
+
+    /* Fed by the next/font variables set on <html> in layout.tsx. */
+    --font-display: var(--font-newsreader), Georgia, serif;
+    --font-body: var(--font-newsreader), Georgia, serif;
+    --font-ui: var(--font-inter), "Helvetica Neue", sans-serif;
+    --font-mono: var(--font-space-grotesk), "Space Mono", monospace;
+  }
+}
+
+/* ─── BASE RESET ──────────────────────────────────────────────────────────────
+ * Ported verbatim from frontend/src/app/globals.css so the paper renders identically
+ * in both projects. newspaper.css is written against exactly these rules.
+ */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #ffffff;
+    color: #1a1a1a;
+    font-family: var(--font-ui);
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    line-height: 1.05;
+    color: #1a1a1a;
+  }
+
+  p, li, blockquote {
+    font-family: var(--font-body);
+    font-weight: 400;
+    line-height: 1.50;
+    color: #1a1a1a;
+  }
+
+  a {
+    color: #1a1a1a;
+    text-decoration: underline;
+    transition: color 150ms linear;
+  }
+
+  a:hover {
+    color: #057dbc;
+  }
+
+  button {
+    font-family: var(--font-ui);
+  }
+
+  input, textarea, select {
+    font-family: var(--font-ui);
+    border-radius: 0;
+  }
+
+  /* Remove browser default focus rings — WIRED uses no glow */
+  *:focus {
+    outline: none;
+  }
+
+  /* Lenis (paper mode only — see useLenis.ts) needs the document to size itself
+   * from content rather than the viewport, or the scroll runway it drives is
+   * clamped to 100vh.
+   *
+   * Hand-written instead of importing `lenis/dist/lenis.css`, which would land
+   * UNLAYERED and therefore outrank every layered rule in this project. The rest
+   * of that stylesheet covers `stop()`, `data-lenis-prevent`, iframes and
+   * autoToggle — none of which this page uses.
+   *
+   * Its `scroll-behavior: auto !important` rule is not needed either: the
+   * `scroll-behavior: smooth` it exists to defeat has been removed from
+   * newspaper.css, because it fought Lenis for the same property.
+   */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+
+  /* Lenis sets this while `stop()` is in effect. Without the rule, `stop()` only
+   * halts Lenis's own lerp and native wheel/touch scrolling carries on — which
+   * would let a reader scroll the paper out from under the intro animation.
+   */
+  html.lenis.lenis-stopped {
+    overflow: clip;
+  }
+}

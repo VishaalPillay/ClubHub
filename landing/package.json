@@ -1,0 +1,34 @@
+{
+  "name": "clubhub-landing",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "eslint",
+    "pages:render": "node scripts/render-pages.mjs",
+    "scene:shot": "node scripts/shoot-scene.mjs",
+    "backdrop:prep": "node scripts/prep-backdrop.mjs"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.7.0",
+    "framer-motion": "^12.38.0",
+    "lenis": "^1.3.26",
+    "next": "^16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.185.4",
+    "eslint": "^9",
+    "eslint-config-next": "^16.2.12",
+    "playwright-core": "^1.62.1",
+    "sharp": "^0.35.3",
+    "typescript": "^5"
+  }
+}

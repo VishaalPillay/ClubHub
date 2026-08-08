@@ -4,6 +4,7 @@ import { motion, AnimatePresence, type Transition } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { HouseSimple, ArrowLeft } from "@phosphor-icons/react";
 import { HairlineRule } from "@/components/ui/HairlineRule";
+import { LANDING_URL } from "@/lib/urls";
 
 const STEPS = [
   { step: 1, label: "INTENT", path: "/onboarding/step-1" },
@@ -51,13 +52,15 @@ export function OnboardingShell({
       {/* ─── Utility Nav Strip ─────────────────────────────────────────────── */}
       <div className="wired-utility-nav px-[24px] justify-between">
         <div className="flex items-center gap-[24px]">
-          <button
-            onClick={() => router.push("/")}
-            className="flex items-center gap-[6px] text-white hover:text-[#057dbc] transition-[color] duration-[150ms] linear"
+          {/* The marketing site is a separate origin, so this is a real navigation
+              rather than a client-side route push. */}
+          <a
+            href={LANDING_URL}
+            className="flex items-center gap-[6px] text-white hover:text-[#057dbc] transition-[color] duration-[150ms] linear no-underline"
           >
             <HouseSimple size={14} weight="bold" />
             <span>CLUB-HUB</span>
-          </button>
+          </a>
         </div>
         <span style={{ fontFamily: "var(--font-mono)", fontSize: "11px", letterSpacing: "1px" }}>
           REGISTRATION

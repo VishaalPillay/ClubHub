@@ -36,6 +36,10 @@ export const metadata: Metadata = {
   description:
     "Club-Hub is the all-in-one editorial platform for student clubs. Manage tasks, events, domains, and members — with clarity and authority.",
   keywords: ["club management", "student hub", "task board", "events", "domains"],
+  // This is the signed-in application, not the marketing site. Keeping app.<domain>/login
+  // out of the index means the landing page at the apex is the only thing that ranks —
+  // otherwise the two compete for the same brand query and the login form usually wins.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({

@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import { LANDING_URL } from "@/lib/urls";
+
 /**
  * Shared chrome for the (public) auth pages — masthead with wordmark + Login/Register
  * links, centered content area, and the editorial footer. Extracted from the old
@@ -22,12 +24,13 @@ export default function AuthShell({
   return (
     <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col">
       <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
-        <Link
-          href="/"
+        {/* Leaves this origin for the marketing site — plain <a>, not next/link. */}
+        <a
+          href={LANDING_URL}
           className="text-black font-display text-[28px] uppercase tracking-tighter font-black no-underline"
         >
           CLUB-HUB
-        </Link>
+        </a>
         <Link
           href={other.href}
           className="font-ui text-[14px] font-bold border-2 border-black px-4 py-2 uppercase no-underline bg-black text-white transition-colors hover:bg-white hover:text-black"

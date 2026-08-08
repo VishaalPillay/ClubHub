@@ -171,8 +171,8 @@ function JoinFlowContent() {
           </h1>
           <p className="font-ui text-[16px] text-[#757575] mb-10 leading-relaxed">
             Your request to join <strong>{clubName}</strong> as{" "}
-            <strong>{roleConfig?.label}</strong> has been sent. The club&apos;s
-            leadership will review it shortly.
+            <strong>{roleConfig?.label}</strong>{" "}
+            has been sent. The club&apos;s leadership will review it shortly.
           </p>
           <button
             onClick={() => router.push("/portal")}
