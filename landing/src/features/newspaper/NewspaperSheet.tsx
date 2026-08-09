@@ -1,23 +1,27 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useNewspaper } from "./NewspaperContext";
-import { useSheetMotion } from "./useSheetMotion";
 import type { EditionPage } from "./edition";
 
 /**
  * One LEAF of the newspaper — two pages, one per side, the way newsprint
- * actually works.
+ * actually works. Leaf k prints page 2k on the front and page 2k+1 on the back.
  *
- * The recto is the right-hand leaf of the open spread. Turn it and it swings
- * across the spine to become the left-hand leaf, showing the verso: a real page
- * with real copy, not the faked show-through this used to carry.
+ * ── What this is now, and what it used to be ────────────────────────────────
+ * This was the CSS-3D page turn: framer-motion transforms, a cast shadow, face
+ * shading, a compositing budget. All of that visual machinery moved into the
+ * WebGL scene, and for a while this component kept animating anyway — driving
+ * per-frame inline styles and GPU layer promotion on content that sits inside
+ * `.np-sr`, clipped to one pixel, where nobody could ever see it. It is now
+ * exactly what it renders as:
+ *
+ *   · in PLAIN mode, two static articles of the crawlable document;
+ *   · in PAPER mode, the same two articles as the accessibility surface for a
+ *     canvas that cannot be read by a screen reader, searched, or selected.
  *
  * ☠ HARD RULE: `front` and `back` are BOTH rendered UNCONDITIONALLY, in every
  * mode. Making either conditional would omit half the edition from the SSR HTML
  * — the RSC payload would still carry it, but the crawlable document would not.
- * Every performance affordance that could hurt indexing (`inert`, `will-change`)
- * is gated on paper mode instead, which only ever exists after hydration.
  */
 export default function NewspaperSheet({
   index,
@@ -33,96 +37,28 @@ export default function NewspaperSheet({
   front: React.ReactNode;
   back?: React.ReactNode;
 }) {
-  const { pos, sheet: current, page, count, mode, spread, goTo } = useNewspaper();
+  const { sheet: current, page, count, mode, spread, goTo } = useNewspaper();
   const depth = index - current;
-
-  /** Where this leaf's turn sits on the scroll. One step is a spread on a wide
-   *  screen and a single page on a narrow one — see useSheetMotion. */
-  const turnStart = spread ? index : index * 2;
-
-  /**
-   * The layer budget. Each sheet at ~604×820 CSS px on a DPR-2 display is ~8 MB
-   * of GPU texture; four leaves with two live faces each is well inside what a
-   * mid-range phone will hold, but only because just the three leaves around
-   * the current one are ever composited.
-   */
-  const live = mode === "paper" && Math.abs(depth) <= 1;
-
-  /**
-   * Leaves more than one back are parked, and a parked leaf gets
-   * `transform: none` — which would spring it back upright onto the unread
-   * stack. They keep their turned pose from a STATIC inline transform instead:
-   * static transforms cost nothing per frame, unlike the motion-driven ones.
-   */
-  const turned = mode === "paper" && depth < -1;
-
-  const m = useSheetMotion(pos, turnStart, depth);
 
   /** Page numbers for the folio and the accessible label. */
   const frontNo = index * 2;
   const backNo = frontNo + 1;
 
   /**
-   * Which of this leaf's two pages a reader can actually see — and therefore
-   * reach with Tab.
+   * Which of this leaf's two pages is the CURRENT one — and therefore live for
+   * assistive tech rather than `inert`.
    *
-   * On a spread, both leaves of the open pair are on screen at once: the recto
-   * of the top unturned leaf (depth 0) and the verso of the one just turned
-   * (depth -1). On a narrow screen only ever ONE page is centred, so depth is
-   * not enough to tell recto from verso and the current page number decides.
+   * On a spread, both leaves of the open pair count at once: the recto of the
+   * top unturned leaf (depth 0) and the verso of the one just turned (depth -1).
+   * On a narrow screen only one page is current at a time, so depth alone cannot
+   * tell recto from verso and the page number decides.
    */
   const frontVisible = spread ? depth === 0 : page === frontNo;
   const backVisible = spread ? depth === -1 : page === backNo;
 
   return (
-    <div className="np-sheet-slot" style={{ "--np-i": index } as React.CSSProperties}>
-      {/* Sibling of the sheet, NOT a child — it must not rotate with it. */}
-      {live && (
-        <motion.div
-          className="np-cast"
-          aria-hidden="true"
-          style={{ scaleX: m.castScaleX, opacity: m.castOpacity }}
-        />
-      )}
-
-      <motion.div
-        className="np-sheet"
-        data-live={live ? "" : undefined}
-        data-turned={turned ? "" : undefined}
-        /**
-         * Transform order is guaranteed by motion-dom's `transformPropOrder`:
-         * z/translateZ is emitted BEFORE rotate/rotateY, giving
-         * `translateZ(64px) rotate(-0.6deg) rotateY(-90deg)`. So the lift applies
-         * in the stage's coordinate space, not the rotated sheet's. The other
-         * way round, the sheet slides sideways as it turns.
-         *
-         * Parked sheets pass `undefined`, which makes motion emit the literal
-         * `transform: none` — and an element at `transform: none` is not
-         * layer-promoted. That is what keeps the budget flat.
-         */
-        style={
-          live
-            ? { z: m.z, rotate: m.rotate, rotateY: m.rotateY }
-            : turned
-              ? /* Plain numbers, not motion values: written once, never per
-                   frame. This CANNOT be a CSS rule — framer-motion writes
-                   `transform` inline on every motion element (including the
-                   literal `transform: none` for parked sheets), and an inline
-                   style always beats an author stylesheet.
-
-                   The per-index jitter matters: with every turned sheet at the
-                   same angle the pile lands pixel-perfect and reads as one flat
-                   slab rather than a stack of paper. */
-                {
-                  z: 2,
-                  rotate: -1.4 - (index % 4) * 0.55,
-                  rotateY: -180,
-                  x: -(index % 3) * 3,
-                  y: (index % 5) * 2,
-                }
-              : undefined
-        }
-      >
+    <div className="np-sheet-slot">
+      <div className="np-sheet">
         <div className="np-face np-face--front">
           <article
             id={frontPage.slug}
@@ -152,17 +88,9 @@ export default function NewspaperSheet({
             </div>
           </article>
 
-          {live && (
-            <motion.div
-              className="np-shade np-shade--front"
-              aria-hidden="true"
-              style={{ opacity: m.frontShade }}
-            />
-          )}
-
-          {/* "Grab the corner" — the free edge of the right-hand leaf is its
-              outer edge, so this sits bottom-right, where your hand would go.
-              Turning it reveals this same leaf's verso. */}
+          {/* Page-turn affordance for the reader who is IN the hidden document —
+              a screen-reader or keyboard user for whom the canvas does not
+              exist. It drives the same goTo the visible chrome uses. */}
           {mode === "paper" && frontVisible && backPage && (
             <button
               type="button"
@@ -196,18 +124,6 @@ export default function NewspaperSheet({
               </div>
             </article>
 
-            {live && (
-              <motion.div
-                className="np-shade np-shade--back"
-                aria-hidden="true"
-                style={{ opacity: m.backShade }}
-              />
-            )}
-
-            {/* The way back. This face is doubly mirrored — rotateY(180) inside a
-                leaf that is itself at rotateY(-180) — so its local bottom-LEFT
-                lands on the screen's far left, which is precisely the free edge
-                of the left-hand leaf. */}
             {mode === "paper" && backVisible && (
               <button
                 type="button"
@@ -218,7 +134,7 @@ export default function NewspaperSheet({
             )}
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   );
 }

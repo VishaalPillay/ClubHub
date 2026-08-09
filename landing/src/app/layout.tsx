@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Newsreader, Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { BOOT_SCRIPT } from "@/features/newspaper/bootScript";
 
 // next/font downloads and self-hosts these at build time, so they survive output:"export"
 // with no runtime font requests. All three are load-bearing: newspaper.css reads all four
@@ -68,6 +69,14 @@ export const metadata: Metadata = {
  * Dropping them removes a client-side provider and a render-blocking font request from the
  * LCP path of the one page that most needs to be fast.
  */
+/**
+ * Decides reading mode before first paint. See bootScript.ts for why this has
+ * to be a blocking inline script and cannot be done in React.
+ */
+function BootScript() {
+  return <script dangerouslySetInnerHTML={{ __html: BOOT_SCRIPT }} />;
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -77,7 +86,17 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${newsreader.variable} ${inter.variable} ${spaceGrotesk.variable}`}
+      /* The boot script writes `data-np-mode`, `data-np-phase` and a custom
+         property onto this element before React runs. That is the entire point
+         of it, and React cannot know about it — so it reports an attribute
+         mismatch on hydration and refuses to patch it up. Suppressed here, and
+         only here: this is the one element a pre-paint script is allowed to
+         touch. */
+      suppressHydrationWarning
     >
+      <head>
+        <BootScript />
+      </head>
       <body style={{ backgroundColor: "#ffffff", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
         {children}
       </body>

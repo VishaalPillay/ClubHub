@@ -9,10 +9,11 @@ const nextConfig: NextConfig = {
 
   images: {
     // Required by output:"export" — the default next/image optimizer needs a running server.
-    // Consequence: anything dropped into public/desk or public/press is served exactly as
-    // authored, so pre-encode it (AVIF with a WebP fallback) at authoring time rather than
-    // relying on a build-time transform. Nothing renders an image today: deskAssets.ts leaves
-    // `plate` undefined and DESK_PROPS empty, and Photo.tsx falls back to a printed placeholder.
+    // Consequence: anything dropped into public/ (press photos, backdrop clips) is served
+    // exactly as authored, so pre-encode at authoring time — AVIF for stills, the
+    // backdrop:prep pipeline for clips — rather than relying on a build-time transform.
+    // Nothing renders a next/image today: Photo.tsx prints a placeholder until real
+    // photography lands in public/press/.
     unoptimized: true,
   },
 };

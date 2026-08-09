@@ -114,12 +114,4 @@
   html.lenis body {
     height: auto;
   }
-
-  /* Lenis sets this while `stop()` is in effect. Without the rule, `stop()` only
-   * halts Lenis's own lerp and native wheel/touch scrolling carries on — which
-   * would let a reader scroll the paper out from under the intro animation.
-   */
-  html.lenis.lenis-stopped {
-    overflow: clip;
-  }
 }

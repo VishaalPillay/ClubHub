@@ -4,6 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { PAGE_H, PAGE_W } from "./sceneConfig";
+import type { RoomLight } from "./timeOfDay";
 
 /**
  * One leaf — a physical sheet with a page printed on each side.
@@ -54,6 +55,7 @@ const vertex = /* glsl */ `
   uniform float uCurve;     // peak curvature
   varying vec2 vUv;
   varying vec3 vNormalW;
+  varying vec3 vWorld;
 
   const float PI = 3.141592653589793;
 
@@ -94,6 +96,8 @@ const vertex = /* glsl */ `
     }
 
     vNormalW = normalize(mat3(modelMatrix) * vec3(-sin(phi), cos(phi), 0.0));
+    vec4 world = modelMatrix * vec4(arc.x, arc.y, depth, 1.0);
+    vWorld = world.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(arc.x, arc.y, depth, 1.0);
   }
 `;
@@ -103,8 +107,12 @@ const fragment = /* glsl */ `
   uniform sampler2D uFront;
   uniform sampler2D uBack;
   uniform vec3 uLightDir;
+  uniform vec3 uTint;
+  uniform float uGoboK;
+  uniform float uGoboP;
   varying vec2 vUv;
   varying vec3 vNormalW;
+  varying vec3 vWorld;
 
   void main() {
     // The recto needs no correction at all: u = 0 sits at the spine, which is a
@@ -124,7 +132,21 @@ const fragment = /* glsl */ `
 
     // Generous ambient: this is printed paper under room light, not a studio
     // subject, and crushing the shadow side would cost legibility.
-    gl_FragColor = vec4(page.rgb * (0.72 + 0.38 * lambert), 1.0);
+    /* The hour tints the paper too, but far more gently than it tints the
+       table — uTint is close to white even at night. Deliberate: these eight
+       pages are the only thing on screen anyone has to be able to read, and a
+       physically honest night would render them an unreadable blue-grey. */
+    /* The same window bars that cross the table cross the paper. Far weaker —
+       this is the only thing on screen anyone has to read — but continuity of
+       light across the two surfaces is most of what makes them one scene rather
+       than a page pasted onto a photograph. */
+    vec3 Ln = normalize(uLightDir);
+    vec2 lh = normalize(vec2(Ln.x, Ln.z));
+    float bar = 0.5 + 0.5 * cos(dot(vWorld.xz, vec2(-lh.y, lh.x)) / uGoboP * 6.2831853);
+    bar = smoothstep(0.16, 0.86, bar);
+
+    gl_FragColor = vec4(
+      page.rgb * (0.72 + 0.38 * lambert) * (1.0 - uGoboK * (1.0 - bar)) * uTint, 1.0);
 
     /* The texture is decoded to LINEAR on sample (it is tagged SRGBColorSpace),
        so the result has to be encoded back on the way out. A raw ShaderMaterial
@@ -141,9 +163,13 @@ export interface LeafProps {
   backUrl: string;
   /** Scroll position in step units. Read per frame, never during render. */
   posRef: React.RefObject<number>;
+  /** Steps of camera-only lead-in before leaf 0 begins to turn. */
+  lead: number;
+  /** The hour's light rig, shared with the table and the room behind it. */
+  light: RoomLight;
 }
 
-export default function Leaf({ index, frontUrl, backUrl, posRef }: LeafProps) {
+export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: LeafProps) {
   const [front, back] = useLoader(THREE.TextureLoader, [frontUrl, backUrl]);
 
   /* Texture setup is a mutation, so it belongs in an effect rather than a memo.
@@ -164,9 +190,12 @@ export default function Leaf({ index, frontUrl, backUrl, posRef }: LeafProps) {
       uCurve: { value: CURVATURE },
       uFront: { value: front },
       uBack: { value: back },
-      uLightDir: { value: new THREE.Vector3(-3, 5, 2.5).normalize() },
+      uLightDir: { value: new THREE.Vector3(...light.dir).normalize() },
+      uTint: { value: new THREE.Color(light.paperTint) },
+      uGoboK: { value: light.goboPaper },
+      uGoboP: { value: light.goboPeriod },
     }),
-    [front, back],
+    [front, back, light],
   );
 
   const group = useRef<THREE.Group>(null);
@@ -180,7 +209,7 @@ export default function Leaf({ index, frontUrl, backUrl, posRef }: LeafProps) {
     /* Each leaf derives its own turn rather than being handed one. Leaf k turns
        across pos [k, k+1], so no shared array has to be built, indexed during
        render, and kept in step. */
-    const t = THREE.MathUtils.clamp((posRef.current ?? 0) - index, 0, 1);
+    const t = THREE.MathUtils.clamp((posRef.current ?? 0) - lead - index, 0, 1);
     m.uniforms.uTurn.value = t;
 
     // Unturned leaves stack on the right in reading order; turned ones pile on

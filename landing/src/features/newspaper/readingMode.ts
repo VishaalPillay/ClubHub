@@ -14,7 +14,9 @@ import type { ReadingMode } from "./NewspaperContext";
  * plain articles. Everything else is an upgrade applied after hydration.
  */
 
-const KEY = "clubhub:reading-mode";
+/** Also read by the pre-paint boot script — see bootScript.ts. */
+export const READING_MODE_KEY = "clubhub:reading-mode";
+const KEY = READING_MODE_KEY;
 const REDUCED = "(prefers-reduced-motion: reduce)";
 
 /**
@@ -26,7 +28,7 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
  * and reflows properly. Plain mode is genuinely the better experience on a
  * handset, so it is the default there rather than the consolation prize.
  */
-const MIN_WIDTH = 1024;
+export const MIN_WIDTH = 1024;
 
 /**
  * Can this browser actually run the scene?

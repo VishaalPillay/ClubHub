@@ -1,20 +1,11 @@
 "use client";
 
-import { Suspense, useLayoutEffect, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import Backdrop from "./Backdrop";
-import Drop from "./Drop";
 import Leaf from "./Leaf";
-import Table from "./Table";
-import {
-  CAMERA_FOV,
-  PAGE_W,
-  SPREAD_CORNERS,
-  SPREAD_FRAME_FILL,
-  TABLE_CORNERS,
-  cameraPositionFor,
-} from "./sceneConfig";
+import { TIME_OF_DAY, type ClipTable, type Phase, type RoomLight } from "./timeOfDay";
+import { PAGE_H, PAGE_W, cameraPositionFor, openness } from "./sceneConfig";
 
 /**
  * The 3D scene: a newspaper on a table, in a room.
@@ -36,156 +27,41 @@ const LEAVES = 4;
 /** `public/pages/01.avif` … `08.avif`, produced by `npm run pages:render`. */
 const pageUrl = (page0: number) => `/pages/${String(page0 + 1).padStart(2, "0")}.avif`;
 
-/**
- * Solves camera distance and look-target for a set of corners on the table.
- *
- * Iterative rather than closed form, because a sheet lying flat projects to a
- * shape no simple formula describes: the near edge is closer to the lens and so
- * magnified, and the resulting trapezoid is asymmetric about the frame centre.
- * Projecting the corners and shrinking to fit handles that exactly. It also
- * re-centres vertically — without the shift the trapezoid sits low and the folio
- * along the bottom of the page runs off the screen.
- */
-function solveFit(camera: THREE.PerspectiveCamera, corners: readonly [number, number, number][]) {
-  const pts = corners.map(([x, y, z]) => new THREE.Vector3(x, y, z));
-  const probe = new THREE.Vector3();
 
-  let distance = 4;
-  let lookZ = 0;
-
-  for (let i = 0; i < 20; i++) {
-    camera.position.set(...cameraPositionFor(distance));
-    camera.lookAt(0, 0, lookZ);
-    camera.updateMatrixWorld();
-    camera.updateProjectionMatrix();
-
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (const p of pts) {
-      probe.copy(p).project(camera);
-      minX = Math.min(minX, probe.x);
-      maxX = Math.max(maxX, probe.x);
-      minY = Math.min(minY, probe.y);
-      maxY = Math.max(maxY, probe.y);
-    }
-
-    const centreY = (minY + maxY) / 2;
-    const fill = Math.max((maxX - minX) / 2, (maxY - minY) / 2) / SPREAD_FRAME_FILL;
-
-    if (Math.abs(fill - 1) < 0.004 && Math.abs(centreY) < 0.004) break;
-
-    distance *= fill;
-    // Positive NDC y is up, and pushing the look target toward the far edge of
-    // the table moves the image up the screen.
-    lookZ -= centreY * 0.5;
-  }
-
-  return { distance, lookZ };
-}
 
 /**
- * Frames the paper, and pulls back for the drop.
+ * The camera, nailed to the one solved against the clip's own table.
  *
- * Much simpler than the version that chased a thrown bundle around the table:
- * the page now falls straight down onto the middle, so there is nothing to
- * track laterally. The camera only has to be wide enough to hold the sheet while
- * it is still high, and it closes in as it comes down — driven by the sheet's
- * own height, so the move cannot drift out of step with the fall.
+ * It NEVER moves. The room is a video, a video has no parallax, and any camera
+ * move slides the scene off the table it is meant to be resting on — which is
+ * why the PAPER travels instead (see FloatingEdition). The numbers come from
+ * `npm run clip:fit`; nudging them by hand puts the paper on a plane the table
+ * is not on.
  */
-function CameraRig({
-  posRef,
-  steps,
-  delivery,
-  dropHeightRef,
-}: {
-  posRef: React.RefObject<number>;
-  steps: number;
-  delivery: boolean;
-  dropHeightRef: React.RefObject<number>;
-}) {
-  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
-  const width = useThree((s) => s.size.width);
-  const height = useThree((s) => s.size.height);
-
-  const fits = useRef({ closed: { distance: 4, lookZ: 0 }, open: { distance: 5, lookZ: 0 } });
-
-  useLayoutEffect(() => {
-    if (!height) return;
-    fits.current = {
-      // Closed = the whole table, so the scene establishes itself. Open = the
-      // spread, pushing in to read. See TABLE_CORNERS.
-      closed: solveFit(camera, TABLE_CORNERS),
-      open: solveFit(camera, SPREAD_CORNERS),
-    };
-  }, [camera, width, height]);
-
-  useFrame(() => {
-    const { closed, open: wide } = fits.current;
-
-    if (delivery) {
-      const h = Math.max(dropHeightRef.current ?? 0, 0);
-      // Wide while the sheet is still up, tightening onto the page as it lands.
-      const widen = Math.min(2.4, h * 0.8);
-      camera.position.set(...cameraPositionFor(closed.distance + widen));
-      // Tilt up toward the falling sheet so it stays in frame on the way down.
-      camera.lookAt(0, h * 0.3, closed.lookZ);
-      return;
+function CameraRig({ clip }: { clip: ClipTable }) {
+  useFrame((state) => {
+    const camera = state.camera as THREE.PerspectiveCamera;
+    if (Math.abs(camera.fov - clip.fov) > 1e-4) {
+      camera.fov = clip.fov;
+      camera.updateProjectionMatrix();
     }
-
-    const pos = posRef.current ?? 0;
-
-    /* How open the paper is, on the same curve as the spread's pan: shut on
-       either cover, open everywhere between. The camera pulls back as it opens,
-       so the front page fills the frame and the spread still fits. */
-    const open = THREE.MathUtils.clamp(Math.min(pos / 0.5, (steps - pos) / 0.5), 0, 1);
-
-    camera.position.set(
-      ...cameraPositionFor(THREE.MathUtils.lerp(closed.distance, wide.distance, open)),
-    );
-    camera.lookAt(0, 0, THREE.MathUtils.lerp(closed.lookZ, wide.lookZ, open));
+    camera.position.set(...cameraPositionFor(clip.distance, clip.pitch));
+    camera.lookAt(0, 0, 0);
   });
 
   return null;
 }
 
 /**
- * Hides a subtree without letting its shaders go uncompiled.
+ * Fires once its Suspense boundary has resolved.
  *
- * This exists because of a real, visible bug. three skips invisible objects
- * entirely, so a plain `visible={false}` means the leaf shader is not compiled
- * until the frame it first appears — and the frame the delivery hands over is
- * exactly that frame. Compiling a program mid-flight stalls the GPU for long
- * enough to drop frames, which showed up as a stutter and a flash of banding
- * across the paper.
- *
- * So: make it visible, force a compile, hide it again, all before first paint.
- * `gl.compile` walks only VISIBLE objects, which is the whole reason for the
- * dance rather than simply calling it on the hidden group.
+ * Which is the only honest signal that the scene has something to show: R3F's
+ * own `onCreated` fires when the renderer exists, long before any page texture
+ * has decoded, and revealing on that put an empty table on screen.
  */
-function Precompile({ hidden, children }: { hidden: boolean; children: React.ReactNode }) {
-  const group = useRef<THREE.Group>(null);
-  const gl = useThree((s) => s.gl);
-  const scene = useThree((s) => s.scene);
-  const camera = useThree((s) => s.camera);
-  const done = useRef(false);
-
-  useLayoutEffect(() => {
-    const g = group.current;
-    if (!g || done.current) return;
-    done.current = true;
-    const was = g.visible;
-    g.visible = true;
-    gl.compile(scene, camera);
-    g.visible = was;
-  }, [gl, scene, camera]);
-
-  return (
-    <group ref={group} visible={!hidden}>
-      {children}
-    </group>
-  );
+function SignalReady({ onReady }: { onReady: () => void }) {
+  useLayoutEffect(() => onReady(), [onReady]);
+  return null;
 }
 
 /**
@@ -197,97 +73,319 @@ function Precompile({ hidden, children }: { hidden: boolean; children: React.Rea
  * the paper opens outward from the middle instead of the whole scene appearing
  * to drift.
  */
-function Edition({ posRef, steps }: { posRef: React.RefObject<number>; steps: number }) {
+function Edition({
+  posRef,
+  turns,
+  lead,
+  light,
+  onReady,
+}: {
+  posRef: React.RefObject<number>;
+  turns: number;
+  lead: number;
+  light: RoomLight;
+  onReady: () => void;
+}) {
   const group = useRef<THREE.Group>(null);
 
   useFrame(() => {
     const g = group.current;
     if (!g) return;
-    const pos = posRef.current ?? 0;
+    /* Everything below is in TURN space — scroll position minus the lead-in.
+       The pan tracks the paper opening, not the camera coming in, so it has to
+       be measured from where the first leaf actually starts to move. */
+    const t = THREE.MathUtils.clamp((posRef.current ?? 0) - lead, 0, turns);
     const half = PAGE_W / 2;
 
     g.position.x =
-      pos <= 0.5
-        ? THREE.MathUtils.lerp(-half, 0, THREE.MathUtils.clamp(pos / 0.5, 0, 1))
-        : pos >= steps - 0.5
-          ? THREE.MathUtils.lerp(0, half, THREE.MathUtils.clamp((pos - (steps - 0.5)) / 0.5, 0, 1))
+      t <= 0.5
+        ? THREE.MathUtils.lerp(-half, 0, THREE.MathUtils.clamp(t / 0.5, 0, 1))
+        : t >= turns - 0.5
+          ? THREE.MathUtils.lerp(0, half, THREE.MathUtils.clamp((t - (turns - 0.5)) / 0.5, 0, 1))
           : 0;
   });
 
   return (
     <group ref={group}>
+      {/* One boundary PER LEAF, not one around all four. Eight textures in a
+          single boundary means nothing appears until the last of them decodes —
+          and leaves 1-3 are hidden behind leaf 0 at rest anyway, so waiting on
+          them delayed the only page anyone can see. */}
       {Array.from({ length: LEAVES }, (_, k) => (
-        <Leaf
-          key={k}
-          index={k}
-          frontUrl={pageUrl(k * 2)}
-          backUrl={pageUrl(k * 2 + 1)}
-          posRef={posRef}
-        />
+        <Suspense key={k} fallback={null}>
+          <Leaf
+            index={k}
+            frontUrl={pageUrl(k * 2)}
+            backUrl={pageUrl(k * 2 + 1)}
+            posRef={posRef}
+            lead={lead}
+            light={light}
+          />
+          {k === 0 && <SignalReady onReady={onReady} />}
+        </Suspense>
       ))}
+    </group>
+  );
+}
+
+
+/**
+ * How much bigger the shadow quad is than the paper.
+ *
+ * It has to hold the caster's footprint plus the whole penumbra plus however far
+ * the shadow is displaced, and the shader needs the ratio to know where the
+ * caster's edge falls inside it.
+ */
+const SHADOW_QUAD = 1.55;
+
+/**
+ * The variant used when the clip already contains the table.
+ *
+ * The camera is nailed down — a video has no parallax, so moving it slides the
+ * scene off the very table it is meant to rest on — and the PAPER does the
+ * travelling instead: it lies flat on the clip's tabletop at rest, then lifts
+ * and tilts up into the lens as you scroll. That reads as picking a newspaper
+ * up, which is a better mechanic than the room rushing at you, and it is also
+ * the only one available here.
+ *
+ * The contact shadow is what actually welds the paper to the clip's table.
+ * Nothing in the scene can cast onto a video, so it is drawn: tight and dark
+ * while the paper is down, spreading and fading as it rises. That spread is the
+ * single strongest cue that the paper has left the surface.
+ */
+function FloatingEdition({
+  posRef,
+  turns,
+  lead,
+  light,
+  clip,
+  onReady,
+}: {
+  posRef: React.RefObject<number>;
+  turns: number;
+  lead: number;
+  light: RoomLight;
+  clip: ClipTable;
+  onReady: () => void;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const shadow = useRef<THREE.Mesh>(null);
+
+  /** Half-extents of the shadow quad, in world units. */
+  const halfW = (PAGE_W * clip.restScale * SHADOW_QUAD) / 2;
+  const halfH = (PAGE_H * clip.restScale * SHADOW_QUAD) / 2;
+
+  const shadowMaterial = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          precision highp float;
+          uniform float uStrength;
+          uniform float uSpread;
+          uniform vec2 uOffset;
+          uniform float uPenumbra;
+          varying vec2 vUv;
+
+          /** The caster's half-extent, as a fraction of this quad's. */
+          const float CORE = ${(1 / SHADOW_QUAD).toFixed(4)};
+
+          void main() {
+            /* A BOX falloff, not a radial one: the caster is a rectangle, and a
+               radial gradient on a rectangle leaves its opaque core inside the
+               paper's own footprint — the shadow ends up drawn entirely
+               underneath and none of it is ever visible.
+
+               DISPLACED, not centred. A shadow centred under its caster is what
+               you get from a light directly overhead, and neither clip has one:
+               the sun comes through a window off to one side, so the paper's
+               shadow belongs down and to the left and there should be nothing at
+               all on the lit edge. That asymmetry is most of what sells the
+               paper as being IN the room rather than pasted onto it. */
+            vec2 p = (vUv - 0.5) * 2.0 - uOffset;
+            float box = max(abs(p.x), abs(p.y)) / CORE;
+
+            // The penumbra widens as the caster lifts away, as a real one does.
+            float pen = uPenumbra * mix(1.0, 7.0, uSpread);
+            float a = (1.0 - smoothstep(1.0, 1.0 + pen, box)) * uStrength;
+            if (a < 0.004) discard;
+            gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+          }
+        `,
+        uniforms: {
+          uStrength: { value: light.shadowStrength },
+          uSpread: { value: 0 },
+          uOffset: { value: new THREE.Vector2() },
+          uPenumbra: { value: light.shadowPenumbra },
+        },
+        transparent: true,
+        depthWrite: false,
+      }),
+    [light.shadowStrength, light.shadowPenumbra],
+  );
+
+  useLayoutEffect(() => () => shadowMaterial.dispose(), [shadowMaterial]);
+
+  /**
+   * Where the shadow falls, and how far.
+   *
+   * Direction is the light's horizontal bearing, reversed. Length is the
+   * caster's height over the tangent of the light's elevation — real shadow
+   * geometry, halved, because a physically exact one at full lift is off frame
+   * long before it has faded and reads as a separate object rather than as this
+   * page's shadow.
+   *
+   * The quad's local +y maps to world -z once it is laid flat, hence the sign
+   * flip on the second component.
+   */
+  const shadowAxis = useMemo(() => {
+    const [lx, ly, lz] = light.dir;
+    const horiz = Math.hypot(lx, lz) || 1e-6;
+    return {
+      u: -lx / horiz,
+      v: lz / horiz,
+      perHeight: (horiz / Math.max(ly, 1e-6)) * 0.5,
+    };
+  }, [light.dir]);
+
+  useFrame(() => {
+    const g = group.current;
+    const sh = shadow.current;
+    if (!g || !sh) return;
+
+    const pos = posRef.current ?? 0;
+    const open = openness(pos, turns, lead);
+
+    /* A spread is twice the width of a closed cover, so a single read scale
+       would either shrink the front page or run the spread off the sides. */
+    const spread = THREE.MathUtils.clamp(pos - lead, 0, 1);
+    const readScale = THREE.MathUtils.lerp(clip.readScaleClosed, clip.readScaleOpen, spread);
+
+    g.position.set(
+      THREE.MathUtils.lerp(clip.rest[0], clip.read[0], open),
+      THREE.MathUtils.lerp(clip.rest[1], clip.read[1], open),
+      THREE.MathUtils.lerp(clip.rest[2], clip.read[2], open),
+    );
+    g.rotation.x = THREE.MathUtils.degToRad(clip.readTiltDeg) * open;
+    g.scale.setScalar(THREE.MathUtils.lerp(clip.restScale, readScale, open));
+
+    /**
+     * The shadow's whole life happens in the first part of the lift.
+     *
+     * It is a flat quad lying on the table, and it belongs to the paper only
+     * while the paper is ON the table. Carried the full length of the travel it
+     * behaves exactly like what it is: a big dark slab left lying in the room,
+     * spreading to two and a half times the table's own size and still a third
+     * as dark by the time the page is up against the lens. That reads as the
+     * shadow following the paper to camera, because nothing else in frame is
+     * moving.
+     *
+     * So it blurs out and is gone while the page is barely off the table
+     * — which is also what a real one does, just faster: a shadow softens and
+     * weakens as its caster leaves the surface, and this one has the good taste
+     * to finish the job before anyone can look at it.
+     */
+    const gone = THREE.MathUtils.smoothstep(open, 0, 0.18);
+    const lift = g.position.y;
+
+    /* The quad stays put under where the paper rested; the DISPLACEMENT is done
+       in the shader, so the shadow can slide within it without the geometry
+       having to chase the caster around. Growth is capped for the same reason
+       the fade is: past this it stops being a contact shadow and starts being a
+       rectangle on the floor. */
+    const grow = 1 + gone * 0.85;
+    sh.position.set(clip.rest[0], 0.002, clip.rest[2]);
+    sh.scale.setScalar(grow);
+    sh.visible = gone < 1;
+
+    /* A small constant offset even at rest: paper has thickness, and the sliver
+       of shadow it throws on its shaded edge is exactly the cue that says it is
+       sitting ON something rather than printed onto it. */
+    const throwLen = (0.05 + lift * shadowAxis.perHeight) / grow;
+    const m = sh.material as THREE.ShaderMaterial;
+    m.uniforms.uOffset.value.set(
+      (shadowAxis.u * throwLen) / halfW,
+      (shadowAxis.v * throwLen) / halfH,
+    );
+    m.uniforms.uStrength.value = light.shadowStrength * (1 - gone);
+    m.uniforms.uSpread.value = gone;
+  });
+
+  return (
+    <group>
+      <mesh
+        ref={shadow}
+        rotation={[-Math.PI / 2, 0, 0]}
+        material={shadowMaterial}
+        renderOrder={-1}
+      >
+        <planeGeometry args={[halfW * 2, halfH * 2]} />
+      </mesh>
+
+      <group ref={group}>
+        <Edition posRef={posRef} turns={turns} lead={lead} light={light} onReady={onReady} />
+      </group>
     </group>
   );
 }
 
 export default function NewspaperScene({
   posRef,
-  steps,
-  delivery,
-  onDeliveryLanded,
-  onDeliveryDone,
+  turns,
+  lead,
+  phase,
 }: {
   posRef: React.RefObject<number>;
-  steps: number;
-  /** True while the delivery animation is still on screen. */
-  delivery: boolean;
-  onDeliveryLanded: () => void;
-  onDeliveryDone: () => void;
+  /** Steps that turn a leaf. */
+  turns: number;
+  /** Steps at each end that only move the camera. */
+  lead: number;
+  /** Resolved by the shell, so the table and the clip behind it cannot
+   *  disagree about what time of day it is. */
+  phase: Phase;
 }) {
-  /** The falling sheet's height above the table, for the camera. */
-  const dropHeight = useRef(0);
+  const light = TIME_OF_DAY[phase];
+
+  /* Held back until the front page exists. The room is already on screen by
+     now — painted by the boot script before React ran — so fading the canvas up
+     over it is a hand-off rather than an arrival. */
+  const [ready, setReady] = useState(false);
+  const onReady = useCallback(() => setReady(true), []);
 
   return (
+    <div className={ready ? "np-canvas is-ready" : "np-canvas"}>
     <Canvas
-      className="np-canvas"
       /* Capped at 2: the pages are the expensive surface and a 3x device would
          be magnifying texture detail that does not exist in the source. */
       dpr={[1, 2]}
-      gl={{ antialias: true }}
-      camera={{ fov: CAMERA_FOV, near: 0.1, far: 200 }}
+      /* Transparent, because the room is a video BEHIND this canvas rather
+         than geometry inside it. Without alpha the clear colour paints over it
+         and the whole backdrop disappears. */
+      gl={{ antialias: true, alpha: true }}
+      camera={{ fov: light.clipTable.fov, near: 0.1, far: 200 }}
     >
-      <CameraRig posRef={posRef} steps={steps} delivery={delivery} dropHeightRef={dropHeight} />
+      <CameraRig clip={light.clipTable} />
 
-      {/* Lit from the upper left at a shallow angle, matching the fall the table
-          shader bakes in and the direction the leaf shader shades against. */}
-      <ambientLight intensity={1.05} />
-      <directionalLight position={[-3, 5, 2.5]} intensity={1.4} />
+      {/* No lights. Every material in this scene is a raw ShaderMaterial with
+          its own lighting model fed from timeOfDay — scene lights would cost a
+          uniform update per frame and illuminate nothing. */}
 
-      <Backdrop />
-      <Table />
-
-      {/* The table paints immediately; the pages stream in behind it. Without
-          the boundary the whole canvas would stay blank until eight textures
-          had decoded.
-
-          The edition stays MOUNTED through the delivery rather than being
-          swapped in at the end — it is only hidden. Mounting it late would put
-          eight texture decodes on the exact frame the paper settles, which is
-          the one frame in the sequence that must not stutter. */}
-      <Suspense fallback={null}>
-        <Precompile hidden={delivery}>
-          <Edition posRef={posRef} steps={steps} />
-        </Precompile>
-      </Suspense>
-
-      {delivery && (
-        <Suspense fallback={null}>
-          <Drop
-            onLanded={onDeliveryLanded}
-            onDone={onDeliveryDone}
-            heightRef={dropHeight}
-          />
-        </Suspense>
-      )}
+      {/* Suspense lives per leaf, inside Edition. */}
+      <FloatingEdition
+        posRef={posRef}
+        turns={turns}
+        lead={lead}
+        light={light}
+        clip={light.clipTable}
+        onReady={onReady}
+      />
     </Canvas>
+    </div>
   );
 }

@@ -4,7 +4,7 @@
  * ClubHub — Newspaper-on-a-desk landing page.
  * Scoped stylesheet. Every selector is prefixed `.np-` and lives under
  * `.np-scope`, which exists on exactly ONE element in the whole app
- * (frontend/src/app/page.tsx). Nothing here leaks into the app shell.
+ * (src/app/page.tsx). Nothing here leaks into the app shell.
  *
  * ─── WHY THIS FILE EXISTS ────────────────────────────────────────────────────
  * globals.css deliberately ships zero shadows and zero gradients — that's a real
@@ -22,26 +22,12 @@
  *    `*:focus{outline:none}` and `a{text-decoration:underline}` (both in `base`)
  *    with NO !important, while still losing to Tailwind utilities.
  *
- * ─── ☠ NEVER PUT THESE ON .np-stack OR .np-sheet ☠ ───────────────────────────
- * Per CSS Transforms 2, `transform-style: preserve-3d` silently computes to
- * `flat` if the element also has any grouping property:
- *
- *     overflow ≠ visible  ·  opacity < 1  ·  filter  ·  backdrop-filter
- *     clip-path  ·  mask-*  ·  mix-blend-mode ≠ normal  ·  isolation: isolate
- *     contain: paint | content | strict  ·  content-visibility (ANY value —
- *     it implies paint containment)  ·  will-change naming any of the above
- *
- * The failure mode is NOT a crash. The pages just skew and interpenetrate, which
- * looks like a maths bug — so you go read useSheetMotion.ts and find nothing wrong.
- * Devtools check: computed `transform-style` on .np-sheet must read `preserve-3d`.
- *
- * Direct consequences, all load-bearing:
- *   · Never animate sheet opacity — fade a child overlay instead.
- *   · `overflow: clip` goes on .np-stage (which is transform-style: flat). Never .np-stack.
- *   · The paper-fibre `mix-blend-mode` texture must be a LEAF inside a face.
- *   · `container-type` / `content-visibility` may only ever go on .np-page-body,
- *     which is a 2D leaf subtree INSIDE a face — never on the face or the sheet.
- *   · Keep the 3D chain exactly two levels deep: .np-stack → .np-sheet → faces (leaves).
+ * ─── WHERE THE 3D WENT ───────────────────────────────────────────────────────
+ * The CSS-3D page turn this file used to drive (preserve-3d stacks, cast
+ * shadows, face shading, a compositing budget) lives in src/features/scene/ as
+ * WebGL now. What remains here styles three things only: the plain document,
+ * the visible chrome (controls, skiplinks, progress, room video), and the
+ * editorial type system the page textures are baked from (see RENDER MODE).
  */
 
 @layer components {
@@ -56,7 +42,6 @@
        the content no longer fits. 1.38 clears the densest page's natural content
        ratio (page 1, ~1.345) with a little headroom; measure.mjs in the
        scratchpad reports the real numbers after any content change. */
-    --np-persp: 2200px;
     --np-page-h: 88svh;
     --np-page-w: min(46vw, 760px, calc(var(--np-page-h) / 1.38));
 
@@ -69,87 +54,16 @@
     --np-hair: #cec7b6;
     --np-hair-quiet: #e0d9ca;
 
-    /* — desk — */
-    --np-desk-base: #6b4a2f;
-
-    /* — shadows (the whole reason this file is scoped) — */
-    --np-shadow-rest: 0 1px 2px rgb(0 0 0 / 0.28), 0 8px 22px -6px rgb(0 0 0 / 0.34);
-    --np-shadow-lift: 0 24px 48px -12px rgb(0 0 0 / 0.5);
-
     position: relative;
     color: var(--np-ink);
   }
 
-  /* ══ MOBILE — the portrait tabloid ═════════════════════════════════════════
-     Below lg the broadsheet becomes a tall single-column tabloid and the desk
-     zooms in so the paper fills the screen. Same turn mechanic throughout.
-
-     The type scale is re-declared wholesale rather than given clamp floors:
-     a floor would break the proportional scaling that makes the page aspect a
-     reliable fit guarantee (see the paper-mode scale below). A tabloid column
-     is narrower, so the multipliers go UP — the sheet is smaller but the text
-     must stay readable, and the taller aspect absorbs the extra height. */
-  @media (width < 1024px) {
-    .np-scope {
-      --np-persp: 1400px;
-      --np-page-h: 86svh;
-      --np-page-w: min(92vw, calc(var(--np-page-h) / 1.70));
-    }
-
-    .np-scope[data-mode="paper"] .np-page-body {
-      --np-t-nameplate: 15cqw;
-      --np-t-lead: 8.6cqw;
-      --np-t-h2: 6.4cqw;
-      --np-t-h3: 4.2cqw;
-      --np-t-h4: 3.4cqw;
-      --np-t-deck: 3.5cqw;
-      --np-t-body: 2.9cqw;
-      --np-t-cap: 2.3cqw;
-      --np-t-micro: 1.95cqw;
-    }
-
-    .np-scope[data-mode="paper"] .np-stage {
-      perspective-origin: 50% 46%;
-    }
-
-    /* A tabloid is one column. The container queries can't decide this for us:
-       a mobile sheet and a 1366-laptop sheet land at nearly the same container
-       width (~365 vs ~417) but want opposite layouts, because the mobile type
-       scale is ~40% larger. Viewport context is the thing that actually differs,
-       so this override is a media query on purpose. */
-    .np-scope[data-mode="paper"] .np-split-57,
-    .np-scope[data-mode="paper"] .np-split-75,
-    .np-scope[data-mode="paper"] .np-split-11 {
-      grid-template-columns: 1fr;
-      gap: 2.4cqw;
-    }
-
-    /* Teasers collapse to a compact index — labels only. */
-    .np-scope[data-mode="paper"] .np-teasers {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .np-scope[data-mode="paper"] .np-teaser-body,
-    .np-scope[data-mode="paper"] .np-teaser-arrow {
-      display: none;
-    }
-
-    .np-scope[data-mode="paper"] .np-ruled-3,
-    .np-scope[data-mode="paper"] .np-ruled-4 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .np-scope[data-mode="paper"] .np-cols,
-    .np-scope[data-mode="paper"] .np-cols-2 {
-      column-count: 1;
-    }
-
-    /* Every photograph goes landscape. Stacked in one column, a portrait crop
-       would take a third of the sheet on its own. */
-    .np-scope[data-mode="paper"] .np-photo[data-crop] {
-      aspect-ratio: 16 / 9;
-    }
-  }
+  /* ══ MOBILE ════════════════════════════════════════════════════════════════
+     There is deliberately no mobile paper-mode block. readingMode.ts forces
+     plain below 1024px — three.js plus a megabyte of textures is the wrong
+     trade on a phone — so `[data-mode="paper"]` and a narrow viewport can
+     never coexist and any rule gated on both is unreachable. Mobile styling
+     belongs to the plain document. */
 
   /* ══ MODE: PLAIN ═══════════════════════════════════════════════════════════
      The server-rendered document. Eight <article>s in normal flow, fully
@@ -178,32 +92,19 @@
     margin-bottom: 48px;
   }
 
-  /* Paper-mode-only furniture, hidden in the plain document.
-     MUST be gated on [data-mode="plain"]: ungated, `display: none` at
-     specificity (0,2,0) also won in paper mode, because the paper rules for
-     these elements set `position`/`background` but never `display`. That
-     silently disabled the cast shadow and both shading gradients — the flip ran
-     with none of its lighting and the discard pile rendered as a blank slab.
-
-     `.np-face--back` is NOT in this list any more. It used to be, because the
-     verso was pure decoration; it now holds a real page, and hiding it here
-     would drop half the edition out of the crawlable document. */
-  .np-scope[data-mode="plain"] .np-cast,
-  .np-scope[data-mode="plain"] .np-shade,
-  .np-scope[data-mode="plain"] .np-corner {
-    display: none;
-  }
+  /* The corner page-turn buttons render only in paper mode (inside the
+     clipped a11y document), so plain mode needs no gate for them. */
 
   /* ══ MODE: PAPER ═══════════════════════════════════════════════════════════
      The 3D newspaper on a desk. Every rule below is gated on
      `[data-mode="paper"]`, which only ever exists client-side after hydration.
 
-     The 3D chain is exactly two levels deep and must stay that way:
-         .np-stack (preserve-3d) → .np-sheet (preserve-3d) → .np-face (leaves)
-     `.np-stage` is the CAMERA: it owns `perspective` but stays
-     transform-style: flat, so it may legally carry `overflow: clip`. */
+     The visual is the WebGL scene over the room video; everything the reader
+     sees lives in .np-room and .np-canvas. */
   .np-scope[data-mode="paper"] {
-    background: var(--np-desk-base);
+    /* Only ever visible if both the video AND its poster fail: a dark room
+       tone, so the failure is a dim room rather than a brown flash. */
+    background: #0f0b07;
   }
 
   .np-scope[data-mode="paper"] .np-track {
@@ -214,348 +115,111 @@
     height: calc((var(--np-steps) + 1) * 100svh);
   }
 
+  /* ══ BOOT ══════════════════════════════════════════════════════════════════
+     The gap between first paint and hydration.
+
+     The server always sends the plain eight-page document — it is the crawlable
+     one and the no-JS one, and that is correct. But a desktop visitor is going
+     to get the scene, and until React catches up they were staring at a
+     full-screen cream broadsheet instead. The boot script (bootScript.ts)
+     resolves reading mode before anything paints and writes it to <html>; these
+     rules act on it immediately.
+
+     `data-mode` on the scope is still "plain" through this window, because that
+     attribute is React's and React has not run yet. That mismatch is the whole
+     selector: html says where we are going, the scope says where we are. */
+  html[data-np-mode="paper"] .np-scope[data-mode="plain"] {
+    background: #0f0b07;
+  }
+
+  /* Never `display: none` — the articles must stay in the layout so the deep
+     link can measure the track the moment paper mode arrives. */
+  html[data-np-mode="paper"] .np-scope[data-mode="plain"] .np-stack {
+    visibility: hidden;
+  }
+
+  /* The room's own poster, painted from a custom property the boot script sets.
+     It is the same frame the video opens on, so when the real backdrop mounts
+     underneath there is nothing to see change. */
+  html[data-np-mode="paper"] .np-scope[data-mode="plain"]::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image: var(--np-boot-room);
+    background-size: cover;
+    background-position: center;
+  }
+
+  /* ══ THE ROOM ══════════════════════════════════════════════════════════════
+     A looping clip of a real room, sitting BEHIND the canvas rather than inside
+     the scene. See RoomBackdrop.tsx for why it is a sibling and not geometry.
+
+     The canvas above it is transparent, so this is what the table stands in. */
+  .np-scope .np-room {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    /* Warm and dark, and it matters: this is what shows for the few hundred
+       milliseconds before the poster decodes, and a white flash behind a dim
+       room is the most visible frame on the whole page. */
+    background: #1a120b;
+  }
+
+  .np-scope .np-room-clip {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Its own compositor layer, so scaling and defocusing it never repaint the
+       scene above. `filter` has to be named as well as `transform`: without it
+       Chrome re-rasterises the layer on every blur change instead of animating
+       the one it already has. */
+    will-change: transform, filter;
+  }
+
+  /* Knocks the room back and darkens the middle, where the paper sits. The
+     dimming lives here rather than in the encode so it can be tuned without
+     re-running ffmpeg — and it deepens as the camera pushes in to read. */
+  .np-scope .np-room-veil {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(115% 85% at 50% 58%, rgb(10 7 4 / 0.8) 0%, rgb(10 7 4 / 0.4) 52%, rgb(10 7 4 / 0.16) 100%),
+      linear-gradient(to bottom, rgb(9 6 4 / 0.46) 0%, rgb(9 6 4 / 0) 34%, rgb(9 6 4 / 0) 62%, rgb(9 6 4 / 0.72) 100%);
+  }
+
   /* The WebGL canvas fills the sticky stage. R3F already sizes its container to
      the parent, so this is belt and braces plus the stacking context. */
+  /* Fades in once the first leaf's textures have decoded, rather than snapping
+     into existence on top of the room. `.np-canvas` is now a wrapper we own;
+     R3F's own container fills it. */
   .np-scope .np-canvas {
     position: absolute;
     inset: 0;
     z-index: 1;
+    opacity: 0;
+    transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .np-scope .np-canvas.is-ready {
+    opacity: 1;
   }
 
   .np-scope[data-mode="paper"] .np-stage {
     position: sticky;
     top: 0;
     height: 100svh;
-    perspective: var(--np-persp);
-    perspective-origin: 50% 42%;
     overflow: clip;
   }
 
-  .np-scope[data-mode="paper"] .np-stack {
-    position: absolute;
-    inset: 0;
-    transform-style: preserve-3d;
-  }
 
-  /* `display: contents` keeps the 3D chain two levels deep — the slot generates
-     no box, so .np-sheet and .np-cast become direct children of .np-stack.
-     Custom properties (--np-i) still inherit through it. */
-  .np-scope[data-mode="paper"] .np-sheet-slot {
-    display: contents;
-  }
 
-  .np-scope[data-mode="paper"] .np-sheet {
-    position: absolute;
-    /* An unturned sheet sits CENTRED, and its fold is its own left edge
-       (transform-origin: 0 50%) — so a turned sheet swings across to sit flush
-       against it, sharing that edge. The two are adjacent leaves of one open
-       spread, bound at 50% - page-w/2.
-
-       This offset is deliberately the resting geometry rather than a spine at
-       dead centre, because it is also the SAFE one: `.np-stack` is panned to
-       centre the spread while the paper is open (see NewspaperShell), and if
-       that pan is ever zero — first frame, a measure that has not landed, JS
-       disabled mid-flip — what renders is a single centred page. The
-       spine-at-centre alternative fails to a page shoved off the right edge. */
-    left: calc(50% - var(--np-page-w) / 2);
-    top: calc((100svh - var(--np-page-h)) / 2);
-    width: var(--np-page-w);
-    height: var(--np-page-h);
-    margin: 0;
-    border: 0;
-    transform-origin: 0 50%;
-    transform-style: preserve-3d;
-    background: var(--np-paper);
-    box-shadow: var(--np-shadow-rest);
-    /* Unread sheets are coplanar at z=0 and would otherwise paint in DOM order,
-       which is backwards for a stack. Sheets at a non-zero z sort themselves
-       geometrically and ignore this. */
-    z-index: calc(100 - var(--np-i));
-  }
-
-  /* Parked-and-turned sheets hold their pose from a static inline transform set
-     in NewspaperSheet.tsx — it cannot live here, because framer-motion's inline
-     `transform` outranks any stylesheet rule. Only the stacking is CSS: they sit
-     at z=2, above the unread stack, and being coplanar among themselves the
-     z-index keeps the earliest-turned at the bottom of the pile. */
-  .np-scope[data-mode="paper"] .np-sheet[data-turned] {
-    z-index: var(--np-i);
-  }
-
-  /* box-shadow is a paint property — animating it per frame guarantees a missed
-     frame budget. Toggle it on the index change instead; all per-frame shadow
-     work is transform + opacity on .np-cast. */
-  .np-scope[data-mode="paper"] .np-sheet[data-live] {
-    will-change: transform;
-    transition: box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: var(--np-shadow-lift);
-  }
-
-  .np-scope[data-mode="paper"] .np-face {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    /* An OPAQUE background is the single most effective guard against WebKit's
-       backface bleed-through. Never make a face transparent. */
-    background: var(--np-paper);
-  }
-
-  /* backface-visibility is itself a layer-promotion trigger in Blink and WebKit,
-     so it goes only on sheets that are already promoted — the three live ones
-     and the turned pile (promoted by their static 3D transform). Never on the
-     parked unread sheets, which is where the budget is actually won. */
-  .np-scope[data-mode="paper"] .np-sheet[data-live] .np-face,
-  .np-scope[data-mode="paper"] .np-sheet[data-turned] .np-face {
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-  }
-
-  /* The 0.01px nudge breaks exact coplanarity with the parent — WebKit renders
-     coplanar backface-hidden children through each other otherwise. */
-  .np-scope[data-mode="paper"] .np-face--front {
-    transform: translateZ(0.01px);
-  }
-
-  .np-scope[data-mode="paper"] .np-face--back {
-    transform: rotateY(180deg) translateZ(0.01px);
-  }
-
-  .np-scope[data-mode="paper"] .np-cast {
-    position: absolute;
-    /* Tracks the sheet it falls from — same origin, same leaf. */
-    left: calc(50% - var(--np-page-w) / 2);
-    top: calc((100svh - var(--np-page-h)) / 2);
-    width: var(--np-page-w);
-    height: var(--np-page-h);
-    transform-origin: 0 50%;
-    pointer-events: none;
-    z-index: 90;
-    background: linear-gradient(
-      to right,
-      rgb(0 0 0 / 0.5) 0%,
-      rgb(0 0 0 / 0.22) 34%,
-      rgb(0 0 0 / 0) 78%
-    );
-  }
-
-  /* Both shades are anchored at the fold, which fakes the slight curl a flat
-     sheet cannot produce on its own. */
-  .np-scope .np-shade {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .np-scope .np-shade--front {
-    background: linear-gradient(
-      to right,
-      rgb(0 0 0 / 0.55) 0%,
-      rgb(0 0 0 / 0.12) 22%,
-      rgb(0 0 0 / 0) 60%
-    );
-  }
-
-  .np-scope .np-shade--back {
-    background: linear-gradient(
-      to left,
-      rgb(0 0 0 / 0.62) 0%,
-      rgb(0 0 0 / 0.18) 26%,
-      rgb(0 0 0 / 0.04) 70%
-    );
-  }
-
-  /* The verso used to be ~14 nodes of faked furniture — a ghost letterform,
-     gradient "text", and one mirrored line of show-through. It is gone: every
-     sheet now carries a real page on its back, which is what a leaf of newsprint
-     actually is, and what makes the pile behind you readable rather than
-     decorative. See NewspaperSheet.tsx. */
-
-  /* ══ THE DELIVERY ══════════════════════════════════════════════════════════
-     The rolled paper thrown onto the desk. See Intro.tsx for why it is built
-     out of strips rather than being a single bent element.
-
-     It occupies the SHEET'S EXACT BOX, because that box is what the roll has to
-     unroll into: at progress 1 every strip is flat and the roll is pixel-aligned
-     with the front page underneath it, so the hand-off is a cross-fade rather
-     than a jump. Intro.tsx measures this element to get its geometry. */
-  .np-scope .np-intro {
-    position: absolute;
-    left: calc(50% - var(--np-page-w) / 2);
-    top: calc((100svh - var(--np-page-h)) / 2);
-    width: var(--np-page-w);
-    height: var(--np-page-h);
-    z-index: 150;
-    transform-style: preserve-3d;
-    pointer-events: none;
-  }
-
-  .np-scope .np-roll {
-    position: absolute;
-    inset: 0;
-    transform-style: preserve-3d;
-  }
-
-  .np-scope .np-strip {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    height: 100%;
-    margin-left: -0.5px;
-    transform-origin: 50% 50%;
-    background-color: var(--np-paper);
-    /* Newsprint at a glance — column rules and the suggestion of type. Nothing
-       readable: a rolled paper shows you nothing but its own edge. */
-    background-image:
-      repeating-linear-gradient(to bottom, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 7px),
-      linear-gradient(to right, rgb(0 0 0 / 0.05) 0 1px, transparent 1px);
-    box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.05);
-  }
-
-  /* Cylindrical shading, baked per strip from its resting angle and faded out
-     with the unroll — a flat page must not keep the stripes of the tube. */
-  .np-scope .np-strip i {
-    position: absolute;
-    inset: 0;
-    display: block;
-  }
-
-  .np-scope .np-roll-band {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    padding: 7px 14px;
-    background: rgb(18 14 10 / 0.92);
-    color: #f2ece0;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    white-space: nowrap;
-  }
-
-  /* While the bundle is still in the air there is no paper to look at. Once it
-     starts unrolling the blank sheet appears underneath and the copy fades up,
-     so the roll flattens INTO a page rather than being swapped for one.
-
-     `visibility`, never `opacity`: opacity on .np-stack is a grouping property
-     and would flatten the entire 3D scene (see the warning block at the top of
-     this file). */
-  .np-scope[data-intro="throw"] .np-stack {
-    visibility: hidden;
-  }
-
-  .np-scope[data-intro] .np-page-body {
-    opacity: 0;
-  }
-
-  .np-scope .np-page-body {
-    transition: opacity 420ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* ── The desk ──────────────────────────────────────────────────────────── */
-  .np-scope .np-desk {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-  }
-
-  /* Procedural wood — a stand-in until a real desk plate lands in public/desk/.
-     Grain runs near-horizontal (a desk shot from above reads that way), at low
-     contrast: this only has to be a believable surface for the paper to sit on,
-     not a convincing photograph. Replacing DESK.plate retires it entirely. */
-  .np-scope .np-desk-proc {
-    position: absolute;
-    inset: 0;
-    background-color: #6b4a2f;
-    background-image:
-      repeating-linear-gradient(
-        1.5deg,
-        rgb(0 0 0 / 0.055) 0 3px,
-        rgb(255 255 255 / 0.02) 3px 7px,
-        transparent 7px 26px
-      ),
-      repeating-linear-gradient(
-        -0.8deg,
-        rgb(0 0 0 / 0.04) 0 1px,
-        transparent 1px 61px
-      ),
-      radial-gradient(ellipse 40% 120% at 22% 40%, rgb(0 0 0 / 0.07), transparent 60%),
-      radial-gradient(ellipse 30% 90% at 78% 65%, rgb(255 255 255 / 0.03), transparent 60%),
-      linear-gradient(168deg, #7f5a38 0%, #6a4830 44%, #503522 100%);
-  }
-
-  .np-scope .np-desk-vignette {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-      ellipse 76% 68% at 42% 34%,
-      rgb(255 245 225 / 0.16) 0%,
-      rgb(0 0 0 / 0) 46%,
-      rgb(0 0 0 / 0.42) 100%
-    );
-  }
-
-  /* ── Corner affordance ─────────────────────────────────────────────────── */
-  .np-scope[data-mode="paper"] .np-corner {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 8.5%;
-    aspect-ratio: 1;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    z-index: 5;
-    background: linear-gradient(
-      315deg,
-      rgb(0 0 0 / 0.14) 0%,
-      rgb(0 0 0 / 0.05) 42%,
-      transparent 62%
-    );
-    transition: background-color 150ms linear;
-  }
-
-  .np-scope[data-mode="paper"] .np-corner::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 62%;
-    aspect-ratio: 1;
-    background: linear-gradient(315deg, var(--np-paper-edge) 0 50%, transparent 50%);
-    border-left: 1px solid var(--np-hair);
-    border-top: 1px solid var(--np-hair);
-    opacity: 0;
-    transition: opacity 150ms linear;
-  }
-
-  .np-scope[data-mode="paper"] .np-corner:hover::after,
-  .np-scope[data-mode="paper"] .np-corner:focus-visible::after {
-    opacity: 1;
-  }
-
-  /* The way back. Mirrored to the bottom-LEFT, which is honest rather than
-     decorative: the fold is the sheet's own left edge, so that is the side the
-     page you just turned is lying on. With the controls bar gone this is the
-     only pointer route to the previous page. */
-  .np-scope[data-mode="paper"] .np-corner--prev {
-    right: auto;
-    left: 0;
-    background: linear-gradient(
-      45deg,
-      rgb(0 0 0 / 0.14) 0%,
-      rgb(0 0 0 / 0.05) 42%,
-      transparent 62%
-    );
-  }
-
-  .np-scope[data-mode="paper"] .np-corner--prev::after {
-    right: auto;
-    left: 0;
-    background: linear-gradient(45deg, var(--np-paper-edge) 0 50%, transparent 50%);
-    border-left: 0;
-    border-right: 1px solid var(--np-hair);
-  }
+  /* The corner page-turn buttons exist for readers inside the hidden
+     document (screen reader / keyboard); they are never visible, so they
+     carry no visual styling. */
 
   /* ── Progress hairline ─────────────────────────────────────────────────── */
   .np-scope .np-progress {
@@ -1151,29 +815,6 @@
     padding-bottom: 1.5cqw;
   }
 
-  /* The reading-mode switch, set as masthead small print — the same slot a real
-     paper uses for "also available in large type". Deliberately looks printed
-     rather than clickable at rest; it is a standing notice, not a button. */
-  .np-scope .np-plainnotice {
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-    font-family: var(--font-mono);
-    font-size: var(--np-t-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: var(--np-ink-mute);
-    border-bottom: 1px solid var(--np-hair);
-    transition:
-      color 150ms linear,
-      border-color 150ms linear;
-  }
-
-  .np-scope .np-plainnotice:hover {
-    color: var(--np-ink);
-    border-bottom-color: var(--np-ink);
-  }
 
   /* Running head on pages 2–8. */
   .np-scope .np-runhead {
@@ -1948,9 +1589,7 @@
   /* ══ PRINT ═════════════════════════════════════════════════════════════════
      Print always gets plain mode — same code path as reduced-motion. */
   @media print {
-    .np-scope .np-desk,
     .np-scope .np-controls,
-    .np-scope .np-corner,
     .np-scope .np-progress {
       display: none !important;
     }

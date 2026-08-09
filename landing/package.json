@@ -9,7 +9,9 @@
     "lint": "eslint",
     "pages:render": "node scripts/render-pages.mjs",
     "scene:shot": "node scripts/shoot-scene.mjs",
-    "backdrop:prep": "node scripts/prep-backdrop.mjs"
+    "backdrop:prep": "node scripts/prep-backdrop.mjs",
+    "clip:fit": "node scripts/fit-clip-table.mjs",
+    "perf:timeline": "node scripts/load-timeline.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.7.0",
@@ -27,6 +29,8 @@
     "@types/three": "^0.185.4",
     "eslint": "^9",
     "eslint-config-next": "^16.2.12",
+    "ffmpeg-static": "^5.3.0",
+    "ffprobe-static": "^3.1.0",
     "playwright-core": "^1.62.1",
     "sharp": "^0.35.3",
     "typescript": "^5"

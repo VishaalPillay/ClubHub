@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Component,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -20,7 +21,8 @@ import {
 } from "./readingMode";
 import { PAGES_PER_SHEET, rectoForSpread, spreadForPage, type EditionPage } from "./edition";
 import PageControls from "./PageControls";
-import { markIntroSeen, shouldPlayIntro } from "./introState";
+import RoomBackdrop from "./RoomBackdrop";
+import { currentPhase, type Phase } from "../scene/timeOfDay";
 import { useLenis } from "./useLenis";
 import { useMediaQuery } from "./useMediaQuery";
 
@@ -31,6 +33,47 @@ import { useMediaQuery } from "./useMediaQuery";
  * Server Component. The server keeps emitting plain mode either way.
  */
 const NewspaperScene = dynamic(() => import("../scene/NewspaperScene"), { ssr: false });
+
+/**
+ * Starts the scene chunk downloading at module evaluation, not from an effect.
+ *
+ * `dynamic()` only begins fetching when the component first renders, which is
+ * after hydration — so the largest download on the page queued behind the very
+ * work it was waiting for, and the paper arrived seconds after the room. The
+ * boot script has already decided reading mode by the time this file executes,
+ * so the answer is available and there is nothing to wait for. Deduped by the
+ * module registry, so `dynamic` still gets the same promise.
+ */
+if (typeof document !== "undefined" && document.documentElement.dataset.npMode === "paper") {
+  void import("../scene/NewspaperScene");
+}
+
+/**
+ * Contains a render error from the canvas tree — a class component, because
+ * only class components can catch one.
+ *
+ * This is not decoration. In React 19 an uncaught render error unmounts the
+ * ENTIRE root, so a single flaky 404 on a page texture — `useLoader` throws,
+ * Suspense has nothing to resume — would take down the whole page: chrome,
+ * articles, everything. Caught here, the same failure degrades to the room
+ * video with no paper on the table, the hidden document still carrying all
+ * eight pages, and the "Read as a plain page" switch still working.
+ */
+class SceneBoundary extends Component<{ children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.warn("[landing] 3D scene failed; the plain document remains available.", error);
+  }
+
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 /**
  * The state owner: scroll track, sticky stage, `pos`, the discrete page/leaf
@@ -75,9 +118,24 @@ export default function NewspaperShell({
   /** Matches the `@media (width < 1024px)` breakpoint in newspaper.css. */
   const spread = !useMediaQuery("(width < 1024px)");
 
-  /** Spread: one step per leaf turned, plus the closed state at each end.
-   *  Single-page: one step per page. */
-  const steps = spread ? sheetCount : pages.length - 1;
+  /**
+   * Steps at each end where the CAMERA moves but nothing turns.
+   *
+   * Without this the first leaf begins turning on the very first scroll, while
+   * the camera is still out at the establishing angle — so page one is never
+   * legible at any scroll position, which rather defeats a front page. The
+   * lead-in buys a whole step for the camera to come in and settle before
+   * anything moves, and the lead-out gives it a step to pull back out over the
+   * back cover.
+   *
+   * Zero outside paper mode, because there is no camera there to move.
+   */
+  const lead = mode === "paper" && spread ? 1 : 0;
+
+  /** Steps that actually turn a leaf. Spread: one per leaf. Narrow: one per page. */
+  const turns = spread ? sheetCount : pages.length - 1;
+
+  const steps = turns + lead * 2;
 
   const [pos0, setPos0] = useState(0);
   const posRef = useRef(0);
@@ -105,24 +163,20 @@ export default function NewspaperShell({
   );
 
   /**
-   * The delivery animation.
+   * Which time of day the room and the light are set to.
    *
-   * Seeded during the first client render rather than from an effect, so the
-   * bundle is in place on the very first paper-mode frame instead of appearing
-   * one late. That makes the value differ between the server and the hydrating
-   * client, so EVERY use of it has to be gated on `mode` — which is safe only
-   * because paper mode cannot exist until hydration has finished. An earlier
-   * revision put an ungated `data-intro` attribute on the scope and React
-   * silently never applied it.
+   * Resolved ONCE, here, and handed to both the video and the 3D scene — if
+   * each looked at the clock itself they could disagree across an hour boundary
+   * and you would get a table lit for morning standing in an evening room.
+   *
+   * Guarded on `window` because this project is statically exported: the
+   * initialiser also runs at BUILD time, where `new Date()` is the build's
+   * clock, not the visitor's. Safe only because every use of it is behind
+   * `mode === "paper"`, which cannot be true until hydration has finished.
    */
-  const [delivery, setDelivery] = useState<"playing" | "done">(() =>
-    typeof window !== "undefined" && shouldPlayIntro() ? "playing" : "done",
+  const [phase] = useState<Phase>(() =>
+    typeof window === "undefined" ? "morning" : currentPhase(),
   );
-
-  const endDelivery = useCallback(() => {
-    markIntroSeen();
-    setDelivery("done");
-  }, []);
 
   const { scrollYProgress } = useScroll({
     target: trackRef,
@@ -139,8 +193,8 @@ export default function NewspaperShell({
    * to know which layout is running.
    */
   const posForPage = useCallback(
-    (p: number) => (spread ? spreadForPage(p) : p),
-    [spread],
+    (p: number) => (spread ? spreadForPage(p) : p) + lead,
+    [spread, lead],
   );
 
   /** Measure one step's worth of scroll once per resize — never inside a motion
@@ -162,10 +216,6 @@ export default function NewspaperShell({
    *  scrollTo that falls back to the native one before Lenis has mounted. */
   const scrollTo = useLenis({
     enabled: mode === "paper",
-    /* Nothing to scroll while the paper is still in the air, and a reader who
-       spins the wheel during the delivery means "open it", not "turn to page 3"
-       — Delivery listens for exactly that. */
-    paused: mode === "paper" && delivery === "playing",
     pos,
     steps,
     topForIndex: topForStep,
@@ -245,8 +295,9 @@ export default function NewspaperShell({
    *  deep-linked; on a narrow screen the step IS the page. The leaf index is
    *  how many leaves have been turned, which is what a sheet's `depth` — and
    *  therefore the compositing budget — is measured against. */
-  const page = spread ? rectoForSpread(pos0) : pos0;
-  const sheet = spread ? pos0 : Math.floor((pos0 + 1) / PAGES_PER_SHEET);
+  const turn = Math.min(Math.max(pos0 - lead, 0), turns);
+  const page = spread ? rectoForSpread(turn) : turn;
+  const sheet = spread ? turn : Math.floor((turn + 1) / PAGES_PER_SHEET);
 
   useEffect(() => {
     if (mode !== "paper") return;
@@ -266,10 +317,10 @@ export default function NewspaperShell({
   useLayoutEffect(() => {
     if (mode !== "paper") return;
 
-    /* Synchronously first, for `pageW` alone. A sheet's width does not depend on
-       the track having grown, and the stack pan is computed from it — leaving it
-       at 0 until the deferred pass lands would paint the front page hard against
-       the right half of the desk for two frames before it snapped to centre. */
+    /* Synchronously first, so a deep-link jump fired this same tick has a real
+       step size to aim with; the deferred passes re-measure once framer's own
+       resize observer has caught up with the track growing to its full sticky
+       height. */
     measure();
 
     let raf2 = 0;
@@ -437,15 +488,17 @@ export default function NewspaperShell({
             }
           >
             {mode === "paper" && (
-              <NewspaperScene
-                posRef={scenePosRef}
-                steps={steps}
-                delivery={delivery === "playing"}
-                /* The landing is not the end of the sequence — the reader still
-                   has to open it — so nothing is unlocked here yet. */
-                onDeliveryLanded={() => {}}
-                onDeliveryDone={endDelivery}
-              />
+              <>
+                <RoomBackdrop pos={pos} steps={steps} lead={lead} phase={phase} />
+                <SceneBoundary>
+                  <NewspaperScene
+                    posRef={scenePosRef}
+                    turns={turns}
+                    lead={lead}
+                    phase={phase}
+                  />
+                </SceneBoundary>
+              </>
             )}
 
             {/*

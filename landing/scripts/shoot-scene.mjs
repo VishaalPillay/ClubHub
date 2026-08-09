@@ -1,8 +1,10 @@
 /**
  * Screenshots the live 3D scene at a given scroll step.
  *
- *   npm run scene:shot -- <step> [outfile]          a scroll position
- *   npm run scene:shot -- delivery <ms> [outfile]   the intro, N ms after load
+ *   npm run scene:shot -- <step> [outfile] [phase]
+ *
+ * `phase` is morning | evening | night and overrides the wall clock, so a
+ * time-of-day that is not the current hour can still be checked.
  *
  * Exists because a WebGL scene cannot be checked by reading the DOM. Nothing
  * about the camera framing, the page curl, which texture landed on which face,
@@ -30,6 +32,7 @@ const MIME = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".avif": "image/avif",
+  ".mp4": "video/mp4",
   ".ico": "image/x-icon",
 };
 
@@ -41,7 +44,7 @@ function serve(root) {
       if (url.endsWith("/")) file = join(file, "index.html");
       createReadStream(file)
         .on("error", () => {
-          res.writeHead(404);
+          if (!res.headersSent) res.writeHead(404);
           res.end("not found");
         })
         .on("open", () =>
@@ -53,14 +56,17 @@ function serve(root) {
   });
 }
 
+/** Hour to force for each phase. Mirrors phaseForHour in timeOfDay.ts. */
+const PHASE_HOUR = { morning: 9, evening: 18, night: 22 };
+
 async function main() {
-  const isDelivery = process.argv[2] === "delivery";
-  const step = isDelivery ? 0 : Number(process.argv[2] ?? 0);
-  const delayMs = isDelivery ? Number(process.argv[3] ?? 600) : 0;
-  const outFile = resolve(
-    (isDelivery ? process.argv[4] : process.argv[3]) ??
-      (isDelivery ? `delivery-${delayMs}.png` : `scene-step-${step}.png`),
-  );
+  const step = Number(process.argv[2] ?? 0);
+  const outFile = resolve(process.argv[3] ?? `scene-step-${step}.png`);
+  const phase = process.argv[4];
+  if (phase && !(phase in PHASE_HOUR)) {
+    console.error(`Unknown phase "${phase}". Expected: ${Object.keys(PHASE_HOUR).join(", ")}`);
+    process.exit(1);
+  }
 
   try {
     await stat(OUT_DIR);
@@ -87,15 +93,16 @@ async function main() {
   });
 
   await context.addInitScript(
-    ({ skipIntro }) => {
+    ({ hour }) => {
       try {
         localStorage.setItem("clubhub:reading-mode", "paper");
-        // Capturing the delivery means letting it play, so the seen-flag is only
-        // set when we are after a scroll position instead.
-        if (skipIntro) sessionStorage.setItem("clubhub:intro-seen", "1");
       } catch {}
+      /* Only `getHours` is replaced, never the Date constructor. Swapping the
+         whole class breaks any caller that invokes `Date()` without `new`, which
+         is enough to take the page down before it renders. */
+      if (hour !== undefined) Date.prototype.getHours = () => hour;
     },
-    { skipIntro: !isDelivery },
+    { hour: phase ? PHASE_HOUR[phase] : undefined },
   );
 
   const page = await context.newPage();
@@ -105,28 +112,29 @@ async function main() {
   });
   page.on("pageerror", (e) => console.error("  [pageerror]", e.message));
 
-  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
-  await page.waitForSelector(".np-canvas canvas", { timeout: 20000 });
+  /* NOT networkidle: a looping backdrop keeps the connection busy, so the page
+     never reaches idle and the wait times out. */
+  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".np-canvas canvas", { timeout: 30000 });
+  await page.waitForTimeout(2500);
 
-  if (isDelivery) {
-    // Nothing to scroll — just wait out the requested slice of the timeline.
-    await page.waitForTimeout(delayMs);
-    await page.screenshot({ path: outFile });
-    console.log(`  delivery +${delayMs}ms -> ${outFile}`);
-  } else {
-    // Drive the real scrollbar, the way Lenis and useScroll both expect.
-    await page.evaluate((s) => {
-      const track = document.querySelector(".np-track");
-      if (!track) return;
-      const px = (track.offsetHeight - window.innerHeight) / 4;
-      window.scrollTo(0, track.offsetTop + s * px);
-    }, step);
+  // Drive the real scrollbar, the way Lenis and useScroll both expect.
+  // The step count is READ from the page rather than assumed: it changed when
+  // the camera lead-in was added, and a hardcoded divisor silently shoots the
+  // wrong scroll position while looking like a scene bug.
+  await page.evaluate((s) => {
+    const track = document.querySelector(".np-track");
+    const scope = document.querySelector(".np-scope");
+    if (!track || !scope) return;
+    const steps = Number(getComputedStyle(scope).getPropertyValue("--np-steps")) || 4;
+    const px = (track.offsetHeight - window.innerHeight) / steps;
+    window.scrollTo(0, track.offsetTop + s * px);
+  }, step);
 
-    // Long enough for Lenis to settle and the textures to have decoded.
-    await page.waitForTimeout(2500);
-    await page.screenshot({ path: outFile });
-    console.log(`  step ${step} -> ${outFile}`);
-  }
+  // Long enough for Lenis to settle and the textures to have decoded.
+  await page.waitForTimeout(2500);
+  await page.screenshot({ path: outFile });
+  console.log(`  step ${step}${phase ? ` (${phase})` : ""} -> ${outFile}`);
 
   await browser.close();
   server.close();

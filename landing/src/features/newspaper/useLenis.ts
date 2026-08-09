@@ -12,7 +12,7 @@ import Lenis from "lenis";
  * it is the right tool here and a transform-based smooth-scroll (Locomotive v4
  * and friends) is not — `.np-stage` is `position: sticky`, which a translated
  * scroll container breaks outright, and `useScroll` keeps reading true scroll
- * position, so `pos` and every sheet curve in useSheetMotion.ts are untouched.
+ * position, so `pos` and everything derived from it are untouched.
  *
  * Only ever constructed in paper mode. Plain mode is where reduced-motion,
  * print and no-JS land, and none of them should get momentum scrolling.
@@ -40,10 +40,6 @@ export interface ScrollToOpts {
 
 export interface UseLenisArgs {
   enabled: boolean;
-  /** Freeze the scroll without tearing Lenis down — used while the delivery
-   *  animation is playing. Toggling `enabled` instead would destroy and rebuild
-   *  the instance, losing the scroll position with it. */
-  paused?: boolean;
   /** Continuous page position. The settle rounds this to the nearest page. */
   pos: MotionValue<number>;
   /** Highest valid page index. */
@@ -53,7 +49,7 @@ export interface UseLenisArgs {
   topForIndex: (i: number) => number;
 }
 
-export function useLenis({ enabled, paused = false, pos, steps, topForIndex }: UseLenisArgs) {
+export function useLenis({ enabled, pos, steps, topForIndex }: UseLenisArgs) {
   const lenisRef = useRef<Lenis | null>(null);
 
   /**
@@ -147,16 +143,6 @@ export function useLenis({ enabled, paused = false, pos, steps, topForIndex }: U
       ownUntil.current = 0;
     };
   }, [enabled, pos, steps, topForIndex, scrollTo]);
-
-  /* Separate from the lifecycle effect on purpose: pausing must not rebuild the
-     instance. Lenis also puts `.lenis-stopped` on <html> while stopped, which is
-     what actually blocks native wheel and touch — see globals.css. */
-  useEffect(() => {
-    const lenis = lenisRef.current;
-    if (!lenis) return;
-    if (paused) lenis.stop();
-    else lenis.start();
-  }, [paused, enabled]);
 
   return scrollTo;
 }

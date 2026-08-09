@@ -118,7 +118,6 @@ async function main() {
   await context.addInitScript(() => {
     try {
       localStorage.setItem("clubhub:reading-mode", "plain");
-      sessionStorage.setItem("clubhub:intro-seen", "1");
     } catch {}
   });
 
