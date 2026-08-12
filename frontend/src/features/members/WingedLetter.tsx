@@ -7,7 +7,7 @@ import { useEffect } from "react";
  * The send-off animation for a member action: the confirmation folds into a sealed
  * letter, sprouts wings, flaps, and flies off-screen.
  *
- *   tone="angel" → white feathered wings + blue seal  (promote / good news)
+ *   tone="angel" → paper feathered wings + blue seal  (promote / good news)
  *   tone="devil" → red jagged bat wings + red seal    (kick / bad news)
  *
  * Everything is inline SVG — no image assets, no animation library beyond
@@ -78,7 +78,7 @@ function Wing({ tone }: { tone: Tone }) {
         <path
           key={i}
           d="M0 0 Q34 -7 66 -2 Q36 7 0 6 Z"
-          fill="#ffffff"
+          fill="#f5f2ec"
           stroke="#1a1a1a"
           strokeWidth="2"
           strokeLinejoin="round"
@@ -99,7 +99,7 @@ function Envelope({ tone }: { tone: Tone }) {
         y="2"
         width="128"
         height="82"
-        fill="#ffffff"
+        fill="#f5f2ec"
         stroke="#1a1a1a"
         strokeWidth="3"
       />
@@ -111,7 +111,7 @@ function Envelope({ tone }: { tone: Tone }) {
       <circle cx="66" cy="56" r="13" fill={seal} stroke="#1a1a1a" strokeWidth="2.5" />
       <path
         d={tone === "angel" ? "M66 62 L66 50 M61 55 L66 50 L71 55" : "M66 50 L66 62 M61 57 L66 62 L71 57"}
-        stroke="#ffffff"
+        stroke="#f5f2ec"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"

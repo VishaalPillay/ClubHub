@@ -92,7 +92,7 @@ export default function ProfileMenu() {
         {label}
       </label>
       <input
-        className="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
+        className="border-2 border-black bg-paper text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
         id={name}
         name={name}
         value={form[name]}
@@ -120,7 +120,7 @@ export default function ProfileMenu() {
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink bg-opacity-50 p-4">
-          <div className="bg-white border-2 border-black w-full max-w-form p-6 md:p-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-paper border-2 border-black w-full max-w-form p-6 md:p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
               <div>
                 <div className="font-mono text-12 font-bold tracking-widest text-black mb-2 uppercase">
@@ -132,7 +132,7 @@ export default function ProfileMenu() {
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-white transition-150 rounded-none bg-white text-black"
+                className="w-10 h-10 border-2 border-black flex items-center justify-center hover:bg-black hover:text-paper transition-150 rounded-none bg-paper text-black"
                 aria-label="Close"
               >
                 <span className="material-symbols-outlined text-[24px]">close</span>
@@ -166,7 +166,7 @@ export default function ProfileMenu() {
                   Full Name
                 </label>
                 <input
-                  className="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
+                  className="border-2 border-black bg-paper text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
                   id="name"
                   name="name"
                   value={form.name}
@@ -180,7 +180,7 @@ export default function ProfileMenu() {
               <div className="flex flex-col gap-2">
                 <label className="font-ui text-16 font-bold text-black uppercase">Email</label>
                 <input
-                  className="border-2 border-[#757575] bg-[#f3f3f3] text-[#757575] p-3 font-ui text-16 rounded-none cursor-not-allowed"
+                  className="border-2 border-[#757575] bg-[#ebe6db] text-[#757575] p-3 font-ui text-16 rounded-none cursor-not-allowed"
                   value={user.email}
                   type="email"
                   disabled
@@ -203,7 +203,7 @@ export default function ProfileMenu() {
                 onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
                 label="Institution"
                 labelClassName="font-ui text-16 font-bold text-black uppercase"
-                inputClassName="border-2 border-black bg-white text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
+                inputClassName="border-2 border-black bg-paper text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
               />
 
               {urlField("github_url", "GitHub URL", "https://github.com/you")}
@@ -214,14 +214,14 @@ export default function ProfileMenu() {
                 <button
                   type="submit"
                   disabled={saving || !form.name.trim()}
-                  className="flex-1 bg-white border-2 border-black text-black font-ui text-16 font-bold p-4 uppercase hover:bg-black hover:text-white transition-150 rounded-none text-center disabled:opacity-40"
+                  className="flex-1 bg-paper border-2 border-black text-black font-ui text-16 font-bold p-4 uppercase hover:bg-black hover:text-paper transition-150 rounded-none text-center disabled:opacity-40"
                 >
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="flex-1 bg-white border-2 border-black text-black font-ui text-16 font-bold p-4 uppercase hover:bg-hairline-tint transition-150 rounded-none text-center"
+                  className="flex-1 bg-paper border-2 border-black text-black font-ui text-16 font-bold p-4 uppercase hover:bg-hairline-tint transition-150 rounded-none text-center"
                 >
                   Cancel
                 </button>
@@ -230,7 +230,7 @@ export default function ProfileMenu() {
               <button
                 type="button"
                 onClick={signOut}
-                className="w-full bg-white border-2 border-red-600 text-red-600 font-ui text-14 font-bold p-3 uppercase hover:bg-red-600 hover:text-white transition-150 rounded-none text-center"
+                className="w-full bg-paper border-2 border-red-600 text-red-600 font-ui text-14 font-bold p-3 uppercase hover:bg-red-600 hover:text-paper transition-150 rounded-none text-center"
               >
                 Sign Out
               </button>

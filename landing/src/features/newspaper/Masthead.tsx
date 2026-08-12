@@ -1,4 +1,5 @@
 import SectionRule from "./SectionRule";
+import Wordmark from "./Wordmark";
 import { DATELINE, EDITION_LINE, SLUGLINE } from "./edition";
 
 /**
@@ -15,7 +16,9 @@ export default function Masthead() {
 
       <div className="np-masthead-row">
         <p className="np-micro np-masthead-side">{DATELINE}</p>
-        <h1 className="np-nameplate">Club-Hub</h1>
+        <h1 className="np-nameplate">
+          <Wordmark />
+        </h1>
         <p className="np-micro np-masthead-side np-masthead-side--right">{SLUGLINE}</p>
       </div>
 

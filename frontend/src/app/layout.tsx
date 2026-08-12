@@ -28,6 +28,11 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
+// No display face is loaded here for the wordmark. It is not set as text at all:
+// it is supplied artwork, traced to outlines once (scripts/gen-wordmark.mjs →
+// components/ui/wordmarkPaths.ts), so the logo costs zero font and zero image
+// requests and cannot flash while anything downloads.
+
 export const metadata: Metadata = {
   title: {
     default: "Club-Hub — Manage Your Club, Effortlessly",
@@ -58,7 +63,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body style={{ backgroundColor: "#ffffff", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
+      <body style={{ backgroundColor: "#f5f2ec", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

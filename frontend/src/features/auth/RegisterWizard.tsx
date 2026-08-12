@@ -16,7 +16,7 @@ import CountryStateSelect, { countryHasStates } from "@/features/auth/CountrySta
 import GoogleButton from "@/features/auth/GoogleButton";
 
 const inputClass =
-  "border-2 border-black bg-white text-black p-3 font-ui text-[15px] w-full rounded-none " +
+  "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
   "focus:outline-none focus:border-[#057DBC]";
 const labelClass = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
 
@@ -215,7 +215,7 @@ export default function RegisterWizard() {
 
   if (phase === "checking") {
     return (
-      <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-white">
+      <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
         <div className="font-mono text-[12px] uppercase tracking-widest text-[#757575] animate-pulse text-center py-16">
           Loading...
         </div>
@@ -239,7 +239,7 @@ export default function RegisterWizard() {
     <button
       type="button"
       onClick={() => goTo(to)}
-      className="font-ui text-[13px] font-bold border-2 border-black px-5 py-3 uppercase hover:bg-black hover:text-white transition-colors flex items-center gap-1"
+      className="font-ui text-[13px] font-bold border-2 border-black px-5 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-1"
     >
       <span className="material-symbols-outlined text-[16px]">arrow_back</span>
       Back
@@ -247,7 +247,7 @@ export default function RegisterWizard() {
   );
 
   return (
-    <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-white">
+    <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
       {/* Progress */}
       <div className="mb-8">
         <div className="flex justify-between items-center mb-2">
@@ -256,7 +256,7 @@ export default function RegisterWizard() {
           </span>
           <span className="font-mono text-[10px] text-[#757575]">{step * 25}%</span>
         </div>
-        <div className="w-full h-[2px] bg-[#e2e8f0] relative overflow-hidden">
+        <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
           <motion.div
             className="absolute top-0 left-0 h-full bg-black"
             animate={{ width: `${step * 25}%` }}
@@ -341,11 +341,11 @@ export default function RegisterWizard() {
                     8+ CHARACTERS
                   </span>
                 </div>
-                <div className="pt-4 border-t border-[#e2e8f0] mt-1">
+                <div className="pt-4 border-t border-[#e0d9ca] mt-1">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
+                    className="w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
                   >
                     {loading ? "Please wait..." : "Create Account"}
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -387,14 +387,14 @@ export default function RegisterWizard() {
                     type="email"
                     value={email}
                     disabled
-                    className={`${inputClass} disabled:opacity-60 disabled:bg-[#f3f3f3]`}
+                    className={`${inputClass} disabled:opacity-60 disabled:bg-[#ebe6db]`}
                   />
                 </div>
-                <div className="pt-4 border-t border-[#e2e8f0] mt-1">
+                <div className="pt-4 border-t border-[#e0d9ca] mt-1">
                   <button
                     type="submit"
                     disabled={loading || !name.trim()}
-                    className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
+                    className="w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
                   >
                     {loading ? "Please wait..." : "Continue"}
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -425,12 +425,12 @@ export default function RegisterWizard() {
                   value={institution}
                   onChange={setInstitution}
                 />
-                <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex justify-between items-center">
+                <div className="pt-4 border-t border-[#e0d9ca] mt-1 flex justify-between items-center">
                   {backButton(1)}
                   <button
                     type="submit"
                     disabled={loading || !detailsValid}
-                    className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                    className="bg-black text-paper border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
                   >
                     {loading ? "Saving..." : "Continue"}
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -453,7 +453,7 @@ export default function RegisterWizard() {
                 avatarUrl={avatarUrl}
                 onUploaded={setAvatarUrl}
               />
-              <div className="pt-6 border-t border-[#e2e8f0] mt-6 flex justify-between items-center">
+              <div className="pt-6 border-t border-[#e0d9ca] mt-6 flex justify-between items-center">
                 {backButton(2)}
                 <div className="flex items-center gap-4">
                   {!avatarUrl && (
@@ -468,7 +468,7 @@ export default function RegisterWizard() {
                   <button
                     type="button"
                     onClick={() => goTo(4)}
-                    className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors flex items-center gap-2"
+                    className="bg-black text-paper border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors flex items-center gap-2"
                   >
                     Continue
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -508,17 +508,17 @@ export default function RegisterWizard() {
                         onChange={(e) => set(e.target.value)}
                         placeholder={ph}
                         aria-label={`${label} URL`}
-                        className="flex-1 border-0 border-b-2 border-[#e2e8f0] bg-transparent p-2 font-ui text-[14px] focus:outline-none focus:border-[#057DBC] rounded-none"
+                        className="flex-1 border-0 border-b-2 border-[#e0d9ca] bg-transparent p-2 font-ui text-[14px] focus:outline-none focus:border-[#057DBC] rounded-none"
                       />
                     </div>
                   ))}
                 </div>
-                <div className="pt-4 border-t border-[#e2e8f0] mt-1 flex justify-between items-center">
+                <div className="pt-4 border-t border-[#e0d9ca] mt-1 flex justify-between items-center">
                   {backButton(3)}
                   <button
                     type="submit"
                     disabled={loading}
-                    className="bg-black text-white border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                    className="bg-black text-paper border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
                   >
                     {loading ? "Please wait..." : "Enter Club-Hub"}
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>

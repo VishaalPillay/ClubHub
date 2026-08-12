@@ -47,7 +47,7 @@ export function OnboardingShell({
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-white flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-paper flex flex-col overflow-hidden">
 
       {/* ─── Utility Nav Strip ─────────────────────────────────────────────── */}
       <div className="wired-utility-nav px-[24px] justify-between">
@@ -56,7 +56,7 @@ export function OnboardingShell({
               rather than a client-side route push. */}
           <a
             href={LANDING_URL}
-            className="flex items-center gap-[6px] text-white hover:text-[#057dbc] transition-[color] duration-[150ms] linear no-underline"
+            className="flex items-center gap-[6px] text-paper hover:text-[#057dbc] transition-[color] duration-[150ms] linear no-underline"
           >
             <HouseSimple size={14} weight="bold" />
             <span>CLUB-HUB</span>
@@ -72,7 +72,7 @@ export function OnboardingShell({
         style={{
           borderBottom: "1px solid #000",
           padding: "16px 24px",
-          backgroundColor: "#fff",
+          backgroundColor: "#f5f2ec",
         }}
       >
         <div

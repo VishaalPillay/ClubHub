@@ -4,7 +4,7 @@ import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState } fro
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import Leaf from "./Leaf";
-import { TIME_OF_DAY, type ClipTable, type Phase, type RoomLight } from "./timeOfDay";
+import { ROOM_LIGHT, type ClipTable, type RoomLight } from "./roomLight";
 import { PAGE_H, PAGE_W, cameraPositionFor, openness } from "./sceneConfig";
 
 /**
@@ -339,18 +339,16 @@ export default function NewspaperScene({
   posRef,
   turns,
   lead,
-  phase,
 }: {
   posRef: React.RefObject<number>;
   /** Steps that turn a leaf. */
   turns: number;
   /** Steps at each end that only move the camera. */
   lead: number;
-  /** Resolved by the shell, so the table and the clip behind it cannot
-   *  disagree about what time of day it is. */
-  phase: Phase;
 }) {
-  const light = TIME_OF_DAY[phase];
+  /* One rig, matched to the one clip RoomBackdrop plays. Neither layer chooses
+     it any more, so neither can disagree with the other. */
+  const light = ROOM_LIGHT;
 
   /* Held back until the front page exists. The room is already on screen by
      now — painted by the boot script before React ran — so fading the canvas up
@@ -373,7 +371,7 @@ export default function NewspaperScene({
       <CameraRig clip={light.clipTable} />
 
       {/* No lights. Every material in this scene is a raw ShaderMaterial with
-          its own lighting model fed from timeOfDay — scene lights would cost a
+          its own lighting model fed from roomLight — scene lights would cost a
           uniform update per frame and illuminate nothing. */}
 
       {/* Suspense lives per leaf, inside Edition. */}

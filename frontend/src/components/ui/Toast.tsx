@@ -45,7 +45,7 @@ export default function Toast({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
           transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-          className="fixed bottom-6 right-6 z-[120] max-w-sm border-2 border-black bg-white flex items-stretch"
+          className="fixed bottom-6 right-6 z-[120] max-w-sm border-2 border-black bg-paper flex items-stretch"
         >
           <div className={`w-1.5 shrink-0 ${TONE_BAR[tone]}`} />
           <div className="flex items-start gap-3 px-4 py-3">

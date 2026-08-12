@@ -138,15 +138,18 @@
     visibility: hidden;
   }
 
-  /* The room's own poster, painted from a custom property the boot script sets.
-     It is the same frame the video opens on, so when the real backdrop mounts
-     underneath there is nothing to see change. */
+  /* The room's own poster. It is the same frame the video opens on, so when the
+     real backdrop mounts underneath there is nothing to see change.
+
+     Named here rather than handed over from JS: there is one room now, so the
+     boot script has nothing left to decide about it. This URL is the hand-synced
+     twin of ROOM_POSTER in features/scene/roomLight.ts — change them together. */
   html[data-np-mode="paper"] .np-scope[data-mode="plain"]::before {
     content: "";
     position: fixed;
     inset: 0;
     z-index: 0;
-    background-image: var(--np-boot-room);
+    background-image: url("/backdrop/morning.avif");
     background-size: cover;
     background-position: center;
   }
@@ -255,7 +258,12 @@
     background: var(--np-paper);
     overflow: hidden;
 
-    --np-t-nameplate: clamp(38px, 13cqw, 112px);
+    /* The nameplate is a graphic, so its ramp is a WIDTH, not a font-size. The
+       ×5.08 against the old 13cqw type ramp is how wide that string actually
+       set, so the mark occupies the same span of the sheet as the text
+       nameplate it replaced — and the dateline/slugline flanking it keep the
+       room they were laid out against. */
+    --np-w-nameplate: clamp(195px, 66cqw, 570px);
     --np-t-lead: clamp(26px, 7.4cqw, 60px);
     --np-t-h2: clamp(21px, 5.4cqw, 44px);
     --np-t-h3: clamp(15px, 3.2cqw, 26px);
@@ -275,7 +283,7 @@
      The mobile reflow re-scales these wholesale rather than reinstating floors. */
   .np-scope[data-mode="paper"] .np-page-body,
   .np-scope[data-render="page"] .np-page-body {
-    --np-t-nameplate: 13cqw;
+    --np-w-nameplate: 66cqw;
     --np-t-lead: 7.4cqw;
     --np-t-h2: 5.4cqw;
     --np-t-h3: 3.2cqw;
@@ -366,15 +374,28 @@
     text-wrap: balance;
   }
 
+  /* The nameplate is now a graphic, not type — it holds the wordmark SVG, which
+     sizes itself to this box. Width rather than font-size, therefore; the
+     --np-t-nameplate ramp it used to read is gone with the text. */
   .np-scope .np-nameplate {
-    font-size: var(--np-t-nameplate);
-    white-space: nowrap;
-    font-weight: 700;
-    line-height: 0.78;
-    letter-spacing: -0.045em;
-    text-transform: uppercase;
-    text-align: center;
-    margin: 0;
+    width: var(--np-w-nameplate);
+    margin: 0 auto;
+    line-height: 0;
+  }
+
+  /* ── Ransom-note wordmark (Wordmark.tsx) ─────────────────────────────────
+   *
+   * Layout only. The mark's two colours are set inline by the component and are
+   * deliberately NOT themeable from here: when they lived in this file, a
+   * stylesheet that had not arrived yet rendered the whole logo as black slabs
+   * with no letters in them. See the component for the full account.
+   *
+   * Width comes from the wrapper (.np-nameplate / .np-controls-mark); height
+   * follows the viewBox aspect. */
+  .np-scope .np-wordmark {
+    display: block;
+    width: 100%;
+    height: auto;
   }
 
   .np-scope .np-lead-head {
@@ -1418,13 +1439,13 @@
     backdrop-filter: none;
   }
 
+  /* Holds the wordmark SVG on the dark blotter strip — a width, not a type
+     size, and the mark itself carries --invert for the reversed palette. */
   .np-scope .np-controls-mark {
-    font-family: var(--font-display);
-    font-size: 19px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: -0.03em;
-    color: #ffffff;
+    display: block;
+    width: 132px;
+    flex: none;
+    line-height: 0;
   }
 
   .np-scope .np-pager {

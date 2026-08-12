@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { myClubs } from "@/lib/api/clubs";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 export default function OnboardingStep1() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function OnboardingStep1() {
 
   if (clubsLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className="font-mono text-[13px] uppercase tracking-widest text-[#757575] animate-pulse">
           Loading...
         </div>
@@ -33,11 +34,11 @@ export default function OnboardingStep1() {
   }
 
   return (
-    <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col">
+    <div className="bg-[#f5f2ec] text-[#000000] min-h-screen flex flex-col">
       {/* TopAppBar */}
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
-        <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper top-0 border-b-2 border-black">
+        <div>
+          <Wordmark className="w-[225px]" />
         </div>
         <UserAvatarBadge />
       </header>
@@ -52,7 +53,7 @@ export default function OnboardingStep1() {
                 <span className="font-[Space_Grotesk] text-[13px] text-[#000000] uppercase tracking-widest">Step 1 of 5</span>
                 <span className="font-[Space_Grotesk] text-[13px] text-[#000000]">20%</span>
               </div>
-              <div className="w-full h-[2px] bg-[#E2E8F0] relative overflow-hidden">
+              <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
                 <div className="absolute top-0 left-0 h-full bg-[#000000] transition-all duration-1000 ease-out" style={{ width: progress }}></div>
               </div>
             </div>
@@ -75,7 +76,7 @@ export default function OnboardingStep1() {
             {/* Card 1: Join */}
             <button
               onClick={() => setSelected("join")}
-              className={`flex flex-col items-start p-[32px] border-2 bg-[#FFFFFF] text-left transition-all duration-100 hover:bg-[#f3f3f3] group relative ${selected === "join" ? "border-[#057DBC] outline outline-2 outline-[#057DBC] outline-offset-2" : "border-[#000000]"}`}
+              className={`flex flex-col items-start p-[32px] border-2 bg-[#f5f2ec] text-left transition-all duration-100 hover:bg-[#ebe6db] group relative ${selected === "join" ? "border-[#057DBC] outline outline-2 outline-[#057DBC] outline-offset-2" : "border-[#000000]"}`}
               type="button"
             >
               {selected === "join" && (
@@ -97,7 +98,7 @@ export default function OnboardingStep1() {
             {/* Card 2: Create */}
             <button
               onClick={() => setSelected("create")}
-              className={`flex flex-col items-start p-[32px] border-2 bg-[#FFFFFF] text-left transition-all duration-100 hover:bg-[#f3f3f3] group relative ${selected === "create" ? "border-[#057DBC] outline outline-2 outline-[#057DBC] outline-offset-2" : "border-[#000000]"}`}
+              className={`flex flex-col items-start p-[32px] border-2 bg-[#f5f2ec] text-left transition-all duration-100 hover:bg-[#ebe6db] group relative ${selected === "create" ? "border-[#057DBC] outline outline-2 outline-[#057DBC] outline-offset-2" : "border-[#000000]"}`}
               type="button"
             >
               {selected === "create" && (
@@ -119,7 +120,7 @@ export default function OnboardingStep1() {
 
           {/* Action Area */}
           <div className="w-full mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">
-            <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#FFFFFF] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+            <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#f5f2ec] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#f5f2ec] transition-colors duration-0 flex items-center gap-[4px]" type="button">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               BACK
             </button>
@@ -129,7 +130,7 @@ export default function OnboardingStep1() {
                 else if (selected === "create") router.push("/onboarding/step-2");
               }}
               disabled={!selected}
-              className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-40"
+              className="font-[Inter] text-[16px] font-bold text-[#f5f2ec] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#f5f2ec] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-40"
               type="button"
             >
               CONTINUE
@@ -140,15 +141,15 @@ export default function OnboardingStep1() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1A1A1A] text-white font-[Space_Grotesk] text-xs tracking-tight uppercase w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 py-12 mt-auto">
-        <div className="text-white font-black tracking-widest text-center md:text-left">
+      <footer className="bg-[#1A1A1A] text-paper font-[Space_Grotesk] text-xs tracking-tight uppercase w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 py-12 mt-auto">
+        <div className="text-paper font-black tracking-widest text-center md:text-left">
           © 2024 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
         <div className="flex flex-wrap justify-center gap-[24px]">
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Privacy</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Terms</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Contact</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Archive</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Privacy</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Terms</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Contact</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Archive</Link>
         </div>
       </footer>
     </div>

@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createClub } from "@/lib/api/clubs";
 import { createDomain } from "@/lib/api/domains";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 export default function OnboardingStep4() {
   const router = useRouter();
@@ -107,11 +108,11 @@ export default function OnboardingStep4() {
   if (!readyToShow) return null;
 
   return (
-    <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col font-[Inter]">
+    <div className="bg-[#f5f2ec] text-[#000000] min-h-screen flex flex-col font-[Inter]">
       {/* TopAppBar */}
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
-        <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper top-0 border-b-2 border-black">
+        <div>
+          <Wordmark className="w-[225px]" />
         </div>
         <UserAvatarBadge />
       </header>
@@ -126,7 +127,7 @@ export default function OnboardingStep4() {
               <span className="font-[Space_Grotesk] text-[13px] text-[#000000] uppercase tracking-widest">Step 4 of 5</span>
               <span className="font-[Space_Grotesk] text-[13px] text-[#000000]">80%</span>
             </div>
-            <div className="w-full h-[1px] bg-[#E2E8F0] relative overflow-hidden">
+            <div className="w-full h-[1px] bg-[#e0d9ca] relative overflow-hidden">
               <div className="absolute top-0 left-0 h-full bg-[#000000] transition-all duration-1000 ease-out" style={{ width: progress }}></div>
             </div>
           </div>
@@ -144,43 +145,43 @@ export default function OnboardingStep4() {
           <div className="flex flex-col">
             <button
               onClick={() => toggleRole("president")}
-              className="w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC] cursor-default"
+              className="w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC] cursor-default"
               title="President is always included and cannot be removed."
             >
               <span className="font-[Inter] text-[16px] font-bold">President</span>
               <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
             </button>
-            <div className="w-full h-[1px] bg-[#E2E8F0] mb-[8px] hidden md:block"></div>
+            <div className="w-full h-[1px] bg-[#e0d9ca] mb-[8px] hidden md:block"></div>
             
             <button
               onClick={() => toggleRole("secretary")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.secretary ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.secretary ? "bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC]" : "bg-[#f5f2ec] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#f5f2ec]"}`}
             >
               <span className="font-[Inter] text-[16px] font-bold">Secretary</span>
               {roles.secretary ? (
                 <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
+                <span className="material-symbols-outlined text-transparent group-hover:text-[#f5f2ec]">add</span>
               )}
             </button>
-            <div className="w-full h-[1px] bg-[#E2E8F0] mb-[8px] hidden md:block"></div>
+            <div className="w-full h-[1px] bg-[#e0d9ca] mb-[8px] hidden md:block"></div>
 
             <button
               onClick={() => toggleRole("lead")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.lead ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.lead ? "bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC]" : "bg-[#f5f2ec] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#f5f2ec]"}`}
             >
               <span className="font-[Inter] text-[16px] font-bold">Lead</span>
               {roles.lead ? (
                 <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
+                <span className="material-symbols-outlined text-transparent group-hover:text-[#f5f2ec]">add</span>
               )}
             </button>
-            <div className="w-full h-[1px] bg-[#E2E8F0] mb-[8px] hidden md:block"></div>
+            <div className="w-full h-[1px] bg-[#e0d9ca] mb-[8px] hidden md:block"></div>
 
             <button
               onClick={() => toggleRole("member")}
-              className="w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC] cursor-default"
+              className="w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC] cursor-default"
               title="Member is always included and cannot be removed."
             >
               <span className="font-[Inter] text-[16px] font-bold">Member</span>
@@ -192,39 +193,39 @@ export default function OnboardingStep4() {
           <div className="flex flex-col">
             <button
               onClick={() => toggleRole("vicePresident")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.vicePresident ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.vicePresident ? "bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC]" : "bg-[#f5f2ec] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#f5f2ec]"}`}
             >
               <span className="font-[Inter] text-[16px] font-bold">Vice President</span>
               {roles.vicePresident ? (
                 <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
+                <span className="material-symbols-outlined text-transparent group-hover:text-[#f5f2ec]">add</span>
               )}
             </button>
-            <div className="w-full h-[1px] bg-[#E2E8F0] mb-[8px] hidden md:block"></div>
+            <div className="w-full h-[1px] bg-[#e0d9ca] mb-[8px] hidden md:block"></div>
 
             <button
               onClick={() => toggleRole("jointSecretary")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.jointSecretary ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.jointSecretary ? "bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC]" : "bg-[#f5f2ec] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#f5f2ec]"}`}
             >
               <span className="font-[Inter] text-[16px] font-bold">Joint Secretary</span>
               {roles.jointSecretary ? (
                 <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
+                <span className="material-symbols-outlined text-transparent group-hover:text-[#f5f2ec]">add</span>
               )}
             </button>
-            <div className="w-full h-[1px] bg-[#E2E8F0] mb-[8px] hidden md:block"></div>
+            <div className="w-full h-[1px] bg-[#e0d9ca] mb-[8px] hidden md:block"></div>
 
             <button
               onClick={() => toggleRole("associateLead")}
-              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.associateLead ? "bg-[#000000] text-[#FFFFFF] border-[2px] border-[#057DBC]" : "bg-[#FFFFFF] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#FFFFFF]"}`}
+              className={`w-full text-left p-[16px] flex items-center justify-between group transition-colors duration-0 mb-[8px] ${roles.associateLead ? "bg-[#000000] text-[#f5f2ec] border-[2px] border-[#057DBC]" : "bg-[#f5f2ec] text-[#000000] border-2 border-[#000000] hover:bg-[#000000] hover:text-[#f5f2ec]"}`}
             >
               <span className="font-[Inter] text-[16px] font-bold">Associate Lead</span>
               {roles.associateLead ? (
                 <span className="material-symbols-outlined text-[#057DBC]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
               ) : (
-                <span className="material-symbols-outlined text-transparent group-hover:text-[#FFFFFF]">add</span>
+                <span className="material-symbols-outlined text-transparent group-hover:text-[#f5f2ec]">add</span>
               )}
             </button>
           </div>
@@ -232,14 +233,14 @@ export default function OnboardingStep4() {
 
         {/* Action Area */}
         <div className="w-full max-w-4xl mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">
-          <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#FFFFFF] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+          <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#f5f2ec] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#f5f2ec] transition-colors duration-0 flex items-center gap-[4px]" type="button">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             BACK
           </button>
           <button 
             onClick={handleFinish} 
             disabled={loading}
-            className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" 
+            className="font-[Inter] text-[16px] font-bold text-[#f5f2ec] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#f5f2ec] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" 
             type="button"
           >
             {loading ? "CREATING..." : "FINISH"}
@@ -249,15 +250,15 @@ export default function OnboardingStep4() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1A1A1A] text-white font-[Space_Grotesk] text-xs tracking-tight uppercase p-12 w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 mt-auto">
-        <div className="text-white font-black tracking-widest text-center md:text-left">
+      <footer className="bg-[#1A1A1A] text-paper font-[Space_Grotesk] text-xs tracking-tight uppercase p-12 w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 mt-auto">
+        <div className="text-paper font-black tracking-widest text-center md:text-left">
           © 2024 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
         <div className="flex flex-wrap justify-center gap-[24px]">
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Privacy</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Terms</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Contact</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Archive</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Privacy</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Terms</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Contact</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Archive</Link>
         </div>
       </footer>
     </div>

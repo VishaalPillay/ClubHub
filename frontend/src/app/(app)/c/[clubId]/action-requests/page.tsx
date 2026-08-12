@@ -56,7 +56,7 @@ export default function ActionRequestsPage() {
           <h1 className="font-display text-5xl font-black tracking-tighter uppercase">Action Requests</h1>
           <div className="font-ui text-lg text-[#757575] mt-2">Manage member elevation and removal requests from Leads.</div>
         </div>
-        <button onClick={() => router.push(`/c/${clubId}/dashboard`)} className="font-ui text-sm font-bold uppercase border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-none">
+        <button onClick={() => router.push(`/c/${clubId}/dashboard`)} className="font-ui text-sm font-bold uppercase border-2 border-black px-4 py-2 hover:bg-black hover:text-paper transition-none">
           Back to Dashboard
         </button>
       </div>
@@ -69,15 +69,15 @@ export default function ActionRequestsPage() {
           </div>
         ) : (
           requests.map(req => (
-            <div key={req.id} className="border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white group">
+            <div key={req.id} className="border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-paper group">
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <span className="font-display text-2xl font-bold uppercase">{req.target_name}</span>
-                  <span className={`font-mono text-[10px] uppercase text-white px-2 py-0.5 tracking-widest ${req.action_type === 'kick' ? 'bg-red-600' : 'bg-[#057DBC]'}`}>
+                  <span className={`font-mono text-[10px] uppercase text-paper px-2 py-0.5 tracking-widest ${req.action_type === 'kick' ? 'bg-red-600' : 'bg-[#057DBC]'}`}>
                     {req.action_type}
                   </span>
                   {req.action_type === 'promote' && (
-                    <span className="font-mono text-[10px] uppercase bg-black text-white px-2 py-0.5 tracking-widest">
+                    <span className="font-mono text-[10px] uppercase bg-black text-paper px-2 py-0.5 tracking-widest">
                       To: {req.new_role}
                     </span>
                   )}
@@ -86,7 +86,7 @@ export default function ActionRequestsPage() {
                   Requested by <span className="text-black font-bold">{req.requester_name}</span> on {new Date(req.created_at).toLocaleDateString()}
                 </div>
                 {req.reason && (
-                  <div className="mt-2 font-ui text-sm text-[#4c4546] border-l-2 border-[#e2e8f0] pl-3 py-1">
+                  <div className="mt-2 font-ui text-sm text-[#4c4546] border-l-2 border-[#e0d9ca] pl-3 py-1">
                     &quot;{req.reason}&quot;
                   </div>
                 )}
@@ -94,13 +94,13 @@ export default function ActionRequestsPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleReject(req.id)}
-                  className="border-2 border-black font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-red-600 hover:border-red-600 hover:text-white transition-none"
+                  className="border-2 border-black font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-red-600 hover:border-red-600 hover:text-paper transition-none"
                 >
                   Reject
                 </button>
                 <button
                   onClick={() => handleApprove(req.id)}
-                  className="border-2 border-[#057DBC] bg-[#057DBC] text-white font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-black hover:border-black transition-none"
+                  className="border-2 border-[#057DBC] bg-[#057DBC] text-paper font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-black hover:border-black transition-none"
                 >
                   Approve
                 </button>

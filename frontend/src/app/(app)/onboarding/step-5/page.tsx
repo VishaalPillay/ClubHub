@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 export default function OnboardingStep5() {
   const router = useRouter();
@@ -25,11 +26,11 @@ export default function OnboardingStep5() {
   }, []);
 
   return (
-    <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col items-center font-[Inter]">
+    <div className="bg-[#f5f2ec] text-[#000000] min-h-screen flex flex-col items-center font-[Inter]">
       {/* Header */}
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
-        <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper top-0 border-b-2 border-black">
+        <div>
+          <Wordmark className="w-[225px]" />
         </div>
         <UserAvatarBadge />
       </header>
@@ -65,7 +66,7 @@ export default function OnboardingStep5() {
           </div>
 
           {/* Invite Code Module */}
-          <div className="border-2 border-[#000000] mb-[48px] bg-[#FFFFFF] p-[32px] flex flex-col justify-between">
+          <div className="border-2 border-[#000000] mb-[48px] bg-[#f5f2ec] p-[32px] flex flex-col justify-between">
             <div>
               <h2 className="font-[Inter] text-[20px] font-bold leading-[1.20] tracking-[-0.28px] text-[#000000] mb-[8px] uppercase">
                 Invite Code
@@ -78,21 +79,21 @@ export default function OnboardingStep5() {
             <div className="flex items-stretch border-2 border-[#000000]">
               <input
                 aria-label="Invite Code"
-                className="w-full border-0 focus:ring-0 font-[Space_Grotesk] text-[12px] tracking-[1.1px] text-[#000000] font-bold bg-[#f3f3f3] px-4 py-3"
+                className="w-full border-0 focus:ring-0 font-[Space_Grotesk] text-[12px] tracking-[1.1px] text-[#000000] font-bold bg-[#ebe6db] px-4 py-3"
                 readOnly
                 type="text"
                 value={code}
               />
               <button
                 aria-label="Copy Code"
-                className="bg-[#FFFFFF] border-l-2 border-[#000000] px-4 flex items-center justify-center hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-100 group"
+                className="bg-[#f5f2ec] border-l-2 border-[#000000] px-4 flex items-center justify-center hover:bg-[#000000] hover:text-[#f5f2ec] transition-colors duration-100 group"
                 onClick={async () => {
                   await navigator.clipboard.writeText(code);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
                 }}
               >
-                <span className="material-symbols-outlined text-[#000000] group-hover:text-[#FFFFFF]">
+                <span className="material-symbols-outlined text-[#000000] group-hover:text-[#f5f2ec]">
                   {copied ? "check" : "content_copy"}
                 </span>
               </button>
@@ -100,7 +101,7 @@ export default function OnboardingStep5() {
           </div>
 
           {/* Primary Call to Action */}
-          <div className="flex justify-center border-t border-[#E2E8F0] pt-[48px]">
+          <div className="flex justify-center border-t border-[#e0d9ca] pt-[48px]">
             <button
               onClick={() => {
                 // Wizard is genuinely done — clear the hand-off keys so a later "Create
@@ -113,7 +114,7 @@ export default function OnboardingStep5() {
                 localStorage.removeItem("onboarding_club_id");
                 router.push(clubId ? `/c/${clubId}/dashboard` : "/portal");
               }}
-              className="bg-[#057DBC] border-2 border-[#057DBC] text-[#FFFFFF] font-[Inter] text-[16px] font-bold uppercase px-[48px] py-[16px] hover:bg-[#FFFFFF] hover:text-[#057DBC] transition-colors duration-100 flex items-center gap-[8px]"
+              className="bg-[#057DBC] border-2 border-[#057DBC] text-[#f5f2ec] font-[Inter] text-[16px] font-bold uppercase px-[48px] py-[16px] hover:bg-[#f5f2ec] hover:text-[#057DBC] transition-colors duration-100 flex items-center gap-[8px]"
             >
               Enter Dashboard
               <span className="material-symbols-outlined">arrow_forward</span>
@@ -123,15 +124,15 @@ export default function OnboardingStep5() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1A1A1A] text-white font-[Space_Grotesk] text-xs tracking-tight uppercase w-full p-12 flex flex-col md:flex-row justify-between items-center gap-4 mt-auto">
-        <div className="text-white font-black tracking-widest text-center md:text-left">
+      <footer className="bg-[#1A1A1A] text-paper font-[Space_Grotesk] text-xs tracking-tight uppercase w-full p-12 flex flex-col md:flex-row justify-between items-center gap-4 mt-auto">
+        <div className="text-paper font-black tracking-widest text-center md:text-left">
           © 2024 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
         <div className="flex flex-wrap justify-center gap-[24px]">
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Privacy</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Terms</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Contact</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Archive</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Privacy</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Terms</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Contact</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Archive</Link>
         </div>
       </footer>
     </div>

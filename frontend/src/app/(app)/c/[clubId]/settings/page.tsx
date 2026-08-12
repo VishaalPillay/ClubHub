@@ -141,7 +141,7 @@ function SettingsForm({
       </div>
 
       {/* Invite code */}
-      <div className="border-2 border-black p-6 mb-8 flex items-center justify-between bg-[#f9f9f9]">
+      <div className="border-2 border-black p-6 mb-8 flex items-center justify-between bg-[#f0ede4]">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-1">
             Invite Code
@@ -150,7 +150,7 @@ function SettingsForm({
         </div>
         <button
           onClick={copyCode}
-          className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors"
+          className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
         >
           {copied ? "Copied!" : "Copy Code"}
         </button>
@@ -172,7 +172,7 @@ function SettingsForm({
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
-            className="border-2 border-black bg-white text-black p-3 font-ui text-[15px] focus:outline-none focus:border-[#057DBC]"
+            className="border-2 border-black bg-paper text-black p-3 font-ui text-[15px] focus:outline-none focus:border-[#057DBC]"
           />
         </div>
 
@@ -184,7 +184,7 @@ function SettingsForm({
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             placeholder="What is this club about?"
-            className="border-2 border-black bg-white text-black p-3 font-ui text-[15px] resize-none h-28 focus:outline-none focus:border-[#057DBC]"
+            className="border-2 border-black bg-paper text-black p-3 font-ui text-[15px] resize-none h-28 focus:outline-none focus:border-[#057DBC]"
           />
         </div>
 
@@ -197,7 +197,7 @@ function SettingsForm({
             value={form.institution}
             onChange={(e) => setForm({ ...form, institution: e.target.value })}
             placeholder="e.g. SRM Institute of Science and Technology"
-            className="border-2 border-black bg-white text-black p-3 font-ui text-[15px] focus:outline-none focus:border-[#057DBC]"
+            className="border-2 border-black bg-paper text-black p-3 font-ui text-[15px] focus:outline-none focus:border-[#057DBC]"
           />
           <p className="font-ui text-13 text-[#757575]">
             Shown on directory cards, and it defines who &quot;My College Only&quot; means below.
@@ -222,10 +222,10 @@ function SettingsForm({
                   key={opt.value}
                   className={`flex items-start gap-4 border-2 p-4 transition-colors ${
                     disabled
-                      ? "border-[#e2e8f0] opacity-50 cursor-not-allowed"
+                      ? "border-[#e0d9ca] opacity-50 cursor-not-allowed"
                       : selected
                         ? "border-[#057DBC] bg-[#f0f8ff] cursor-pointer"
-                        : "border-black cursor-pointer hover:bg-[#f9f9f9]"
+                        : "border-black cursor-pointer hover:bg-[#f0ede4]"
                   }`}
                 >
                   <input
@@ -255,8 +255,8 @@ function SettingsForm({
         <label
           className={`flex items-start gap-4 border-2 p-4 cursor-pointer transition-colors ${
             form.accepting_requests
-              ? "border-black hover:bg-[#f9f9f9]"
-              : "border-[#757575] bg-[#f9f9f9]"
+              ? "border-black hover:bg-[#f0ede4]"
+              : "border-[#757575] bg-[#f0ede4]"
           }`}
         >
           <input
@@ -281,14 +281,14 @@ function SettingsForm({
           <button
             type="submit"
             disabled={saving || !form.name.trim()}
-            className="flex-1 bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40"
+            className="flex-1 bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40"
           >
             {saving ? "Saving..." : justSaved ? "Saved!" : "Save Changes"}
           </button>
           <button
             type="button"
             onClick={() => router.push(`/c/${clubId}/dashboard`)}
-            className="flex-1 bg-white border-2 border-black text-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-hairline-tint transition-colors"
+            className="flex-1 bg-paper border-2 border-black text-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-hairline-tint transition-colors"
           >
             Back to Dashboard
           </button>

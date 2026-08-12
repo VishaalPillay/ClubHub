@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
 import CollegeSelect from "@/features/auth/CollegeSelect";
+import { Wordmark } from "@/components/ui/Wordmark";
 import { useAuth } from "@/lib/auth/AuthProvider";
 
 export default function OnboardingStep2() {
@@ -22,11 +23,11 @@ export default function OnboardingStep2() {
   }, []);
 
   return (
-    <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col">
+    <div className="bg-[#f5f2ec] text-[#000000] min-h-screen flex flex-col">
       {/* TopAppBar */}
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
-        <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper top-0 border-b-2 border-black">
+        <div>
+          <Wordmark className="w-[225px]" />
         </div>
         <UserAvatarBadge />
       </header>
@@ -42,7 +43,7 @@ export default function OnboardingStep2() {
               <span className="font-[Space_Grotesk] text-[13px] text-[#757575]">40%</span>
             </div>
             {/* Base hairline track */}
-            <div className="w-full h-[2px] bg-[#E2E8F0] relative overflow-hidden">
+            <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
               {/* Active progress fill */}
               <div className="absolute top-0 left-0 h-[2px] bg-[#000000] transition-all duration-1000 ease-out" style={{ width: progress }}></div>
             </div>
@@ -86,7 +87,7 @@ export default function OnboardingStep2() {
                 disabled
                 label="College / Institution"
                 labelClassName="font-[Inter] text-[16px] font-bold uppercase text-[#000000]"
-                inputClassName="w-full border-2 border-[#757575] bg-[#f3f3f3] rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#757575] cursor-not-allowed"
+                inputClassName="w-full border-2 border-[#757575] bg-[#ebe6db] rounded-none px-[16px] py-[8px] font-serif text-[16px] text-[#757575] cursor-not-allowed"
               />
               <p className="font-[Inter] text-[13px] text-[#757575]">
                 Matches your profile — update it from your profile menu, not here.
@@ -95,7 +96,7 @@ export default function OnboardingStep2() {
 
             {/* Action Area */}
             <div className="w-full mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">
-              <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#FFFFFF] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+              <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#f5f2ec] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#f5f2ec] transition-colors duration-0 flex items-center gap-[4px]" type="button">
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                 BACK
               </button>
@@ -106,7 +107,7 @@ export default function OnboardingStep2() {
                   router.push("/onboarding/step-3");
                 }}
                 disabled={!form.name || !form.institution}
-                className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" type="button"
+                className="font-[Inter] text-[16px] font-bold text-[#f5f2ec] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#f5f2ec] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px] disabled:opacity-50" type="button"
               >
                 CONTINUE
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -117,15 +118,15 @@ export default function OnboardingStep2() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1A1A1A] text-white font-[Space_Grotesk] text-xs tracking-tight uppercase w-full p-12 flex flex-col md:flex-row justify-between items-center gap-4 mt-auto">
-        <div className="text-white font-black tracking-widest text-center md:text-left">
+      <footer className="bg-[#1A1A1A] text-paper font-[Space_Grotesk] text-xs tracking-tight uppercase w-full p-12 flex flex-col md:flex-row justify-between items-center gap-4 mt-auto">
+        <div className="text-paper font-black tracking-widest text-center md:text-left">
           © 2024 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
         <div className="flex flex-wrap justify-center gap-[24px]">
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Privacy</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Terms</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Contact</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Archive</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Privacy</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Terms</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Contact</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Archive</Link>
         </div>
       </footer>
     </div>

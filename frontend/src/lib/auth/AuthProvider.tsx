@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-paper flex items-center justify-center">
         <div className="font-mono text-12 uppercase tracking-widest text-[#757575] animate-pulse">
           Loading...
         </div>

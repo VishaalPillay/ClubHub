@@ -7,7 +7,7 @@ import { login } from "@/lib/api/auth";
 import GoogleButton from "@/features/auth/GoogleButton";
 
 const inputClass =
-  "border-2 border-black bg-white text-black p-3 font-ui text-[15px] w-full rounded-none " +
+  "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
   "focus:outline-none focus:border-[#057DBC]";
 const labelClass = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
 
@@ -33,7 +33,7 @@ export default function LoginCard() {
   };
 
   return (
-    <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-white">
+    <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
       <div className="mb-8 pb-6 border-b-2 border-black">
         <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
           Welcome Back
@@ -83,11 +83,11 @@ export default function LoginCard() {
             className={inputClass}
           />
         </div>
-        <div className="pt-4 border-t border-[#e2e8f0] mt-2">
+        <div className="pt-4 border-t border-[#e0d9ca] mt-2">
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-black text-white border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
+            className="w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
           >
             {loading ? "Please wait..." : "Sign In"}
             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>

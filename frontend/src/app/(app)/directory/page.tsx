@@ -8,6 +8,7 @@ import { directory, myClubs, pendingRequests } from "@/lib/api/clubs";
 import { JOINABLE_ROLES } from "@/lib/roles";
 import ProfileMenu from "@/features/profile/ProfileMenu";
 import AppNav from "@/features/navigation/AppNav";
+import { Wordmark } from "@/components/ui/Wordmark";
 import type { DirectoryClub } from "@/types/api";
 
 /** Roles this club is actually requestable for right now — domain-scoped roles
@@ -53,14 +54,11 @@ export default function DirectoryPage() {
   });
 
   return (
-    <div className="bg-white text-black min-h-screen flex flex-col">
+    <div className="bg-paper text-black min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30 relative">
-        <button
-          onClick={() => router.push("/portal")}
-          className="font-display text-[32px] font-black uppercase tracking-tighter hover:text-link-blue transition-colors z-10"
-        >
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-8 py-4 bg-paper border-b-2 border-black sticky top-0 z-30 relative">
+        <button onClick={() => router.push("/portal")} className="z-10">
+          <Wordmark className="w-[240px]" />
         </button>
         <AppNav />
         <div className="flex items-center gap-6 z-10">
@@ -88,11 +86,11 @@ export default function DirectoryPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, description, or institution..."
-            className="border-2 border-black bg-white text-black p-3 font-ui text-[15px] w-full md:max-w-md focus:outline-none focus:border-[#057DBC]"
+            className="border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full md:max-w-md focus:outline-none focus:border-[#057DBC]"
           />
           <button
             onClick={() => router.push("/onboarding/join-flow")}
-            className="font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-3 uppercase hover:bg-white hover:text-[#057DBC] transition-colors shrink-0"
+            className="font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-3 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors shrink-0"
           >
             Have a code? Join a club
           </button>
@@ -103,7 +101,7 @@ export default function DirectoryPage() {
             Loading directory...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="border-2 border-dashed border-[#e2e8f0] p-16 flex flex-col items-center justify-center text-center">
+          <div className="border-2 border-dashed border-[#e0d9ca] p-16 flex flex-col items-center justify-center text-center">
             <span className="material-symbols-outlined text-[48px] text-[#757575] mb-4">
               search_off
             </span>
@@ -131,8 +129,8 @@ export default function DirectoryPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: Math.min(idx * 0.04, 0.4) }}
                   onClick={() => joinable && router.push(`/onboarding/join-flow?clubId=${club.id}`)}
-                  className={`border-2 border-black bg-white flex flex-col group transition-colors ${
-                    joinable ? "cursor-pointer hover:bg-[#f3f3f3]" : ""
+                  className={`border-2 border-black bg-paper flex flex-col group transition-colors ${
+                    joinable ? "cursor-pointer hover:bg-[#ebe6db]" : ""
                   }`}
                 >
                   <div className="h-1 bg-black w-full" />
@@ -145,13 +143,13 @@ export default function DirectoryPage() {
                         {club.institution}
                       </p>
                     )}
-                    <div className="mt-auto pt-4 border-t border-[#e2e8f0] flex items-center justify-between">
+                    <div className="mt-auto pt-4 border-t border-[#e0d9ca] flex items-center justify-between">
                       {isMember ? (
-                        <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-white">
+                        <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-paper">
                           You&apos;re a member
                         </span>
                       ) : isRequested ? (
-                        <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-[#757575] text-white">
+                        <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-[#757575] text-paper">
                           Requested
                         </span>
                       ) : joinable ? (
@@ -179,9 +177,9 @@ export default function DirectoryPage() {
         )}
       </main>
 
-      <footer className="bg-[#1a1a1a] text-white py-10 px-8 flex justify-between items-center mt-auto">
-        <div className="font-display text-[20px] font-black uppercase tracking-tighter text-white">
-          CLUB-HUB
+      <footer className="bg-[#1a1a1a] text-paper py-10 px-8 flex justify-between items-center mt-auto">
+        <div>
+          <Wordmark className="w-[150px]" invert />
         </div>
         <div className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
           © 2026 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.

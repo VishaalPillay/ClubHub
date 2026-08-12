@@ -270,14 +270,14 @@ export default function MembersPage() {
       <div className="flex justify-between items-end mb-6 w-full gap-4">
         <div className="flex flex-col flex-1">
           <div className="w-full h-[2px] bg-black"></div>
-          <h1 className="bg-black text-white px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
+          <h1 className="bg-black text-paper px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
             {isExecutive ? "Domain Directory" : "Your Domain"}
           </h1>
         </div>
         {isExecutive && (
           <button
             onClick={() => setIsNewDomainModalOpen(true)}
-            className="bg-[#057DBC] text-white font-ui text-12 font-bold px-4 py-1.5 border-2 border-[#057DBC] hover:bg-white hover:text-[#057DBC] transition-colors uppercase shrink-0"
+            className="bg-[#057DBC] text-paper font-ui text-12 font-bold px-4 py-1.5 border-2 border-[#057DBC] hover:bg-paper hover:text-[#057DBC] transition-colors uppercase shrink-0"
           >
             New Domain
           </button>
@@ -304,10 +304,10 @@ export default function MembersPage() {
               layout
               key={domain.id}
               onClick={() => !isExpanded && toggleExpand(domain.id)}
-              className={`flex flex-col border-2 border-black rounded-none group/domain transition-colors duration-75 bg-white relative ${isExpanded ? 'md:col-span-2 shadow-none cursor-default' : 'col-span-1 hover:border-[3px] cursor-pointer'}`}
+              className={`flex flex-col border-2 border-black rounded-none group/domain transition-colors duration-75 bg-paper relative ${isExpanded ? 'md:col-span-2 shadow-none cursor-default' : 'col-span-1 hover:border-[3px] cursor-pointer'}`}
             >
               {isExecutive && !isExpanded && (
-                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/domain:opacity-100 transition-opacity z-10 bg-white/90 rounded px-1">
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/domain:opacity-100 transition-opacity z-10 bg-paper/90 rounded px-1">
                   <button className="text-black hover:text-[#057DBC]" title="Update" onClick={e => { e.stopPropagation(); setUpdateDomainData({ id: domain.id, name: domain.name, desc: domain.desc }); }}>
                     <span className="material-symbols-outlined text-[20px]">edit</span>
                   </button>
@@ -335,8 +335,8 @@ export default function MembersPage() {
                   </motion.p>
                 )}
                 {isExecutive && (
-                  <div className="mt-auto pt-4 border-t border-[#E2E8F0] flex justify-between items-center">
-                    <div className="bg-[#057DBC] text-white font-mono text-[12px] tracking-[1.1px] px-2 py-1 uppercase">
+                  <div className="mt-auto pt-4 border-t border-[#e0d9ca] flex justify-between items-center">
+                    <div className="bg-[#057DBC] text-paper font-mono text-[12px] tracking-[1.1px] px-2 py-1 uppercase">
                       TOTAL MEMBERS: {domain.membersCount}
                     </div>
                     <span
@@ -356,17 +356,17 @@ export default function MembersPage() {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={isExecutive ? { opacity: 0, height: 0 } : undefined}
                     transition={{ duration: 0.3 }}
-                    className="overflow-hidden bg-white"
+                    className="overflow-hidden bg-paper"
                   >
                     <div className="w-full border-t-2 border-black" onClick={(e) => e.stopPropagation()}>
 
                       {/* LEADS SECTION */}
                       {leads.length > 0 && (
                         <div className="w-full">
-                          <div className="bg-black text-white font-mono text-12 uppercase tracking-widest px-3 py-2 flex items-center">
+                          <div className="bg-black text-paper font-mono text-12 uppercase tracking-widest px-3 py-2 flex items-center">
                             Leads
                           </div>
-                          <div className="grid grid-cols-12 bg-[#e2e2e2] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
+                          <div className="grid grid-cols-12 bg-[#e8e4da] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
                             <div className="col-span-7">Name</div>
                             <div className="col-span-2 text-center">Socials</div>
                             <div className="col-span-3 text-right">Actions</div>
@@ -375,7 +375,7 @@ export default function MembersPage() {
                             {leads.map((member, index) => (
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === leads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-7 flex items-center gap-3">
-                                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e2e2e2] shrink-0">
+                                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
                                     <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate flex flex-col">
@@ -385,8 +385,8 @@ export default function MembersPage() {
                                 </div>
                                 <SocialIcons member={member} />
                                 <div className="col-span-3 flex justify-end gap-2 text-black">
-                                  {(['president', 'vice_president'].includes(currentRole) || (isExecutive && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-white transition-colors">Promote</button>}
-                                  {(isExecutive || (currentRole === 'lead' && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-white transition-colors">Kick</button>}
+                                  {(['president', 'vice_president'].includes(currentRole) || (isExecutive && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
+                                  {(isExecutive || (currentRole === 'lead' && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
                                 </div>
                               </div>
                             ))}
@@ -397,10 +397,10 @@ export default function MembersPage() {
                       {/* MEMBERS SECTION */}
                       {rankedMembers.length > 0 && (
                         <div className="w-full">
-                          <div className="bg-black text-white font-mono text-12 uppercase tracking-widest px-3 py-2 flex items-center">
+                          <div className="bg-black text-paper font-mono text-12 uppercase tracking-widest px-3 py-2 flex items-center">
                             Members
                           </div>
-                          <div className="grid grid-cols-12 bg-[#e2e2e2] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
+                          <div className="grid grid-cols-12 bg-[#e8e4da] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
                             <div className="col-span-1 text-center">Rank</div>
                             <div className="col-span-4">Name</div>
                             <div className="col-span-2 text-right">Points</div>
@@ -412,7 +412,7 @@ export default function MembersPage() {
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === currentMembers.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-1 text-center font-display text-xl font-bold text-caption-gray">#{member.rank}</div>
                                 <div className="col-span-4 flex items-center gap-3">
-                                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e2e2e2] shrink-0">
+                                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
                                     <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate">{member.name}</div>
@@ -420,19 +420,19 @@ export default function MembersPage() {
                                 <div className="col-span-2 text-right font-display text-xl font-bold">{member.points.toLocaleString()}</div>
                                 <SocialIcons member={member} />
                                 <div className="col-span-3 flex justify-end gap-2 text-black">
-                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-white transition-colors">Promote</button>}
-                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead', 'associate'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-white transition-colors">Kick</button>}
+                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
+                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead', 'associate'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
                                 </div>
                               </div>
                             ))}
                           </div>
 
                           {totalPages > 1 && (
-                            <div className="flex justify-between items-center border-t-2 border-black p-4 bg-[#e2e2e2]">
+                            <div className="flex justify-between items-center border-t-2 border-black p-4 bg-[#e8e4da]">
                               <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-white"
+                                className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-paper"
                               >
                                 Previous
                               </button>
@@ -442,7 +442,7 @@ export default function MembersPage() {
                               <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                                className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-white"
+                                className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-paper"
                               >
                                 Next Page
                               </button>
@@ -478,13 +478,13 @@ export default function MembersPage() {
               transition={{ duration: folding ? 0.32 : 0.2, ease: [0.4, 0, 0.2, 1] }}
               onAnimationComplete={handleFoldComplete}
               style={{ originY: 0.5 }}
-              className="bg-white border-2 border-black w-full max-w-md flex flex-col"
+              className="bg-paper border-2 border-black w-full max-w-md flex flex-col"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">
                   {actionModal.type} Member
                 </h2>
-                <button onClick={resetActionForm} className="text-white hover:text-red-500 transition-colors">
+                <button onClick={resetActionForm} className="text-paper hover:text-red-500 transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
                 </button>
               </div>
@@ -505,7 +505,7 @@ export default function MembersPage() {
                     <select
                       value={actionNewRole}
                       onChange={e => setActionNewRole(e.target.value)}
-                      className="w-full border-2 border-black p-2 font-ui text-14 outline-none focus:border-[#057DBC] bg-white"
+                      className="w-full border-2 border-black p-2 font-ui text-14 outline-none focus:border-[#057DBC] bg-paper"
                     >
                       {['president', 'vice_president'].includes(currentRole) && (
                         <>
@@ -531,8 +531,8 @@ export default function MembersPage() {
                   />
                 </div>
                 <div className="flex justify-end gap-4">
-                  <button onClick={resetActionForm} disabled={submitting} className="font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors disabled:opacity-40">Cancel</button>
-                  <button onClick={handleActionSubmit} disabled={submitting} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-white transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-white hover:text-[#057DBC]' : 'bg-red-600 border-red-600 hover:bg-white hover:text-red-600'}`}>
+                  <button onClick={resetActionForm} disabled={submitting} className="font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors disabled:opacity-40">Cancel</button>
+                  <button onClick={handleActionSubmit} disabled={submitting} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-paper transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-paper hover:text-[#057DBC]' : 'bg-red-600 border-red-600 hover:bg-paper hover:text-red-600'}`}>
                     {submitting ? "Sending..." : "Confirm"}
                   </button>
                 </div>
@@ -549,10 +549,10 @@ export default function MembersPage() {
       <AnimatePresence>
         {isNewDomainModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white border-2 border-black w-full max-w-md flex flex-col">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-md flex flex-col">
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Create New Domain</h2>
-                <button onClick={() => setIsNewDomainModalOpen(false)} className="text-white hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Create New Domain</h2>
+                <button onClick={() => setIsNewDomainModalOpen(false)} className="text-paper hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
@@ -564,8 +564,8 @@ export default function MembersPage() {
                   <textarea value={newDomainData.desc} onChange={e => setNewDomainData({...newDomainData, desc: e.target.value})} className="border-2 border-black p-2 font-ui text-14 resize-none h-24 outline-none focus:border-[#057DBC]" />
                 </div>
                 <div className="flex justify-end gap-3 mt-4">
-                  <button onClick={() => setIsNewDomainModalOpen(false)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={handleCreateDomain} disabled={!newDomainData.name.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50">Create</button>
+                  <button onClick={() => setIsNewDomainModalOpen(false)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={handleCreateDomain} disabled={!newDomainData.name.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50">Create</button>
                 </div>
               </div>
             </motion.div>
@@ -576,16 +576,16 @@ export default function MembersPage() {
       <AnimatePresence>
         {deleteDomainModalId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white border-2 border-black w-full max-w-sm flex flex-col">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-sm flex flex-col">
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
               </div>
               <div className="p-6 flex flex-col gap-4 text-center">
                 <span className="material-symbols-outlined text-red-600 text-5xl mx-auto">warning</span>
                 <p className="font-body text-16 text-[#4c4546]">Are you sure you want to delete this domain? Its members will be left without a domain assignment.</p>
                 <div className="flex justify-center gap-3 mt-2">
-                  <button onClick={() => setDeleteDomainModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={confirmDeleteDomain} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-white px-6 py-2 uppercase hover:bg-white hover:text-red-600 transition-colors">Delete</button>
+                  <button onClick={() => setDeleteDomainModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={confirmDeleteDomain} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-paper px-6 py-2 uppercase hover:bg-paper hover:text-red-600 transition-colors">Delete</button>
                 </div>
               </div>
             </motion.div>
@@ -596,10 +596,10 @@ export default function MembersPage() {
       <AnimatePresence>
         {updateDomainData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white border-2 border-black w-full max-w-md flex flex-col">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-md flex flex-col">
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Update Domain</h2>
-                <button onClick={() => setUpdateDomainData(null)} className="text-white hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Update Domain</h2>
+                <button onClick={() => setUpdateDomainData(null)} className="text-paper hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
@@ -611,8 +611,8 @@ export default function MembersPage() {
                   <textarea value={updateDomainData.desc} onChange={e => setUpdateDomainData({...updateDomainData, desc: e.target.value})} className="border-2 border-black p-2 font-ui text-14 resize-none h-24 outline-none focus:border-[#057DBC]" />
                 </div>
                 <div className="flex justify-end gap-3 mt-4">
-                  <button onClick={() => setUpdateDomainData(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={confirmUpdateDomain} disabled={!updateDomainData.name.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50">Save Changes</button>
+                  <button onClick={() => setUpdateDomainData(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={confirmUpdateDomain} disabled={!updateDomainData.name.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50">Save Changes</button>
                 </div>
               </div>
             </motion.div>

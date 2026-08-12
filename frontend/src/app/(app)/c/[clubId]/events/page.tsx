@@ -166,10 +166,10 @@ export default function EventsPage() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       key={ev.id}
-      className={`${isPast ? "bg-[#f3f3f3] opacity-80" : "bg-white"} border-2 border-black flex flex-col group/event relative`}
+      className={`${isPast ? "bg-[#ebe6db] opacity-80" : "bg-paper"} border-2 border-black flex flex-col group/event relative`}
     >
       {canManage && (
-        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/event:opacity-100 transition-opacity z-10 bg-white/90 rounded px-1">
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/event:opacity-100 transition-opacity z-10 bg-paper/90 rounded px-1">
           <button onClick={() => openUpdateModal(ev)} className="text-black hover:text-[#057DBC]" title="Update">
             <span className="material-symbols-outlined text-[20px]">edit</span>
           </button>
@@ -181,7 +181,7 @@ export default function EventsPage() {
 
       <div className="p-6 flex flex-col flex-1">
         <div className="flex justify-between items-start mb-6">
-          <span className={`inline-block font-mono text-[10px] uppercase text-white px-2 py-0.5 rounded-[1920px] ${getPillColor(ev.type)}`}>
+          <span className={`inline-block font-mono text-[10px] uppercase text-paper px-2 py-0.5 rounded-[1920px] ${getPillColor(ev.type)}`}>
             {TYPE_LABELS[ev.type]}
           </span>
           {ev.status === "past" && <span className="font-mono text-10 text-caption-gray uppercase">Concluded</span>}
@@ -219,8 +219,8 @@ export default function EventsPage() {
               disabled={rsvpBusyId === ev.id}
               className={`font-ui text-12 font-bold border-2 px-4 py-1.5 uppercase transition-colors disabled:opacity-50 ${
                 ev.my_rsvp
-                  ? "border-black bg-black text-white hover:bg-white hover:text-black"
-                  : "border-[#057DBC] bg-[#057DBC] text-white hover:bg-white hover:text-[#057DBC]"
+                  ? "border-black bg-black text-paper hover:bg-paper hover:text-black"
+                  : "border-[#057DBC] bg-[#057DBC] text-paper hover:bg-paper hover:text-[#057DBC]"
               }`}
             >
               {rsvpBusyId === ev.id ? "..." : ev.my_rsvp ? "✓ Attending" : "RSVP"}
@@ -237,14 +237,14 @@ export default function EventsPage() {
       <div className="flex justify-between items-end mb-6 w-full gap-4">
         <div className="flex flex-col flex-1">
           <div className="w-full h-[2px] bg-black"></div>
-          <h1 className="bg-black text-white px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
+          <h1 className="bg-black text-paper px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
             Events Registry
           </h1>
         </div>
         {canManage && (
           <button
             onClick={() => setIsNewEventModalOpen(true)}
-            className="bg-[#057DBC] text-white font-ui text-12 font-bold px-4 py-1.5 border-2 border-[#057DBC] hover:bg-white hover:text-[#057DBC] transition-colors uppercase shrink-0"
+            className="bg-[#057DBC] text-paper font-ui text-12 font-bold px-4 py-1.5 border-2 border-[#057DBC] hover:bg-paper hover:text-[#057DBC] transition-colors uppercase shrink-0"
           >
             New Event
           </button>
@@ -296,11 +296,11 @@ export default function EventsPage() {
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="bg-white border-2 border-black w-full max-w-lg flex flex-col my-8"
+              className="bg-paper border-2 border-black w-full max-w-lg flex flex-col my-8"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Create New Event</h2>
-                <button onClick={() => setIsNewEventModalOpen(false)} className="text-white hover:text-red-500 transition-colors">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Create New Event</h2>
+                <button onClick={() => setIsNewEventModalOpen(false)} className="text-paper hover:text-red-500 transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
                 </button>
               </div>
@@ -323,7 +323,7 @@ export default function EventsPage() {
                     <select
                       value={newEventData.type}
                       onChange={e => setNewEventData({...newEventData, type: e.target.value as EventType})}
-                      className="border-2 border-black p-2 font-ui text-14 bg-white outline-none focus:border-[#057DBC]"
+                      className="border-2 border-black p-2 font-ui text-14 bg-paper outline-none focus:border-[#057DBC]"
                     >
                       {(Object.keys(TYPE_LABELS) as EventType[]).map((t) => (
                         <option key={t} value={t}>{TYPE_LABELS[t]}</option>
@@ -376,14 +376,14 @@ export default function EventsPage() {
                 <div className="flex justify-end gap-3 mt-4">
                   <button
                     onClick={() => setIsNewEventModalOpen(false)}
-                    className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors"
+                    className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCreateEvent}
                     disabled={!newEventData.title.trim()}
-                    className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50 disabled:hover:bg-[#057DBC] disabled:hover:text-white"
+                    className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50 disabled:hover:bg-[#057DBC] disabled:hover:text-paper"
                   >
                     Publish Event
                   </button>
@@ -404,19 +404,19 @@ export default function EventsPage() {
           >
             <motion.div
               initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="bg-white border-2 border-black w-full max-w-sm flex flex-col"
+              className="bg-paper border-2 border-black w-full max-w-sm flex flex-col"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
               </div>
               <div className="p-6 flex flex-col gap-4 text-center">
                 <span className="material-symbols-outlined text-red-600 text-5xl mx-auto">warning</span>
                 <p className="font-body text-16 text-[#4c4546]">Are you sure you want to delete this event?</p>
                 <div className="flex justify-center gap-3 mt-2">
-                  <button onClick={() => setDeleteEventModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">
+                  <button onClick={() => setDeleteEventModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">
                     Cancel
                   </button>
-                  <button onClick={confirmDeleteEvent} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-white px-6 py-2 uppercase hover:bg-white hover:text-red-600 transition-colors">
+                  <button onClick={confirmDeleteEvent} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-paper px-6 py-2 uppercase hover:bg-paper hover:text-red-600 transition-colors">
                     Delete
                   </button>
                 </div>
@@ -435,11 +435,11 @@ export default function EventsPage() {
           >
             <motion.div
               initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="bg-white border-2 border-black w-full max-w-lg flex flex-col my-8"
+              className="bg-paper border-2 border-black w-full max-w-lg flex flex-col my-8"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Update Event</h2>
-                <button onClick={() => setUpdateEventId(null)} className="text-white hover:text-red-500 transition-colors">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Update Event</h2>
+                <button onClick={() => setUpdateEventId(null)} className="text-paper hover:text-red-500 transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
                 </button>
               </div>
@@ -461,7 +461,7 @@ export default function EventsPage() {
                     <select
                       value={updateEventData.type}
                       onChange={e => setUpdateEventData({...updateEventData, type: e.target.value as EventType})}
-                      className="border-2 border-black p-2 font-ui text-14 bg-white outline-none focus:border-[#057DBC]"
+                      className="border-2 border-black p-2 font-ui text-14 bg-paper outline-none focus:border-[#057DBC]"
                     >
                       {(Object.keys(TYPE_LABELS) as EventType[]).map((t) => (
                         <option key={t} value={t}>{TYPE_LABELS[t]}</option>
@@ -474,7 +474,7 @@ export default function EventsPage() {
                     <select
                       value={updateEventData.status}
                       onChange={e => setUpdateEventData({...updateEventData, status: e.target.value as EventStatus})}
-                      className="border-2 border-black p-2 font-ui text-14 bg-white outline-none focus:border-[#057DBC]"
+                      className="border-2 border-black p-2 font-ui text-14 bg-paper outline-none focus:border-[#057DBC]"
                     >
                       <option value="upcoming">UPCOMING</option>
                       <option value="past">PAST</option>
@@ -525,14 +525,14 @@ export default function EventsPage() {
                 <div className="flex justify-end gap-3 mt-4">
                   <button
                     onClick={() => setUpdateEventId(null)}
-                    className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors"
+                    className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmUpdateEvent}
                     disabled={!updateEventData.title.trim()}
-                    className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50"
+                    className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50"
                   >
                     Save Changes
                   </button>

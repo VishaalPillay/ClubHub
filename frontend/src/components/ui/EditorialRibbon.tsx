@@ -6,7 +6,7 @@ interface EditorialRibbonProps {
 /**
  * WIRED Editorial Ribbon — full-bleed black section header bar.
  *
- * Black background, white WiredMono ALL-CAPS text.
+ * Black background, paper WiredMono ALL-CAPS text.
  * Height ~32–40px. No rounded ends. No shadow.
  * Used for section markers: "REGISTRATION", "ONBOARDING", "MOST POPULAR", etc.
  */

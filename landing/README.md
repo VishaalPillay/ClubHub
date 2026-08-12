@@ -40,6 +40,18 @@ In the app these come from Tailwind v4's `@theme` block. Here they are plain cus
 because **the landing uses zero Tailwind utility classes** — every selector is `.np-*` — so this
 project carries no Tailwind, PostCSS, or config for it.
 
+### `--color-white` is the one token that deliberately does NOT match the app
+
+The app took its canvas from this project: `frontend/`'s `--color-paper` is this file's
+`--np-paper` (`#f5f2ec`), and every white surface in the application is now that beige. As part of
+that, `frontend/`'s `--color-white` was retired to a deprecated alias pointing at the same beige.
+
+**Here it stays `#ffffff`, and it must.** Its sole consumer is `.np-scope { background }` — the
+backdrop *behind* the sheets in plain mode. That is the desk the paper lies on, not the paper;
+painting it `--np-paper` would flatten the sheet into its own background and lose the border-and-
+edge reading that makes plain mode legible at all. The two projects disagree on this one value on
+purpose. Everything else in the table is still a hand-sync.
+
 **The cascade-layer order is load-bearing.** `globals.css` opens with:
 
 ```css
@@ -64,6 +76,88 @@ node -e "1" # then in the browser console:
 The duplication between this file's tokens and `frontend/src/app/globals.css` is **deliberate**.
 Do not resolve it by importing across projects — that would recouple two deployments that are
 separate on purpose, and Cloudflare Pages builds only this directory.
+
+### The wordmark is a third hand-synced pair — but a generated one
+
+`src/features/newspaper/wordmarkPaths.ts` and
+`frontend/src/components/ui/wordmarkPaths.ts` are **byte-identical generated files**, and
+`Wordmark.tsx` exists in both projects against the same geometry (`.np-wordmark*` here,
+`.wired-wordmark*` there). Do not hand-edit either copy — regenerate both together:
+
+```bash
+npm i --no-save potrace                 # one-off; deliberately not a project dependency
+node ../scripts/gen-wordmark.mjs        # from this directory — sharp resolves out of landing/
+```
+
+The mark is **supplied artwork**, traced: `scripts/assets/wordmark-master.png` is the source of
+truth, and the letters, their angles, the scraps they are pasted on and the drop shadows under them
+all come out of it. This used to *compose* the mark instead — four display webfonts fetched from
+Google at generation time, one glyph outlined from each, tilted and dropped onto scraps by hand —
+which is why no `Alfa Slab One` / `Bevan` / `Playfair Display` / `Special Elite` appears in either
+`layout.tsx`. Nothing about that changed: outlines, not text, so the nameplate cannot reflow or
+flash mid-load, and it survives `pages:render` at print resolution where a bitmap sized for a 240px
+navbar would fall apart.
+
+**It traces as two layers, not one path with holes.** `WORDMARK_TILES` is every scrap as a solid
+silhouette, letters filled in; `WORDMARK_LETTERS` is drawn on top. Holes would be less path data,
+but the letters would then be whatever is behind the mark, and `invert` — which the controls bar
+and the app's ink footers both need — would have nothing to flip.
+
+**The two colours are set inline by the component, and that is deliberate.** They used to live in
+`newspaper.css` as `--wm-ink` / `--wm-knock`. When that stylesheet is missing or merely stale — a
+dev server that has not picked the file up yet is enough — both paths fall back to the SVG default
+of black, the letters vanish into their own scraps, and the mark renders as a row of black slabs
+with only the fragments of letter that overhang a tile still visible. A logo should not have that
+dependency. The `var()` in the component keeps `--np-ink` in charge where it resolves; the literal
+beside it is what the mark falls back to when nothing does. What is left in the stylesheet is
+`display`/`width`/`height`.
+
+There is **no hover animation**, and no `uid` prop. The mark used to crumple on pointer entry — an
+SVG turbulence filter warping the paper while a CSS keyframe balled it up — which is why every call
+site had to pass a page-unique id: SVG ids are global, and two marks sharing a filter id would
+crumple together. With the filter gone there are no ids in the markup at all, so the prop went with
+it. `Wordmark` is still a server component, so its ~9KB of path data never reaches the client
+bundle.
+
+**After changing the wordmark, re-run `npm run build && npm run pages:render`.** The nameplate is
+baked into `public/pages/*.avif` — and `pages:render` photographs `out/`, not the dev server, so
+without the build first it re-bakes the *previous* mark. Paper mode then keeps showing it, a silent
+staleness that only appears in 3D mode.
+
+One trap when regenerating, because it fails silently and looks like a bad trace rather than a bad
+parse: potrace writes runs of curves as **one `C` followed by six numbers per segment**. The
+remapper in `gen-wordmark.mjs` therefore keeps consuming coordinate groups until it sees the next
+command letter. Read one group per letter instead and every coordinate after the first run lands in
+the wrong axis — the mark renders as a shredded smear.
+
+### The browser icons are a generated pair as well
+
+`src/app/{favicon.ico,icon.png,apple-icon.png}` are **not hand-made and not landing-specific** —
+they are cut from `scripts/assets/favicon-master.png` at the repo root and written into this
+project and `frontend/` together:
+
+```bash
+node ../scripts/gen-favicon.mjs        # from this directory; sharp is resolved out of landing/
+```
+
+Next's metadata file convention finds them by filename and emits the `<link>` tags, so `layout.tsx`
+has no icon markup to keep in step.
+
+The tab icon is a **disc** — the artwork is a torn sheet with collage crowding all four corners,
+and those corners are both the least legible part at tab size and the part that makes the icon read
+as a rectangle competing with the tab's own edges. `apple-icon.png` is the one square left, on
+purpose: iOS composites a transparent apple-touch-icon onto black and then applies its own squircle
+mask. The `.ico` carries **six** entries (16/20/24/32/48/64) because Windows renders a 16 CSS px
+favicon at 20 device px at 125% scaling and 24 at 150%, and rescaling a 16 or a 32 to reach them is
+exactly what a slightly soft, slightly grey favicon looks like.
+
+Two traps, both of which cost a build:
+
+- **`public/favicon.ico` must not come back.** A public file and an app file at the same route
+  conflict and Next refuses to build. The old default icon was deleted for this reason.
+- **The PNGs inside the `.ico` must be RGBA.** Next decodes the file to write its `sizes`
+  attribute and fails with *"The PNG is not in RGBA format!"* — naming no file — on a
+  three-channel payload. `render()` calls `ensureAlpha()` after flattening for exactly this.
 
 ## The scroll contract — Lenis owns the scroll position
 
@@ -186,14 +280,23 @@ WebGL**.
 | | |
 |---|---|
 | `Leaf.tsx` | Four bound leaves, two pages each. The turn is an arc-length-preserving vertex-shader curl, so the paper bends without stretching. |
-| `timeOfDay.ts` | The hour, the clip that plays for it, the camera solved against that clip's table, and the light rig that has to match it. One module, because the layers only read as one scene if they agree. |
+| `roomLight.ts` | The clip, the camera solved against its table, and the light rig that has to match it. One module, because the layers only read as one scene if they agree. |
 | `NewspaperScene.tsx` | The canvas: fixed camera, the floating edition, the paper's drawn shadow. Wrapped in `SceneBoundary` (NewspaperShell) — in React 19 an uncaught render error unmounts the entire root, so one flaky texture 404 would otherwise blank the whole page instead of degrading to the room video and the plain document. |
 
-There is no drawn table. Both clips film the real one, and the scene that drew
-its own (the chabudai, the timber shader, the establishing camera that rose to
-read) was deleted once it became unreachable — a phase without a fitted
-`clipTable` no longer typechecks, which is deliberate: the fit is the one thing
-a new clip genuinely requires.
+There is no drawn table. The clip films a real one, and the scene that drew its
+own (the chabudai, the timber shader, the establishing camera that rose to read)
+was deleted once it became unreachable — `clipTable` is a required field on the
+light rig, which is deliberate: the fit is the one thing a new clip genuinely
+requires.
+
+**There is exactly one room, and it plays at every hour.** The site used to pick
+between a morning clip and a night one off the visitor's clock, with an
+`evening` rig written but unreachable. All of that is gone — the `Phase` type,
+the hour boundaries, the availability fallback, the `phase` prop threaded from
+the shell into both layers, and the boot script's baked hour→phase table. What
+is left is a constant: `ROOM_LIGHT`, `ROOM_VIDEO`, `ROOM_POSTER`. If a second
+room is ever wanted, it is a table keyed by clip name and something to choose
+with — not a resurrection of the clock, which is where the bugs were.
 
 **Every shader here must end with `#include <colorspace_fragment>`.** three
 converts hex colours to linear on construction and decodes sRGB textures on
@@ -243,11 +346,10 @@ Two traps worth knowing, both of which produced visible artefacts:
 
 ```bash
 npm run pages:render                  # rasterise the 8 pages to public/pages/*.avif
-npm run scene:shot -- <step> [out] [phase]   # screenshot at a scroll position
-npm run clip:fit -- [aspect]          # solve the camera for a clip with a table in it
+npm run scene:shot -- <step> [out]    # screenshot at a scroll position
+npm run clip:fit -- [clip] [aspect]   # solve the camera against the table in the clip
 npm run perf:timeline                 # what the page looks like frame by frame while loading
-npm run backdrop:prep                 # process every clip in backdrop-src/
-npm run backdrop:prep -- morning      # just one
+npm run backdrop:prep                 # process backdrop-src/morning.* into public/backdrop/
 ```
 
 `scene:shot` exists because a WebGL scene cannot be checked by reading the DOM —
@@ -266,8 +368,9 @@ thing — a DOM layer is nailed to the viewport, so the room would sit still whi
 the camera rises — and `RoomBackdrop` pays it with a few percent of scale and
 drift on `CAMERA_TRAVEL`, the same curve the camera uses.
 
-`npm run backdrop:prep` reads `backdrop-src/<phase>.mp4` and writes
-`public/backdrop/<phase>.mp4` plus a poster. Sources are gitignored; outputs are
+`npm run backdrop:prep` reads `backdrop-src/morning.mp4` and writes
+`public/backdrop/morning.mp4` plus a poster. The name is load-bearing on both
+sides — it is what `ROOM_VIDEO` asks for. Sources are gitignored; outputs are
 committed, because Cloudflare Pages has no ffmpeg. The binaries come from
 `ffmpeg-static`, so no system install is needed.
 
@@ -279,9 +382,9 @@ arbitrary:
   downscaling first smears the watermark into them and leaves nothing clean to
   interpolate from. The box is stored as *fractions* of the frame, so it survives
   a source at another resolution.
-- **The clip is CUT to its own loop point, not reshaped.** These clips are
-  generated to loop and very nearly do, and two earlier attempts were solving a
-  problem that did not exist. A crossfade from tail to head dissolved two
+- **The clip is CUT to its own loop point, not reshaped.** It is generated to
+  loop and very nearly does, and two earlier attempts were solving a problem
+  that did not exist. A crossfade from tail to head dissolved two
   completely different moments and ghosted anything with an edge. Playing
   forwards then backwards removed the seam but introduced a reversal — the
   curtain visibly changing direction twice a cycle, which is worse, because
@@ -293,18 +396,16 @@ arbitrary:
   where they actually match. No dissolve, no reversal, every second of unique
   motion kept.
 - **Then a very short dissolve across the join.** Measured, the best available
-  wrap is still about 2x an ordinary frame step on the morning clip and 4x on the
-  night one — small, but the night room is so still there is nothing moving to
-  hide it behind. Six frames of blend, a quarter of a second, placed at the
-  FRONT of the output so playback wraps on an ordinary consecutive step rather
-  than on a join. This is not the earlier crossfade retried: it works precisely
-  because the two ends already match, so it is smoothing a small step rather than
-  disguising a large one.
+  wrap is still about 2x an ordinary frame step — small, but small is not nothing
+  on a clip that plays all day. Six frames of blend, a quarter of a second,
+  placed at the FRONT of the output so playback wraps on an ordinary consecutive
+  step rather than on a join. This is not the earlier crossfade retried: it works
+  precisely because the two ends already match, so it is smoothing a small step
+  rather than disguising a large one.
 - **The result is measured on the encoded file**, not on the plan — the script
   decodes what ffmpeg actually produced and reports the wrap against the clip's
-  own typical frame step. Currently **1.6x for both**, down from 5.8x and 5.0x
-  uncut. A loop is exactly the kind of thing that is easy to get subtly wrong and
-  never notice.
+  own typical frame step. Currently **1.6x**, down from 5.8x uncut. A loop is
+  exactly the kind of thing that is easy to get subtly wrong and never notice.
 - **Grade AFTER the blur, and push values UP.** This is the counter-intuitive
   one. Blur is an averaging operation, so it pulls the golden shafts and the
   shadows between them toward each other: a clip that is vivid sharp comes out
@@ -326,7 +427,7 @@ already has.
 
 ### The one way to have a table
 
-Every clip films the table, and the scene is built on that fact alone:
+The clip films the table, and the scene is built on that fact alone:
 
 | | |
 |---|---|
@@ -344,25 +445,26 @@ rather than as the room rushing at you.
 
 #### Fitting the camera to a filmed table
 
-`npm run clip:fit -- <phase>` solves it. Measure the tabletop's four corners in a
-frame, add them to the script's `TARGETS`, and read the camera off the chosen
-row. The measurements live in the script rather than on the command line so the
-numbers behind every camera in the scene stay written down.
+`npm run clip:fit` solves it. Measure the tabletop's four corners in a frame, add
+them to the script's `TARGETS`, and read the camera off the chosen row. The
+measurements live in the script rather than on the command line so the numbers
+behind the scene's camera stay written down.
 
 **A single image of a rectangle does not determine a camera**, and this is the
 trap. The trapezoid fixes the horizon, but pitch and focal length then trade
 against each other along a family of solutions that all reproduce those four
-corners to within a few pixels — every table aspect from 0.30 to 0.72 fitted
-`night.mp4` inside 4px. Fitting freely picks an arbitrary member of that family,
-and the first pass here chose one implying a table 0.29 as deep as it is wide,
-which made the newspaper twice as deep as the table it was lying on. The extra
-constraint has to come from outside the image: assume a plausible table aspect,
-and take the branch where a real page actually fits.
+corners to within a few pixels — every table aspect from 0.30 to 0.72 fitted the
+measured corners inside 4px. Fitting freely picks an arbitrary member of that
+family, and the first pass here chose one implying a table 0.29 as deep as it is
+wide, which made the newspaper twice as deep as the table it was lying on. The
+extra constraint has to come from outside the image: assume a plausible table
+aspect, and take the branch where a real page actually fits.
 
-Both clips film the **same physical table** from different framings, and 0.58
-fits both — night at 3.9px, morning at 0.6px. That agreement is the closest
-thing to a check this method has, and it is worth re-running if a clip ever shows
-a different table.
+The 0.58 aspect that fixed it was checked against a **second framing of the same
+physical table** — the since-retired night clip, which it fitted at 3.9px against
+morning's 0.6px. That agreement across two cameras is the only independent check
+this method has ever had, and it is why the number is trusted; a clip of a
+different table would need its own.
 
 Two other things were solved rather than eyeballed, after eyeballing them
 failed. The paper's **read position sits on the view axis** — the camera aims at
@@ -375,19 +477,6 @@ The contact shadow uses a **box falloff, not a radial one**. The caster is a
 rectangle; a radial gradient keeps its opaque core inside the paper's own
 footprint, so the shadow is drawn entirely underneath and none of it is ever
 visible.
-
-### Which clip plays
-
-`phaseForHour` in `timeOfDay.ts`. **Night from 19:00, morning from 05:00.**
-
-The 19:00 boundary is the one that was asked for. The 05:00 end was not — taken
-literally, "before 7pm is morning" puts a sunlit room on screen at two in the
-morning, which is the one hour nobody would call morning, so the small hours go
-to night. `NIGHT_UNTIL = 0` reverts that.
-
-`evening` still exists in the `Phase` type and in `TIME_OF_DAY` with a correct
-light rig, but nothing returns it and no clip exists for it. Dormant, not dead:
-wiring it up is a file in `backdrop-src/` and one line in `phaseForHour`.
 
 ### The paper's shadow
 
@@ -417,15 +506,15 @@ Two details matter more than they look:
   camera*. So it blurs out and is gone by roughly a third of the way up, which is
   what a real one does anyway, just faster.
 
-Only the character is per-phase: `shadowStrength` and `shadowPenumbra`. Direct
-sun is dark with a tight edge; a room lit by a city and some string lights is
-weak with almost no edge at all.
+Only its character is configured: `shadowStrength` and `shadowPenumbra`. Direct
+sun through a window is dark with a tight edge, and that is what this room has.
 
 ### Making the two layers one scene
 
-Colour-matching is not compositing, it is lighting. `timeOfDay.ts` defines, per
-hour, both the clip and the light rig that goes with it — key direction and
-colour, ambient, the pool of light on the tabletop, and the **window gobo**.
+Colour-matching is not compositing, it is lighting. `roomLight.ts` defines both
+the clip and the light rig that goes with it — key direction and colour, ambient,
+the pool of light on the tabletop, and the **window gobo** — in one module, so
+they cannot be changed apart.
 
 **Measure the gobo off the clip; do not eyeball it.** The bars of window light
 on the floor run about 17° off vertical in frame, which pins the key's horizontal
@@ -440,7 +529,7 @@ full of hard bars of window light; a table standing in that room with a perfectl
 even top does not belong there no matter how well its colour is matched. So the
 same bars are thrown across the tabletop *and*, far more weakly, across the
 paper. Their direction is derived from the light direction rather than hardcoded,
-so they swing round correctly when the hour changes.
+so moving the key moves them with it.
 
 Two things are deliberate and will look wrong if you "fix" them:
 
@@ -450,15 +539,16 @@ Two things are deliberate and will look wrong if you "fix" them:
   blob under the middle. Nothing in the scene can cast onto a video, so the
   table's grounding is drawn by hand — and every other shadow in the room falls
   toward the near-left, so one that did not was immediately wrong.
-- **`paperTint` stays near white at every hour, including night.** A physically
-  honest night renders eight pages of newsprint an unreadable blue-grey. Cinema
-  lights faces brighter than physics allows for the same reason.
+- **`paperTint` stays near white.** Eight pages of small type are the only thing
+  on screen anyone has to be able to read, so the paper is lit for legibility
+  before it is lit for physics. Cinema lights faces brighter than physics allows
+  for the same reason.
 
-The hour is resolved **once, in `NewspaperShell`**, and handed to both layers. If
-each read the clock itself they could disagree across an hour boundary and you
-would get a table lit for morning standing in an evening room. It is guarded on
-`window` because this project is statically exported — the state initialiser also
-runs at build time, where `new Date()` is the build's clock, not the visitor's.
+Neither layer chooses its room any more: `RoomBackdrop` plays `ROOM_VIDEO` and
+the scene shades with `ROOM_LIGHT`, both constants out of the same module. That
+replaced a `phase` resolved once in `NewspaperShell` and threaded into both — a
+correct arrangement whose whole purpose was to stop the two layers disagreeing
+about the hour, and which nothing needs now that there is no hour.
 
 ### Scope
 
@@ -494,14 +584,16 @@ Four things fix it, and they are load-bearing together:
    decision `getReadingMode` will make later and writes it to `<html>` before
    anything paints. This is the only possible fix — nothing that runs after the
    bundle can un-paint what the browser already drew. It shares `MIN_WIDTH` and
-   the storage key with `readingMode.ts`, and its hour→phase table is generated
-   from `timeOfDay.ts`, so it cannot drift. **It must never throw**; every path
-   falls back to plain, which is the document already on screen.
+   the storage key with `readingMode.ts`, so it cannot drift. **It must never
+   throw**; every path falls back to plain, which is the document already on
+   screen.
 2. **CSS acts on that immediately.** `html[data-np-mode="paper"]` with the scope
    still at `data-mode="plain"` is precisely the pre-hydration window: html says
    where we are going, the scope says where we are. The stack is hidden
    (`visibility`, never `display` — the deep link has to measure the track) and
-   the room's own poster is painted from a custom property the script sets.
+   the room's own poster is painted straight from the stylesheet. It used to
+   arrive as a custom property the script wrote, because the script picked which
+   room; with one room the URL is a constant and the script only preloads it.
 3. **The boot script starts the downloads its decision implies** — the poster and
    the first leaf's two textures. They were previously requested only after the
    scene chunk arrived. **The textures must be preloaded

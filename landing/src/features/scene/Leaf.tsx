@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { PAGE_H, PAGE_W } from "./sceneConfig";
-import type { RoomLight } from "./timeOfDay";
+import type { RoomLight } from "./roomLight";
 
 /**
  * One leaf — a physical sheet with a page printed on each side.
@@ -132,10 +132,9 @@ const fragment = /* glsl */ `
 
     // Generous ambient: this is printed paper under room light, not a studio
     // subject, and crushing the shadow side would cost legibility.
-    /* The hour tints the paper too, but far more gently than it tints the
-       table — uTint is close to white even at night. Deliberate: these eight
-       pages are the only thing on screen anyone has to be able to read, and a
-       physically honest night would render them an unreadable blue-grey. */
+    /* The room tints the paper too, but far more gently than it tints the
+       table — uTint stays close to white. Deliberate: these eight pages are the
+       only thing on screen anyone has to be able to read. */
     /* The same window bars that cross the table cross the paper. Far weaker —
        this is the only thing on screen anyone has to read — but continuity of
        light across the two surfaces is most of what makes them one scene rather

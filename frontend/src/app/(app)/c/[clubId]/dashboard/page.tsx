@@ -150,26 +150,26 @@ export default function OverviewPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
           <div
             onClick={() => router.push(`/c/${clubId}/members`)}
-            className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-white transition-0"
+            className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-paper transition-0"
           >
-            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#dadada] transition-0">Total Members</div>
-            <div className="font-display text-5xl font-bold group-hover:text-white">{members.length}</div>
+            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#ddd8cc] transition-0">Total Members</div>
+            <div className="font-display text-5xl font-bold group-hover:text-paper">{members.length}</div>
             <span className="material-symbols-outlined absolute top-3 right-3 text-[32px] opacity-20 group-hover:opacity-100">group</span>
           </div>
           <div
             onClick={() => router.push(`/c/${clubId}/tasks`)}
-            className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-white transition-0"
+            className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-paper transition-0"
           >
-            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#dadada] transition-0">Active Tasks</div>
-            <div className="font-display text-5xl font-bold group-hover:text-white">{activeTasksCount}</div>
+            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#ddd8cc] transition-0">Active Tasks</div>
+            <div className="font-display text-5xl font-bold group-hover:text-paper">{activeTasksCount}</div>
             <span className="material-symbols-outlined absolute top-3 right-3 text-[32px] opacity-20 group-hover:opacity-100">format_list_bulleted</span>
           </div>
           <div
             onClick={() => router.push(`/c/${clubId}/events`)}
-            className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-white transition-0"
+            className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-paper transition-0"
           >
-            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#dadada] transition-0">Upcoming Events</div>
-            <div className="font-display text-5xl font-bold group-hover:text-white">{upcomingEventsCount}</div>
+            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#ddd8cc] transition-0">Upcoming Events</div>
+            <div className="font-display text-5xl font-bold group-hover:text-paper">{upcomingEventsCount}</div>
             <span className="material-symbols-outlined absolute top-3 right-3 text-[32px] opacity-20 group-hover:opacity-100">calendar_today</span>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         {/* Left Column: Announcements */}
         <div className="lg:col-span-8">
-          <div className="bg-black text-white px-2 py-1 mb-3 font-mono text-sm uppercase">
+          <div className="bg-black text-paper px-2 py-1 mb-3 font-mono text-sm uppercase">
             Recent Announcements
           </div>
           <div className="space-y-3">
@@ -195,11 +195,11 @@ export default function OverviewPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, height: 0 }}
                   key={announcement.id}
-                  className="border-2 border-black p-3 group bg-white relative"
+                  className="border-2 border-black p-3 group bg-paper relative"
                 >
                   {/* Edit/delete (author or VP+) */}
                   {(isVPPlus || announcement.author_id === userId) && (
-                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 px-1 rounded z-10">
+                    <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-paper/90 px-1 rounded z-10">
                       <button onClick={() => setUpdateData(announcement)} className="text-[#757575] hover:text-[#057DBC]" title="Update">
                         <span className="material-symbols-outlined text-[18px]">edit</span>
                       </button>
@@ -211,11 +211,11 @@ export default function OverviewPage() {
 
                   <div className="flex justify-between items-center mb-2 border-b border-hairline-tint pb-2">
                     <div className="flex items-center gap-3">
-                      <span className={`inline-block font-mono text-[11px] uppercase text-white px-2 py-0.5 rounded-[1920px] ${getPillColor(announcement.type)}`}>
+                      <span className={`inline-block font-mono text-[11px] uppercase text-paper px-2 py-0.5 rounded-[1920px] ${getPillColor(announcement.type)}`}>
                         {announcement.type}
                       </span>
                       {announcement.scope === 'domain' && (
-                        <span className="inline-block font-mono text-[10px] uppercase bg-[#f3f3f3] text-black px-2 py-0.5 border border-black">
+                        <span className="inline-block font-mono text-[10px] uppercase bg-[#ebe6db] text-black px-2 py-0.5 border border-black">
                           {announcement.domain_name ? `${announcement.domain_name} Only` : 'Domain Only'}
                         </span>
                       )}
@@ -236,7 +236,7 @@ export default function OverviewPage() {
         <div className="lg:col-span-4 lg:border-l-1 border-black lg:pl-3 mt-4 lg:mt-0 pt-4 lg:pt-0 border-t-1 lg:border-t-0">
           {!isMember && (
             <>
-              <div className="bg-black text-white px-2 py-1 mb-3 font-mono text-sm uppercase">
+              <div className="bg-black text-paper px-2 py-1 mb-3 font-mono text-sm uppercase">
                 Executive Actions
               </div>
               <div className="mb-4">
@@ -244,7 +244,7 @@ export default function OverviewPage() {
                   <div className="flex flex-col mb-1.5">
                     <button
                       onClick={() => setIsDrafting(!isDrafting)}
-                      className={`w-full border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-white transition-0 text-left flex justify-between items-center group ${isDrafting ? 'bg-black text-white' : 'bg-white'}`}
+                      className={`w-full border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-paper transition-0 text-left flex justify-between items-center group ${isDrafting ? 'bg-black text-paper' : 'bg-paper'}`}
                     >
                       <span>Draft New Announcement</span>
                       <span className={`material-symbols-outlined transition-transform ${isDrafting ? 'rotate-90' : 'group-hover:translate-x-1'}`}>arrow_forward</span>
@@ -258,11 +258,11 @@ export default function OverviewPage() {
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="border-2 border-black border-t-0 p-4 bg-[#f3f3f3] flex flex-col gap-4">
+                          <div className="border-2 border-black border-t-0 p-4 bg-[#ebe6db] flex flex-col gap-4">
 
                             <div className="flex gap-2">
-                              <button onClick={() => setDraftData({...draftData, type: 'urgent'})} className={`font-mono text-[10px] uppercase text-white px-3 py-1 rounded-[1920px] transition-colors ${draftData.type === 'urgent' ? 'bg-red-600 ring-2 ring-black ring-offset-1' : 'bg-red-600/50 hover:bg-red-600'}`}>URGENT</button>
-                              <button onClick={() => setDraftData({...draftData, type: 'general'})} className={`font-mono text-[10px] uppercase text-white px-3 py-1 rounded-[1920px] transition-colors ${draftData.type === 'general' ? 'bg-[#057DBC] ring-2 ring-black ring-offset-1' : 'bg-[#057DBC]/50 hover:bg-[#057DBC]'}`}>GENERAL</button>
+                              <button onClick={() => setDraftData({...draftData, type: 'urgent'})} className={`font-mono text-[10px] uppercase text-paper px-3 py-1 rounded-[1920px] transition-colors ${draftData.type === 'urgent' ? 'bg-red-600 ring-2 ring-black ring-offset-1' : 'bg-red-600/50 hover:bg-red-600'}`}>URGENT</button>
+                              <button onClick={() => setDraftData({...draftData, type: 'general'})} className={`font-mono text-[10px] uppercase text-paper px-3 py-1 rounded-[1920px] transition-colors ${draftData.type === 'general' ? 'bg-[#057DBC] ring-2 ring-black ring-offset-1' : 'bg-[#057DBC]/50 hover:bg-[#057DBC]'}`}>GENERAL</button>
                             </div>
 
                             {isSecPlus && (
@@ -297,7 +297,7 @@ export default function OverviewPage() {
                             <button
                               onClick={handlePublish}
                               disabled={!draftData.title.trim() || !draftData.body.trim()}
-                              className="font-ui text-12 font-bold border-2 border-black bg-black text-white px-6 py-2 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-50"
+                              className="font-ui text-12 font-bold border-2 border-black bg-black text-paper px-6 py-2 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-50"
                             >
                               Publish Announcement
                             </button>
@@ -313,12 +313,12 @@ export default function OverviewPage() {
                   <>
                     <button
                       onClick={() => router.push(`/c/${clubId}/join-requests`)}
-                      className="w-full bg-white border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-white transition-0 text-left flex justify-between items-center group mb-1.5"
+                      className="w-full bg-paper border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-paper transition-0 text-left flex justify-between items-center group mb-1.5"
                     >
                       <span className="flex items-center gap-2">
                         Review Join Requests
                         {pendingJoinRequestsCount > 0 && (
-                          <span className="flex items-center justify-center w-5 h-5 bg-red-600 text-white text-[10px] rounded-full font-mono">
+                          <span className="flex items-center justify-center w-5 h-5 bg-red-600 text-paper text-[10px] rounded-full font-mono">
                             {pendingJoinRequestsCount}
                           </span>
                         )}
@@ -327,7 +327,7 @@ export default function OverviewPage() {
                     </button>
                     <button
                       onClick={() => router.push(`/c/${clubId}/action-requests`)}
-                      className="w-full bg-white border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-white transition-0 text-left flex justify-between items-center group mb-1.5"
+                      className="w-full bg-paper border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-paper transition-0 text-left flex justify-between items-center group mb-1.5"
                     >
                       <span className="flex items-center gap-2">Action Requests</span>
                       <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -338,7 +338,7 @@ export default function OverviewPage() {
                 {isVPPlus && (
                   <button
                     onClick={() => router.push(`/c/${clubId}/settings`)}
-                    className="w-full bg-white border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-white transition-0 text-left flex justify-between items-center group"
+                    className="w-full bg-paper border-2 border-black font-ui text-base font-bold py-1.5 px-2 hover:bg-black hover:text-paper transition-0 text-left flex justify-between items-center group"
                   >
                     <span>Update Club Details</span>
                     <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
@@ -362,19 +362,19 @@ export default function OverviewPage() {
           >
             <motion.div
               initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="bg-white border-2 border-black w-full max-w-sm flex flex-col"
+              className="bg-paper border-2 border-black w-full max-w-sm flex flex-col"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
               </div>
               <div className="p-6 flex flex-col gap-4 text-center">
                 <span className="material-symbols-outlined text-red-600 text-5xl mx-auto">warning</span>
                 <p className="font-body text-16 text-[#4c4546]">Are you sure you want to delete this announcement? This action cannot be undone.</p>
                 <div className="flex justify-center gap-3 mt-2">
-                  <button onClick={() => setDeleteModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">
+                  <button onClick={() => setDeleteModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">
                     Cancel
                   </button>
-                  <button onClick={confirmDelete} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-white px-6 py-2 uppercase hover:bg-white hover:text-red-600 transition-colors">
+                  <button onClick={confirmDelete} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-paper px-6 py-2 uppercase hover:bg-paper hover:text-red-600 transition-colors">
                     Delete
                   </button>
                 </div>
@@ -393,18 +393,18 @@ export default function OverviewPage() {
           >
             <motion.div
               initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
-              className="bg-white border-2 border-black w-full max-w-md flex flex-col"
+              className="bg-paper border-2 border-black w-full max-w-md flex flex-col"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Update Announcement</h2>
-                <button onClick={() => setUpdateData(null)} className="text-white hover:text-red-500 transition-colors">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Update Announcement</h2>
+                <button onClick={() => setUpdateData(null)} className="text-paper hover:text-red-500 transition-colors">
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
               </div>
               <div className="p-6 flex flex-col gap-4">
                 <div className="flex gap-2 mb-2">
-                  <button onClick={() => setUpdateData({...updateData, type: 'urgent'})} className={`font-mono text-[10px] uppercase text-white px-3 py-1 rounded-[1920px] transition-colors ${updateData.type === 'urgent' ? 'bg-red-600 ring-2 ring-black ring-offset-1' : 'bg-red-600/50 hover:bg-red-600'}`}>URGENT</button>
-                  <button onClick={() => setUpdateData({...updateData, type: 'general'})} className={`font-mono text-[10px] uppercase text-white px-3 py-1 rounded-[1920px] transition-colors ${updateData.type === 'general' ? 'bg-[#057DBC] ring-2 ring-black ring-offset-1' : 'bg-[#057DBC]/50 hover:bg-[#057DBC]'}`}>GENERAL</button>
+                  <button onClick={() => setUpdateData({...updateData, type: 'urgent'})} className={`font-mono text-[10px] uppercase text-paper px-3 py-1 rounded-[1920px] transition-colors ${updateData.type === 'urgent' ? 'bg-red-600 ring-2 ring-black ring-offset-1' : 'bg-red-600/50 hover:bg-red-600'}`}>URGENT</button>
+                  <button onClick={() => setUpdateData({...updateData, type: 'general'})} className={`font-mono text-[10px] uppercase text-paper px-3 py-1 rounded-[1920px] transition-colors ${updateData.type === 'general' ? 'bg-[#057DBC] ring-2 ring-black ring-offset-1' : 'bg-[#057DBC]/50 hover:bg-[#057DBC]'}`}>GENERAL</button>
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -427,13 +427,13 @@ export default function OverviewPage() {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-4">
-                  <button onClick={() => setUpdateData(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">
+                  <button onClick={() => setUpdateData(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">
                     Cancel
                   </button>
                   <button
                     onClick={confirmUpdate}
                     disabled={!updateData.title.trim() || !updateData.body.trim()}
-                    className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50"
+                    className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50"
                   >
                     Save Changes
                   </button>

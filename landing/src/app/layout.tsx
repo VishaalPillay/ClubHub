@@ -32,6 +32,12 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
+// No display face is loaded here for the wordmark. It is not set as text at all:
+// it is supplied artwork, traced to outlines once (scripts/gen-wordmark.mjs →
+// features/newspaper/wordmarkPaths.ts). That matters more on this page than in
+// the app — the nameplate is the largest thing on page one, so anything that
+// arrived over the network would land squarely in the LCP path.
+
 // Absolute base for OG/canonical URLs. Inlined at build time like every NEXT_PUBLIC_* value,
 // so Cloudflare Pages needs this set before the first production build, not after.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
@@ -86,12 +92,11 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${newsreader.variable} ${inter.variable} ${spaceGrotesk.variable}`}
-      /* The boot script writes `data-np-mode`, `data-np-phase` and a custom
-         property onto this element before React runs. That is the entire point
-         of it, and React cannot know about it — so it reports an attribute
-         mismatch on hydration and refuses to patch it up. Suppressed here, and
-         only here: this is the one element a pre-paint script is allowed to
-         touch. */
+      /* The boot script writes `data-np-mode` onto this element before React
+         runs. That is the entire point of it, and React cannot know about it —
+         so it reports an attribute mismatch on hydration and refuses to patch it
+         up. Suppressed here, and only here: this is the one element a pre-paint
+         script is allowed to touch. */
       suppressHydrationWarning
     >
       <head>

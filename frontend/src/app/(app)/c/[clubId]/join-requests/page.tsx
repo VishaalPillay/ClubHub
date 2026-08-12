@@ -56,7 +56,7 @@ export default function JoinRequestsPage() {
           <h1 className="font-display text-5xl font-black tracking-tighter uppercase">Join Requests</h1>
           <div className="font-ui text-lg text-[#757575] mt-2">Manage pending access requests for your club.</div>
         </div>
-        <button onClick={() => router.push(`/c/${clubId}/dashboard`)} className="font-ui text-sm font-bold uppercase border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-none">
+        <button onClick={() => router.push(`/c/${clubId}/dashboard`)} className="font-ui text-sm font-bold uppercase border-2 border-black px-4 py-2 hover:bg-black hover:text-paper transition-none">
           Back to Dashboard
         </button>
       </div>
@@ -69,15 +69,15 @@ export default function JoinRequestsPage() {
           </div>
         ) : (
           requests.map(req => (
-            <div key={req.id} className="border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
+            <div key={req.id} className="border-2 border-black p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-paper">
               <div>
                 <div className="flex items-center gap-3 mb-1">
                   <span className="font-display text-2xl font-bold uppercase">{req.user_name}</span>
-                  <span className="font-mono text-[10px] uppercase bg-black text-white px-2 py-0.5 tracking-widest">
+                  <span className="font-mono text-[10px] uppercase bg-black text-paper px-2 py-0.5 tracking-widest">
                     {req.requested_role}
                   </span>
                   {req.requested_domain_id && (
-                    <span className="font-mono text-[10px] uppercase bg-[#f3f3f3] border border-black text-black px-2 py-0.5 tracking-widest">
+                    <span className="font-mono text-[10px] uppercase bg-[#ebe6db] border border-black text-black px-2 py-0.5 tracking-widest">
                       {req.requested_domain_name || `Domain ${req.requested_domain_id}`}
                     </span>
                   )}
@@ -94,13 +94,13 @@ export default function JoinRequestsPage() {
               <div className="flex gap-2">
                 <button
                   onClick={() => handleReject(req.id)}
-                  className="border-2 border-black font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-red-600 hover:border-red-600 hover:text-white transition-none"
+                  className="border-2 border-black font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-red-600 hover:border-red-600 hover:text-paper transition-none"
                 >
                   Reject
                 </button>
                 <button
                   onClick={() => handleApprove(req.id)}
-                  className="border-2 border-[#057DBC] bg-[#057DBC] text-white font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-black hover:border-black transition-none"
+                  className="border-2 border-[#057DBC] bg-[#057DBC] text-paper font-ui text-sm font-bold uppercase px-6 py-2 hover:bg-black hover:border-black transition-none"
                 >
                   Approve
                 </button>

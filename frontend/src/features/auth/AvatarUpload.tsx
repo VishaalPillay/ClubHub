@@ -85,7 +85,7 @@ export default function AvatarUpload({
           handleFile(e.dataTransfer.files?.[0]);
         }}
         className={`border-2 border-dashed p-5 flex items-center gap-5 cursor-pointer transition-colors focus:outline-none focus:border-[#057DBC] ${
-          dragOver ? "border-[#057DBC] bg-[#f7f6f4]" : "border-black hover:bg-[#f7f6f4]"
+          dragOver ? "border-[#057DBC] bg-[#ebe6db]" : "border-black hover:bg-[#ebe6db]"
         }`}
       >
         {avatarUrl ? (

@@ -140,10 +140,10 @@ export default function TaskBoardPage() {
   const modalMembers = modalTask ? (domainMembers[modalTask.domain_id] || []) : [];
 
   const renderTask = (task: Task) => (
-    <article key={task.id} className={`${task.status === 'completed' ? 'bg-[#f3f3f3] opacity-60' : 'bg-white'} border-2 border-black p-3 ${task.status === 'in_progress' ? 'border-l-4 border-l-[#057DBC]' : ''} relative group/task`}>
+    <article key={task.id} className={`${task.status === 'completed' ? 'bg-[#ebe6db] opacity-60' : 'bg-paper'} border-2 border-black p-3 ${task.status === 'in_progress' ? 'border-l-4 border-l-[#057DBC]' : ''} relative group/task`}>
 
       {task.status !== 'completed' && (
-        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/task:opacity-100 transition-opacity z-10 bg-white/90 rounded px-1">
+        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/task:opacity-100 transition-opacity z-10 bg-paper/90 rounded px-1">
           <button onClick={() => setUpdateTaskData(task)} className="text-[#757575] hover:text-[#057DBC]" title="Update">
             <span className="material-symbols-outlined text-[16px]">edit</span>
           </button>
@@ -153,7 +153,7 @@ export default function TaskBoardPage() {
         </div>
       )}
 
-      <span className={`inline-block text-white font-mono text-[11px] uppercase px-2 py-0.5 rounded-[1920px] mb-2 ${task.status === 'completed' ? 'bg-[#757575]' : 'bg-black'}`}>
+      <span className={`inline-block text-paper font-mono text-[11px] uppercase px-2 py-0.5 rounded-[1920px] mb-2 ${task.status === 'completed' ? 'bg-[#757575]' : 'bg-black'}`}>
         {task.domain_name}
       </span>
       <h3 className={`font-display text-[26px] leading-[1.08] text-${task.status === 'completed' ? 'caption-gray' : 'black'} mb-2 ${task.status === 'completed' ? 'line-through' : ''}`}>
@@ -175,7 +175,7 @@ export default function TaskBoardPage() {
               </span>
               <div className="flex -space-x-2">
                 {task.assignees.map(a => (
-                  <div key={a.id} className="w-6 h-6 rounded-full bg-[#e2e2e2] border-2 border-black flex items-center justify-center relative z-10 hover:z-20 hover:bg-black hover:text-white transition-colors" title={a.name}>
+                  <div key={a.id} className="w-6 h-6 rounded-full bg-[#e8e4da] border-2 border-black flex items-center justify-center relative z-10 hover:z-20 hover:bg-black hover:text-paper transition-colors" title={a.name}>
                     <span className="font-mono text-[9px] uppercase tracking-tighter">{a.name.substring(0, 2).toUpperCase()}</span>
                   </div>
                 ))}
@@ -184,7 +184,7 @@ export default function TaskBoardPage() {
           ) : task.status !== 'completed' ? (
             <button
               onClick={() => handleOpenModal(task.id)}
-              className="font-ui text-[11px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-2 py-0.5 uppercase hover:bg-white hover:text-[#057DBC] transition-colors"
+              className="font-ui text-[11px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-2 py-0.5 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors"
             >
               Assign
             </button>
@@ -199,13 +199,13 @@ export default function TaskBoardPage() {
       <div className="flex justify-between items-end mb-6 w-full gap-4">
         <div className="flex flex-col flex-1">
           <div className="w-full h-[2px] bg-black"></div>
-          <h1 className="bg-black text-white px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
+          <h1 className="bg-black text-paper px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
             Tasks
           </h1>
         </div>
         <Link
           href={`/c/${clubId}/leaderboard`}
-          className="font-ui text-12 font-bold border-2 border-black px-4 py-1.5 uppercase hover:bg-black hover:text-white transition-colors no-underline text-black shrink-0"
+          className="font-ui text-12 font-bold border-2 border-black px-4 py-1.5 uppercase hover:bg-black hover:text-paper transition-colors no-underline text-black shrink-0"
         >
           View Leaderboard
         </Link>
@@ -215,7 +215,7 @@ export default function TaskBoardPage() {
               setNewTaskData(prev => ({ ...prev, domain_id: domainsList[0]?.id || 0 }));
               setIsNewTaskModalOpen(true);
             }}
-            className="bg-[#057DBC] text-white font-ui text-12 font-bold px-4 py-1.5 border-2 border-[#057DBC] hover:bg-white hover:text-[#057DBC] transition-colors uppercase shrink-0"
+            className="bg-[#057DBC] text-paper font-ui text-12 font-bold px-4 py-1.5 border-2 border-[#057DBC] hover:bg-paper hover:text-[#057DBC] transition-colors uppercase shrink-0"
           >
             New Task
           </button>
@@ -249,13 +249,13 @@ export default function TaskBoardPage() {
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="bg-white border-2 border-black w-full max-w-sm flex flex-col"
+              className="bg-paper border-2 border-black w-full max-w-sm flex flex-col"
             >
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">
                   Assign Members
                 </h2>
-                <button onClick={() => setAssignModalTask(null)} className="text-white hover:text-red-500 transition-colors">
+                <button onClick={() => setAssignModalTask(null)} className="text-paper hover:text-red-500 transition-colors">
                   <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span>
                 </button>
               </div>
@@ -270,13 +270,13 @@ export default function TaskBoardPage() {
                       className="flex items-center gap-3 cursor-pointer p-2 border-2 border-transparent hover:bg-hairline-tint transition-colors"
                       onClick={(e) => { e.preventDefault(); handleToggleUser(member.id); }}
                     >
-                      <div className="relative w-5 h-5 flex items-center justify-center border-2 border-black bg-white shrink-0">
+                      <div className="relative w-5 h-5 flex items-center justify-center border-2 border-black bg-paper shrink-0">
                         {selectedUsers.includes(member.id) && (
                           <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="w-2.5 h-2.5 bg-black" />
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#e2e2e2] border-2 border-black flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-[#e8e4da] border-2 border-black flex items-center justify-center">
                           <span className="font-mono text-[10px] uppercase tracking-tighter">{member.initials}</span>
                         </div>
                         <span className="font-ui text-14 font-bold">{member.name}</span>
@@ -287,8 +287,8 @@ export default function TaskBoardPage() {
                   )}
                 </div>
                 <div className="flex justify-end gap-3 pt-4 border-t-2 border-black">
-                  <button onClick={() => setAssignModalTask(null)} className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={handleConfirmAssign} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-4 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors">Confirm</button>
+                  <button onClick={() => setAssignModalTask(null)} className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={handleConfirmAssign} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-4 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors">Confirm</button>
                 </div>
               </div>
             </motion.div>
@@ -299,10 +299,10 @@ export default function TaskBoardPage() {
       <AnimatePresence>
         {isNewTaskModalOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white border-2 border-black w-full max-w-lg flex flex-col my-8">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-lg flex flex-col my-8">
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Create New Task</h2>
-                <button onClick={() => setIsNewTaskModalOpen(false)} className="text-white hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Create New Task</h2>
+                <button onClick={() => setIsNewTaskModalOpen(false)} className="text-paper hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
               </div>
               <div className="p-6 flex flex-col gap-4">
 
@@ -311,7 +311,7 @@ export default function TaskBoardPage() {
                   <select
                     value={newTaskData.domain_id}
                     onChange={e => setNewTaskData({...newTaskData, domain_id: parseInt(e.target.value), assignedTo: []})}
-                    className="border-2 border-black p-2 font-ui text-14 bg-white outline-none focus:border-[#057DBC]"
+                    className="border-2 border-black p-2 font-ui text-14 bg-paper outline-none focus:border-[#057DBC]"
                   >
                     {domainsList.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
@@ -359,8 +359,8 @@ export default function TaskBoardPage() {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-4">
-                  <button onClick={() => setIsNewTaskModalOpen(false)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={handleCreateTask} disabled={!newTaskData.title.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50">Create Task</button>
+                  <button onClick={() => setIsNewTaskModalOpen(false)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={handleCreateTask} disabled={!newTaskData.title.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50">Create Task</button>
                 </div>
 
               </div>
@@ -372,16 +372,16 @@ export default function TaskBoardPage() {
       <AnimatePresence>
         {deleteTaskModalId && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white border-2 border-black w-full max-w-sm flex flex-col">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-sm flex flex-col">
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Confirm Deletion</h2>
               </div>
               <div className="p-6 flex flex-col gap-4 text-center">
                 <span className="material-symbols-outlined text-red-600 text-5xl mx-auto">warning</span>
                 <p className="font-body text-16 text-[#4c4546]">Are you sure you want to delete this task?</p>
                 <div className="flex justify-center gap-3 mt-2">
-                  <button onClick={() => setDeleteTaskModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={confirmDeleteTask} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-white px-6 py-2 uppercase hover:bg-white hover:text-red-600 transition-colors">Delete</button>
+                  <button onClick={() => setDeleteTaskModalId(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={confirmDeleteTask} className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-paper px-6 py-2 uppercase hover:bg-paper hover:text-red-600 transition-colors">Delete</button>
                 </div>
               </div>
             </motion.div>
@@ -392,10 +392,10 @@ export default function TaskBoardPage() {
       <AnimatePresence>
         {updateTaskData && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-white border-2 border-black w-full max-w-md flex flex-col my-8">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-md flex flex-col my-8">
               <div className="bg-black px-4 py-3 flex justify-between items-center">
-                <h2 className="text-white font-mono text-12 uppercase tracking-widest">Update Task</h2>
-                <button onClick={() => setUpdateTaskData(null)} className="text-white hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Update Task</h2>
+                <button onClick={() => setUpdateTaskData(null)} className="text-paper hover:text-red-500 transition-colors"><span className="material-symbols-outlined" style={{ fontSize: '20px' }}>close</span></button>
               </div>
               <div className="p-6 flex flex-col gap-4">
 
@@ -428,8 +428,8 @@ export default function TaskBoardPage() {
                 </div>
 
                 <div className="flex justify-end gap-3 mt-4">
-                  <button onClick={() => setUpdateTaskData(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-white transition-colors">Cancel</button>
-                  <button onClick={confirmUpdateTask} disabled={!updateTaskData.title.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-6 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-50">Save Changes</button>
+                  <button onClick={() => setUpdateTaskData(null)} className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors">Cancel</button>
+                  <button onClick={confirmUpdateTask} disabled={!updateTaskData.title.trim()} className="font-ui text-12 font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-6 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-50">Save Changes</button>
                 </div>
               </div>
             </motion.div>

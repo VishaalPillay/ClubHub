@@ -6,7 +6,7 @@ import { requestCollege } from "@/lib/api/colleges";
 
 const DEFAULT_LABEL_CLASS = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
 const DEFAULT_INPUT_CLASS =
-  "border-2 border-black bg-white text-black p-3 font-ui text-[15px] w-full rounded-none " +
+  "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
   "focus:outline-none focus:border-[#057DBC]";
 
 /**
@@ -157,7 +157,7 @@ export default function CollegeSelect({
       {open && (
         <div
           id={listboxId}
-          className="absolute top-full left-0 right-0 mt-1 z-20 border-2 border-black bg-white max-h-72 overflow-y-auto shadow-[4px_4px_0_0_rgba(0,0,0,0.15)]"
+          className="absolute top-full left-0 right-0 mt-1 z-20 border-2 border-black bg-paper max-h-72 overflow-y-auto shadow-[4px_4px_0_0_rgba(0,0,0,0.15)]"
         >
           {showRequest ? (
             <div className="p-4 flex flex-col gap-3">
@@ -170,21 +170,21 @@ export default function CollegeSelect({
                 value={requestName}
                 onChange={(e) => setRequestName(e.target.value)}
                 placeholder="College name"
-                className="border-2 border-black bg-white text-black p-2 font-ui text-[14px] rounded-none focus:outline-none focus:border-[#057DBC]"
+                className="border-2 border-black bg-paper text-black p-2 font-ui text-[14px] rounded-none focus:outline-none focus:border-[#057DBC]"
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={submitRequest}
                   disabled={!requestName.trim()}
-                  className="flex-1 font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-3 py-2 uppercase hover:bg-white hover:text-[#057DBC] transition-colors disabled:opacity-40"
+                  className="flex-1 font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-3 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-40"
                 >
                   Request &amp; use this name
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowRequest(false)}
-                  className="font-ui text-[12px] font-bold border-2 border-black px-3 py-2 uppercase hover:bg-black hover:text-white transition-colors"
+                  className="font-ui text-[12px] font-bold border-2 border-black px-3 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
                 >
                   Back
                 </button>
@@ -199,7 +199,7 @@ export default function CollegeSelect({
                       <button
                         type="button"
                         onClick={() => selectOption(opt)}
-                        className="w-full text-left px-4 py-2.5 font-ui text-[14px] hover:bg-[#f3f3f3] transition-colors border-b border-[#e2e8f0]"
+                        className="w-full text-left px-4 py-2.5 font-ui text-[14px] hover:bg-[#ebe6db] transition-colors border-b border-[#e0d9ca]"
                       >
                         {opt}
                       </button>

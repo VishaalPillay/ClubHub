@@ -33,7 +33,7 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
 /**
  * "Continue with Google" via Google Identity Services. Renders Google's official
- * button (their branding rules require it) into an editorial 2px-border frame.
+ * button (their branding rules require it) unframed.
  * Renders nothing when NEXT_PUBLIC_GOOGLE_CLIENT_ID is unset, so email/password
  * remains the only path until Google is configured.
  */
@@ -128,13 +128,13 @@ export default function GoogleButton({
 
   return (
     <div>
-      <div ref={slotRef} className="border-2 border-black p-1 flex justify-center" />
+      <div ref={slotRef} className="flex justify-center" />
       <div className="flex items-center gap-4 my-5">
-        <span className="flex-1 h-px bg-[#e2e8f0]" />
+        <span className="flex-1 h-px bg-[#e0d9ca]" />
         <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
           or with email
         </span>
-        <span className="flex-1 h-px bg-[#e2e8f0]" />
+        <span className="flex-1 h-px bg-[#e0d9ca]" />
       </div>
     </div>
   );

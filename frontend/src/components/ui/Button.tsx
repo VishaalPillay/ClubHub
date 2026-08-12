@@ -8,8 +8,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
  * WIRED Editorial Button
  *
- * primary: white bg, 2px black border — inverts to black on hover (150ms linear)
- * secondary: black bg, 2px white border — inverts to white on hover (150ms linear)
+ * primary: paper bg, 2px black border — inverts to black on hover (150ms linear)
+ * secondary: black bg, 2px paper border — inverts to paper on hover (150ms linear)
  *
  * WIRED law: 0px border-radius, no shadow, no spring animations.
  */

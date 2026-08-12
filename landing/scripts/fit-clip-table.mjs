@@ -1,13 +1,12 @@
 /**
  * Solves the camera that lays the scene's y = 0 plane onto the table in a clip.
  *
- *   npm run clip:fit -- <phase> [aspect]      aspect defaults to 0.58
+ *   npm run clip:fit -- <clip> [aspect]      aspect defaults to 0.58
  *
- * Only needed for clips that contain their own table. Measure the tabletop's
- * four corners in a frame, add them to TARGETS below, and read the camera off
- * the chosen row into `clipTable` in timeOfDay.ts. Keeping the measurements here
- * rather than passing them on the command line means the numbers behind every
- * camera in the scene stay written down.
+ * Measure the tabletop's four corners in a frame of the clip, add them to
+ * TARGETS below, and read the camera off the chosen row into `clipTable` in
+ * roomLight.ts. Keeping the measurements here rather than passing them on the
+ * command line means the numbers behind the scene's camera stay written down.
  *
  * ── The degeneracy, and why this sweeps ──────────────────────────────────────
  * A single image of a rectangle does NOT determine the camera. The trapezoid
@@ -30,17 +29,13 @@ const W = 1280, H = 720;
  * Measured tabletop corners, per clip: far-left, far-right, near-right,
  * near-left, in source pixels.
  *
- * Both clips film the SAME physical table from different framings, which is why
- * they share an aspect below. If a future clip shows a different table, that
- * assumption goes with it.
+ * A retired night clip filmed the SAME physical table from a lower, tighter
+ * framing, and the 0.58 aspect assumed below fitted it too — within 3.9px,
+ * against 0.6px here. That agreement across two framings is the only
+ * independent check this method has ever had; a clip of a different table would
+ * need its own aspect.
  */
 const TARGETS = {
-  night: [
-    [405, 393],
-    [867, 393],
-    [885, 504],
-    [373, 504],
-  ],
   morning: [
     [412, 329],
     [860, 329],
@@ -49,13 +44,13 @@ const TARGETS = {
   ],
 };
 
-const phase = process.argv[2] ?? "night";
-const TARGET = TARGETS[phase];
+const clip = process.argv[2] ?? "morning";
+const TARGET = TARGETS[clip];
 if (!TARGET) {
-  console.error(`Unknown phase "${phase}". Known: ${Object.keys(TARGETS).join(", ")}`);
+  console.error(`Unknown clip "${clip}". Known: ${Object.keys(TARGETS).join(", ")}`);
   process.exit(1);
 }
-console.log(`\n  fitting: ${phase}`);
+console.log(`\n  fitting: ${clip}`);
 
 /** Fixes the scale of the world. Distance would otherwise trade against it. */
 const A = 1.2;

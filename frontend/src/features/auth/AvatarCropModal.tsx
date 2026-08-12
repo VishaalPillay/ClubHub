@@ -41,7 +41,7 @@ export default function AvatarCropModal({
       onClick={() => !busy && onCancel()}
     >
       <div
-        className="bg-white border-2 border-black w-full max-w-md"
+        className="bg-paper border-2 border-black w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 pt-5 pb-4 border-b-2 border-black">
@@ -68,7 +68,7 @@ export default function AvatarCropModal({
           />
         </div>
 
-        <div className="px-6 py-4 flex items-center gap-4 border-b border-[#e2e8f0]">
+        <div className="px-6 py-4 flex items-center gap-4 border-b border-[#e0d9ca]">
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
             Zoom
           </span>
@@ -95,7 +95,7 @@ export default function AvatarCropModal({
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="font-ui text-[12px] font-bold border-2 border-black px-5 py-2.5 uppercase hover:bg-black hover:text-white transition-colors disabled:opacity-40"
+            className="font-ui text-[12px] font-bold border-2 border-black px-5 py-2.5 uppercase hover:bg-black hover:text-paper transition-colors disabled:opacity-40"
           >
             Cancel
           </button>
@@ -103,7 +103,7 @@ export default function AvatarCropModal({
             type="button"
             onClick={confirm}
             disabled={busy || !areaPixels}
-            className="font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-5 py-2.5 uppercase hover:bg-black hover:border-black transition-colors disabled:opacity-40"
+            className="font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-5 py-2.5 uppercase hover:bg-black hover:border-black transition-colors disabled:opacity-40"
           >
             {busy ? "Uploading…" : "Use photo"}
           </button>

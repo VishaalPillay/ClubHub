@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 export default function OnboardingStep3() {
   const router = useRouter();
@@ -29,11 +30,11 @@ export default function OnboardingStep3() {
   };
 
   return (
-    <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col font-serif">
+    <div className="bg-[#f5f2ec] text-[#000000] min-h-screen flex flex-col font-serif">
       {/* TopAppBar */}
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
-        <div className="text-black font-serif uppercase tracking-tighter font-black text-3xl">
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper top-0 border-b-2 border-black">
+        <div>
+          <Wordmark className="w-[225px]" />
         </div>
         <UserAvatarBadge />
       </header>
@@ -48,7 +49,7 @@ export default function OnboardingStep3() {
               <span className="font-[Space_Grotesk] text-[13px] text-[#757575]">60%</span>
             </div>
             {/* Base hairline track */}
-            <div className="w-full h-[2px] bg-[#E2E8F0] relative overflow-hidden">
+            <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
               {/* Active progress fill */}
               <div className="absolute top-0 left-0 h-[2px] bg-[#000000] transition-all duration-1000 ease-out" style={{ width: progress }}></div>
             </div>
@@ -68,7 +69,7 @@ export default function OnboardingStep3() {
           <form onSubmit={handleAddDomain} className="flex flex-col sm:flex-row gap-4 mb-[32px] w-full">
             <div className="flex-1 relative">
               <input
-                className="w-full bg-[#FFFFFF] border-2 border-[#000000] rounded-none px-4 py-3 font-[Inter] text-[16px] font-bold text-[#000000] placeholder:text-[#757575] focus:outline-none focus:ring-0 focus:border-[#000000] transition-none"
+                className="w-full bg-[#f5f2ec] border-2 border-[#000000] rounded-none px-4 py-3 font-[Inter] text-[16px] font-bold text-[#000000] placeholder:text-[#757575] focus:outline-none focus:ring-0 focus:border-[#000000] transition-none"
                 placeholder="e.g. Marketing, Finance, Logistics"
                 type="text"
                 value={domain}
@@ -77,7 +78,7 @@ export default function OnboardingStep3() {
             </div>
             <button
               type="submit"
-              className="bg-[#FFFFFF] border-2 border-[#000000] text-[#000000] font-[Inter] text-[16px] font-bold px-8 py-3 rounded-none uppercase hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 whitespace-nowrap"
+              className="bg-[#f5f2ec] border-2 border-[#000000] text-[#000000] font-[Inter] text-[16px] font-bold px-8 py-3 rounded-none uppercase hover:bg-[#000000] hover:text-[#f5f2ec] transition-colors duration-0 whitespace-nowrap"
             >
               Add Domain
             </button>
@@ -90,7 +91,7 @@ export default function OnboardingStep3() {
             </h3>
             <div className="flex flex-wrap gap-3">
               {domains.map((d, i) => (
-                <div key={i} className="inline-flex items-center gap-2 border-2 border-[#000000] bg-[#FFFFFF] px-3 py-1.5 rounded-none group hover:bg-[#f3f3f3] transition-colors cursor-default">
+                <div key={i} className="inline-flex items-center gap-2 border-2 border-[#000000] bg-[#f5f2ec] px-3 py-1.5 rounded-none group hover:bg-[#ebe6db] transition-colors cursor-default">
                   <span className="font-[Space_Grotesk] text-[12px] text-[#000000] uppercase">
                     {d}
                   </span>
@@ -104,7 +105,7 @@ export default function OnboardingStep3() {
 
           {/* Action Area */}
           <div className="w-full mt-[32px] pt-[24px] border-t border-[#000000] flex justify-between items-center">
-            <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#FFFFFF] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#FFFFFF] transition-colors duration-0 flex items-center gap-[4px]" type="button">
+            <button onClick={() => router.back()} className="font-[Inter] text-[16px] font-bold text-[#000000] bg-[#f5f2ec] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#000000] hover:text-[#f5f2ec] transition-colors duration-0 flex items-center gap-[4px]" type="button">
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               BACK
             </button>
@@ -113,7 +114,7 @@ export default function OnboardingStep3() {
                 localStorage.setItem("onboarding_club_domains", JSON.stringify(domains));
                 router.push("/onboarding/step-4");
               }} 
-              className="font-[Inter] text-[16px] font-bold text-[#FFFFFF] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#FFFFFF] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]" type="button"
+              className="font-[Inter] text-[16px] font-bold text-[#f5f2ec] bg-[#000000] border-2 border-[#000000] py-[8px] px-[24px] hover:bg-[#f5f2ec] hover:text-[#000000] transition-colors duration-0 flex items-center gap-[4px]" type="button"
             >
               CONTINUE
               <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -123,15 +124,15 @@ export default function OnboardingStep3() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1A1A1A] text-white font-[Space_Grotesk] text-xs tracking-tight uppercase w-full p-12 flex flex-col md:flex-row justify-between items-center gap-4 mt-auto">
-        <div className="text-white font-black tracking-widest text-center md:text-left">
+      <footer className="bg-[#1A1A1A] text-paper font-[Space_Grotesk] text-xs tracking-tight uppercase w-full p-12 flex flex-col md:flex-row justify-between items-center gap-4 mt-auto">
+        <div className="text-paper font-black tracking-widest text-center md:text-left">
           © 2024 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
         <div className="flex flex-wrap justify-center gap-[24px]">
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Privacy</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Terms</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Contact</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline transition-none">Archive</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Privacy</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Terms</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Contact</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline transition-none">Archive</Link>
         </div>
       </footer>
     </div>

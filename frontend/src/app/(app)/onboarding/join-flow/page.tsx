@@ -6,12 +6,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { directory, joinClub, lookupClub } from "@/lib/api/clubs";
 import { JOINABLE_ROLES as ROLES } from "@/lib/roles";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 type Domain = { id: number; name: string; description: string | null };
 
 function JoinFlowLoading() {
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-paper flex items-center justify-center">
       <div className="font-mono text-12 uppercase tracking-widest text-[#757575] animate-pulse">
         Loading...
       </div>
@@ -136,13 +137,13 @@ function JoinFlowContent() {
 
   if (resolveError) {
     return (
-      <div className="bg-white text-black min-h-screen flex flex-col items-center justify-center px-6 text-center">
+      <div className="bg-paper text-black min-h-screen flex flex-col items-center justify-center px-6 text-center">
         <p className="font-mono text-[12px] uppercase tracking-widest text-red-600 mb-6">
           {resolveError}
         </p>
         <button
           onClick={() => router.push("/directory")}
-          className="font-ui text-[14px] font-bold border-2 border-black bg-black text-white px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors"
+          className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors"
         >
           Back to Directory
         </button>
@@ -152,14 +153,14 @@ function JoinFlowContent() {
 
   if (submitted) {
     return (
-      <div className="bg-white text-black min-h-screen flex flex-col items-center justify-center px-6">
+      <div className="bg-paper text-black min-h-screen flex flex-col items-center justify-center px-6">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-lg w-full text-center"
         >
           <div className="w-16 h-16 bg-black flex items-center justify-center mx-auto mb-8">
-            <span className="material-symbols-outlined text-white text-[32px]">
+            <span className="material-symbols-outlined text-paper text-[32px]">
               check
             </span>
           </div>
@@ -176,7 +177,7 @@ function JoinFlowContent() {
           </p>
           <button
             onClick={() => router.push("/portal")}
-            className="font-ui text-[14px] font-bold border-2 border-black bg-black text-white px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors w-full"
+            className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors w-full"
           >
             Go to My Clubs Portal
             <span className="material-symbols-outlined text-[16px] align-middle ml-2">
@@ -189,11 +190,11 @@ function JoinFlowContent() {
   }
 
   return (
-    <div className="bg-white text-black min-h-screen flex flex-col">
+    <div className="bg-paper text-black min-h-screen flex flex-col">
       {/* Header */}
-      <header className="flex justify-between items-center w-full px-8 py-4 bg-white border-b-2 border-black sticky top-0 z-30">
-        <div className="font-display text-[32px] font-black uppercase tracking-tighter">
-          CLUB-HUB
+      <header className="flex justify-between items-center w-full px-8 py-4 bg-paper border-b-2 border-black sticky top-0 z-30">
+        <div>
+          <Wordmark className="w-[240px]" />
         </div>
         <div className="flex items-center gap-6">
           <Link
@@ -219,7 +220,7 @@ function JoinFlowContent() {
               </span>
               <span className="font-mono text-[12px] text-[#757575]">{progress}%</span>
             </div>
-            <div className="w-full h-[2px] bg-[#e2e8f0] relative overflow-hidden">
+            <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
               <motion.div
                 className="absolute top-0 left-0 h-full bg-black"
                 animate={{ width: `${progress}%` }}
@@ -257,7 +258,7 @@ function JoinFlowContent() {
                     onKeyDown={(e) => e.key === "Enter" && validateCode()}
                     placeholder="e.g. CS-7X3K"
                     maxLength={10}
-                    className="border-2 border-black p-4 font-mono text-[20px] uppercase tracking-widest outline-none focus:border-[#057DBC] placeholder:text-[#ccc] w-full"
+                    className="border-2 border-black p-4 font-mono text-[20px] uppercase tracking-widest outline-none focus:border-[#057DBC] placeholder:text-[#cec7b6] w-full"
                   />
                   {codeError && (
                     <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">
@@ -269,7 +270,7 @@ function JoinFlowContent() {
                 <div className="mt-10 pt-6 border-t border-black flex justify-between">
                   <button
                     onClick={() => router.push("/portal")}
-                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-white transition-colors flex items-center gap-2"
+                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                     Back
@@ -277,7 +278,7 @@ function JoinFlowContent() {
                   <button
                     onClick={validateCode}
                     disabled={loading || code.length < 4}
-                    className="font-ui text-[14px] font-bold border-2 border-black bg-black text-white px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                    className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
                   >
                     {loading ? "Checking..." : "Continue"}
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -314,7 +315,7 @@ function JoinFlowContent() {
                       className={`text-left p-5 border-2 transition-all ${
                         selectedRole === role.value
                           ? "border-[#057DBC] bg-[#f0f8ff]"
-                          : "border-black hover:bg-[#f3f3f3]"
+                          : "border-black hover:bg-[#ebe6db]"
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -359,7 +360,7 @@ function JoinFlowContent() {
                         onChange={(e) =>
                           setSelectedDomainId(e.target.value ? Number(e.target.value) : null)
                         }
-                        className="border-2 border-black p-3 font-mono text-[13px] uppercase tracking-wider outline-none focus:border-[#057DBC] w-full bg-white"
+                        className="border-2 border-black p-3 font-mono text-[13px] uppercase tracking-wider outline-none focus:border-[#057DBC] w-full bg-paper"
                       >
                         <option value="">-- Select a domain --</option>
                         {domains.map((d) => (
@@ -375,7 +376,7 @@ function JoinFlowContent() {
                 <div className="mt-10 pt-6 border-t border-black flex justify-between">
                   <button
                     onClick={() => (entryMode === "directory" ? router.push("/directory") : goTo(1))}
-                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-white transition-colors flex items-center gap-2"
+                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                     Back
@@ -386,7 +387,7 @@ function JoinFlowContent() {
                       !selectedRole ||
                       (roleConfig?.needsDomain && domains.length > 0 && !selectedDomainId)
                     }
-                    className="font-ui text-[14px] font-bold border-2 border-black bg-black text-white px-8 py-3 uppercase hover:bg-white hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                    className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
                   >
                     Continue
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -412,7 +413,7 @@ function JoinFlowContent() {
                 </h2>
 
                 {/* Summary Card */}
-                <div className="border-2 border-black p-6 mb-6 bg-[#f9f9f9]">
+                <div className="border-2 border-black p-6 mb-6 bg-[#f0ede4]">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Club</p>
@@ -426,7 +427,7 @@ function JoinFlowContent() {
                     )}
                     <div>
                       <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Requesting Role</p>
-                      <span className="inline-block font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-white">
+                      <span className="inline-block font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-paper">
                         {roleConfig?.label}
                       </span>
                     </div>
@@ -452,7 +453,7 @@ function JoinFlowContent() {
                     onChange={(e) => setMessage(e.target.value)}
                     placeholder="Introduce yourself or explain why you'd like to join..."
                     rows={3}
-                    className="border-2 border-black p-3 font-ui text-[14px] outline-none focus:border-[#057DBC] resize-none placeholder:text-[#ccc]"
+                    className="border-2 border-black p-3 font-ui text-[14px] outline-none focus:border-[#057DBC] resize-none placeholder:text-[#cec7b6]"
                   />
                 </div>
 
@@ -465,7 +466,7 @@ function JoinFlowContent() {
                 <div className="mt-4 pt-6 border-t border-black flex justify-between">
                   <button
                     onClick={() => goTo(2)}
-                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-white transition-colors flex items-center gap-2"
+                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-2"
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_back</span>
                     Back
@@ -473,7 +474,7 @@ function JoinFlowContent() {
                   <button
                     onClick={submitRequest}
                     disabled={loading}
-                    className="font-ui text-[14px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-white px-8 py-3 uppercase hover:bg-black hover:border-black transition-colors disabled:opacity-40 flex items-center gap-2"
+                    className="font-ui text-[14px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-8 py-3 uppercase hover:bg-black hover:border-black transition-colors disabled:opacity-40 flex items-center gap-2"
                   >
                     {loading ? "Sending..." : "Send Request"}
                     <span className="material-symbols-outlined text-[16px]">send</span>
@@ -487,9 +488,9 @@ function JoinFlowContent() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-[#1a1a1a] text-white py-8 px-8 flex justify-between items-center mt-auto">
-        <div className="font-display text-[20px] font-black uppercase tracking-tighter text-white">
-          CLUB-HUB
+      <footer className="bg-[#1a1a1a] text-paper py-8 px-8 flex justify-between items-center mt-auto">
+        <div>
+          <Wordmark className="w-[150px]" invert />
         </div>
         <div className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
           © 2024 CLUB-HUB EDITORIAL.

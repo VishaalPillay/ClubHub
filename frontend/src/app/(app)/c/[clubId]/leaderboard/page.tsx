@@ -37,7 +37,7 @@ export default function LeaderboardPage() {
       <div className="flex justify-between items-end mb-6 w-full gap-4">
         <div className="flex flex-col flex-1">
           <div className="w-full h-[2px] bg-black"></div>
-          <h1 className="bg-black text-white px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
+          <h1 className="bg-black text-paper px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
             Leaderboard
           </h1>
         </div>
@@ -47,7 +47,7 @@ export default function LeaderboardPage() {
             setDomainFilter(e.target.value === "" ? null : Number(e.target.value));
             setCurrentPage(1);
           }}
-          className="border-2 border-black p-2 font-mono text-12 uppercase bg-white outline-none focus:border-[#057DBC] shrink-0"
+          className="border-2 border-black p-2 font-mono text-12 uppercase bg-paper outline-none focus:border-[#057DBC] shrink-0"
         >
           <option value="">All Domains</option>
           {domains.map((d) => (
@@ -58,12 +58,12 @@ export default function LeaderboardPage() {
 
       {/* My standing */}
       {myEntry && (
-        <div className="border-2 border-black bg-black text-white p-4 mb-6 flex items-center justify-between">
+        <div className="border-2 border-black bg-black text-paper p-4 mb-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <span className="font-display text-4xl font-bold">#{myEntry.rank}</span>
             <div>
               <div className="font-ui text-16 font-bold uppercase">Your Standing</div>
-              <div className="font-mono text-[11px] uppercase tracking-widest text-[#dadada]">
+              <div className="font-mono text-[11px] uppercase tracking-widest text-[#ddd8cc]">
                 {humanizeRole(myEntry.role)}{myEntry.domain_name ? ` · ${myEntry.domain_name}` : ""}
               </div>
             </div>
@@ -73,7 +73,7 @@ export default function LeaderboardPage() {
       )}
 
       <div className="w-full border-2 border-black">
-        <div className="grid grid-cols-12 bg-black text-white font-mono text-xs uppercase tracking-widest p-3">
+        <div className="grid grid-cols-12 bg-black text-paper font-mono text-xs uppercase tracking-widest p-3">
           <div className="col-span-1 text-center">Rank</div>
           <div className="col-span-5">Member</div>
           <div className="col-span-2">Role</div>
@@ -87,13 +87,13 @@ export default function LeaderboardPage() {
           ) : currentItems.length > 0 ? currentItems.map((item) => (
             <div
               key={item.user_id}
-              className={`grid grid-cols-12 items-center p-3 border-b-2 border-black last:border-b-0 transition-colors ${item.user_id === userId ? "bg-[#f3f3f3]" : "hover:bg-hairline-tint"}`}
+              className={`grid grid-cols-12 items-center p-3 border-b-2 border-black last:border-b-0 transition-colors ${item.user_id === userId ? "bg-[#ebe6db]" : "hover:bg-hairline-tint"}`}
             >
               <div className="col-span-1 text-center font-display text-xl font-bold text-caption-gray">
                 #{item.rank}
               </div>
               <div className="col-span-5 flex items-center gap-3">
-                <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e2e2e2] shrink-0">
+                <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
                   <img
                     alt={item.name}
                     className="w-full h-full object-cover"
@@ -103,7 +103,7 @@ export default function LeaderboardPage() {
                 <div className="font-ui text-16 font-bold truncate">
                   {item.name}
                   {item.user_id === userId && (
-                    <span className="ml-2 font-mono text-[9px] uppercase bg-black text-white px-1.5 py-0.5 tracking-widest">You</span>
+                    <span className="ml-2 font-mono text-[9px] uppercase bg-black text-paper px-1.5 py-0.5 tracking-widest">You</span>
                   )}
                 </div>
               </div>
@@ -127,7 +127,7 @@ export default function LeaderboardPage() {
         <button
           onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
           disabled={currentPage === 1}
-          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-white"
+          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-paper"
         >
           Previous
         </button>
@@ -137,7 +137,7 @@ export default function LeaderboardPage() {
         <button
           onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
           disabled={currentPage === totalPages}
-          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-white transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-white"
+          className="font-ui text-14 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-0 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black bg-paper"
         >
           Next Page
         </button>

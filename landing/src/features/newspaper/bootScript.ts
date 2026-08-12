@@ -1,5 +1,5 @@
 import { MIN_WIDTH, READING_MODE_KEY } from "./readingMode";
-import { resolvedPhaseForHour } from "../scene/timeOfDay";
+import { ROOM_POSTER } from "../scene/roomLight";
 
 /**
  * The blocking script that decides how the page looks BEFORE first paint.
@@ -11,7 +11,7 @@ import { resolvedPhaseForHour } from "../scene/timeOfDay";
  * HYDRATION, and the server document is the plain eight-page newspaper. So a
  * desktop visitor got a full-screen cream broadsheet for as long as the bundle
  * took to arrive and hydrate — measured at 1.6 seconds — before it vanished and
- * was replaced by a dark room. That is not a slow load, it is the wrong page.
+ * was replaced by the room. That is not a slow load, it is the wrong page.
  *
  * A blocking inline script is the standard fix, and it is the only one: nothing
  * that runs after the bundle can prevent something the browser has already
@@ -31,16 +31,17 @@ import { resolvedPhaseForHour } from "../scene/timeOfDay";
  * The poster is consumed as a CSS background and a `<video poster>`, neither of
  * which is a CORS request, so tagging it would break it the other way.
  *
+ * It used to pick the room off the visitor's clock as well, and hand the answer
+ * to the CSS through `data-np-phase` and a custom property. There is one room
+ * now, so the poster is a constant: the boot CSS in `newspaper.css` names it
+ * directly and this script only preloads it.
+ *
  * ── Rules for editing ───────────────────────────────────────────────────────
  * It is blocking, so keep it tiny; and it must never throw, because an
  * exception here happens before anything has rendered. Everything is inside one
  * try/catch and every failure path falls back to plain, which is the document
  * the server already sent.
  */
-
-/** Precomputed hour → phase, so the inline script carries no logic of its own
- *  and cannot drift from `timeOfDay.ts`. */
-const HOUR_PHASE = Array.from({ length: 24 }, (_, h) => resolvedPhaseForHour(h));
 
 export const BOOT_SCRIPT = `(function(){try{
 var d=document.documentElement,m=window.matchMedia,p=true;
@@ -52,10 +53,7 @@ p=!!(c.getContext("webgl2")||c.getContext("webgl")||c.getContext("experimental-w
 if(p){try{if(localStorage.getItem("${READING_MODE_KEY}")==="plain")p=false}catch(e){}}
 d.setAttribute("data-np-mode",p?"paper":"plain");
 if(!p)return;
-var f=${JSON.stringify(HOUR_PHASE)}[new Date().getHours()];
-d.setAttribute("data-np-phase",f);
-d.style.setProperty("--np-boot-room",'url("/backdrop/'+f+'.avif")');
 function pre(h,x){var l=document.createElement("link");l.rel="preload";l.as="image";
 l.href=h;if(x)l.crossOrigin="anonymous";document.head.appendChild(l)}
-pre("/backdrop/"+f+".avif",0);pre("/pages/01.avif",1);pre("/pages/02.avif",1)
+pre("${ROOM_POSTER}",0);pre("/pages/01.avif",1);pre("/pages/02.avif",1)
 }catch(e){}})();`;

@@ -8,9 +8,9 @@
  * read from it on the main bundle, and an import of three here would pull the
  * whole renderer out of the dynamic chunk and undo the code split.
  *
- * There is no camera framing in here any more. Both clips film the table, so
- * the camera is fixed to the fit solved by `npm run clip:fit` and lives with
- * the rest of the per-phase numbers in timeOfDay.ts.
+ * There is no camera framing in here any more. The clip films the table, so the
+ * camera is fixed to the fit solved by `npm run clip:fit` and lives with the
+ * rest of the room's numbers in roomLight.ts.
  */
 
 /** Page aspect, carried over from the CSS design (792 / 574). */

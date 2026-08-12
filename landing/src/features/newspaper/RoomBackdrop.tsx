@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { motion, useTransform, type MotionValue } from "framer-motion";
-import { roomPoster, roomVideo, type Phase } from "../scene/timeOfDay";
+import { ROOM_POSTER, ROOM_VIDEO } from "../scene/roomLight";
 import { openness } from "../scene/sceneConfig";
 
 /**
@@ -32,11 +32,9 @@ export interface RoomBackdropProps {
   /** Steps of camera-only lead-in. The room defocuses over exactly this, so it
    *  must match the rig or the two move on different curves. */
   lead: number;
-  /** Resolved by the shell, so this and the 3D light rig cannot disagree. */
-  phase: Phase;
 }
 
-export default function RoomBackdrop({ pos, steps, lead, phase }: RoomBackdropProps) {
+export default function RoomBackdrop({ pos, steps, lead }: RoomBackdropProps) {
   const video = useRef<HTMLVideoElement>(null);
 
   /** 0 shut, 1 open — the same curve the scene runs on, from the same function. */
@@ -72,8 +70,8 @@ export default function RoomBackdrop({ pos, steps, lead, phase }: RoomBackdropPr
         ref={video}
         className="np-room-clip"
         style={{ scale, y, filter: blur }}
-        poster={roomPoster(phase)}
-        src={roomVideo(phase)}
+        poster={ROOM_POSTER}
+        src={ROOM_VIDEO}
         autoPlay
         muted
         loop

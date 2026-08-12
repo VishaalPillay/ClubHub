@@ -36,7 +36,7 @@ export default function FeaturedProfilesCarousel() {
   return (
     <div className="mt-4 border-t-1 border-hairline-tint pt-4">
       {/* Black Ribbon Header */}
-      <div className="bg-black text-white px-2 py-1 mb-3 font-mono text-sm uppercase">
+      <div className="bg-black text-paper px-2 py-1 mb-3 font-mono text-sm uppercase">
         Top Contributors
       </div>
 
@@ -45,7 +45,7 @@ export default function FeaturedProfilesCarousel() {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="aspect-[4/3] border-2 border-black overflow-hidden mb-1 bg-[#e2e2e2] relative">
+        <div className="aspect-[4/3] border-2 border-black overflow-hidden mb-1 bg-[#e8e4da] relative">
           <img
             key={profile.user_id}
             alt={profile.name}
@@ -53,11 +53,11 @@ export default function FeaturedProfilesCarousel() {
             src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=e2e2e2&color=000&size=400`}
           />
           {/* Domain Tag */}
-          <div className="absolute top-2 left-2 bg-black text-white font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest">
+          <div className="absolute top-2 left-2 bg-black text-paper font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest">
             {profile.domain_name ?? "Club-wide"}
           </div>
           {/* Rank Tag */}
-          <div className="absolute top-2 right-2 bg-[#057DBC] text-white font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest">
+          <div className="absolute top-2 right-2 bg-[#057DBC] text-paper font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest">
             #{profile.rank}
           </div>
         </div>

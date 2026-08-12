@@ -3,6 +3,7 @@
 import { LOGIN_URL, REGISTER_URL } from "./links";
 import { useNewspaper } from "./NewspaperContext";
 import SectionRule from "./SectionRule";
+import Wordmark from "./Wordmark";
 
 /**
  * The persistent chrome: a strip of desk blotter along the bottom carrying the
@@ -30,7 +31,9 @@ export default function PageControls() {
 
   return (
     <div className="np-controls">
-      <span className="np-controls-mark">Club-Hub</span>
+      <span className="np-controls-mark">
+        <Wordmark invert />
+      </span>
 
       {mode === "paper" && (
         <div className="np-pager">

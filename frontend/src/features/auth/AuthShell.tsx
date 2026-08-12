@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { LANDING_URL } from "@/lib/urls";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 /**
  * Shared chrome for the (public) auth pages — masthead with wordmark + Login/Register
@@ -22,18 +23,15 @@ export default function AuthShell({
       : { label: "Login", href: "/login" };
 
   return (
-    <div className="bg-[#FFFFFF] text-[#000000] min-h-screen flex flex-col">
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-white top-0 border-b-2 border-black">
+    <div className="bg-[#f5f2ec] text-[#000000] min-h-screen flex flex-col">
+      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper top-0 border-b-2 border-black">
         {/* Leaves this origin for the marketing site — plain <a>, not next/link. */}
-        <a
-          href={LANDING_URL}
-          className="text-black font-display text-[28px] uppercase tracking-tighter font-black no-underline"
-        >
-          CLUB-HUB
+        <a href={LANDING_URL} className="no-underline block">
+          <Wordmark className="w-[210px]" />
         </a>
         <Link
           href={other.href}
-          className="font-ui text-[14px] font-bold border-2 border-black px-4 py-2 uppercase no-underline bg-black text-white transition-colors hover:bg-white hover:text-black"
+          className="font-ui text-[14px] font-bold border-2 border-black px-4 py-2 uppercase no-underline bg-black text-paper transition-colors hover:bg-paper hover:text-black"
         >
           {other.label}
         </Link>
@@ -43,14 +41,14 @@ export default function AuthShell({
         {children}
       </main>
 
-      <footer className="bg-[#1A1A1A] text-white text-xs uppercase w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 py-10 mt-auto">
-        <div className="text-white font-black tracking-widest">
+      <footer className="bg-[#1A1A1A] text-paper text-xs uppercase w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 py-10 mt-auto">
+        <div className="text-paper font-black tracking-widest">
           © 2026 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
         </div>
         <div className="flex flex-wrap justify-center gap-6 font-mono tracking-widest">
-          <Link href="#" className="text-neutral-400 hover:text-white underline">Privacy</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline">Terms</Link>
-          <Link href="#" className="text-neutral-400 hover:text-white underline">Contact</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline">Privacy</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline">Terms</Link>
+          <Link href="#" className="text-ink-dim hover:text-paper underline">Contact</Link>
         </div>
       </footer>
     </div>

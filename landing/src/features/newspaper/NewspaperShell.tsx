@@ -22,7 +22,6 @@ import {
 import { PAGES_PER_SHEET, rectoForSpread, spreadForPage, type EditionPage } from "./edition";
 import PageControls from "./PageControls";
 import RoomBackdrop from "./RoomBackdrop";
-import { currentPhase, type Phase } from "../scene/timeOfDay";
 import { useLenis } from "./useLenis";
 import { useMediaQuery } from "./useMediaQuery";
 
@@ -160,22 +159,6 @@ export default function NewspaperShell({
    *  rewritten value and every deep link resolved to page 1. */
   const [initialSlug] = useState(() =>
     typeof window === "undefined" ? "" : window.location.hash.slice(1),
-  );
-
-  /**
-   * Which time of day the room and the light are set to.
-   *
-   * Resolved ONCE, here, and handed to both the video and the 3D scene — if
-   * each looked at the clock itself they could disagree across an hour boundary
-   * and you would get a table lit for morning standing in an evening room.
-   *
-   * Guarded on `window` because this project is statically exported: the
-   * initialiser also runs at BUILD time, where `new Date()` is the build's
-   * clock, not the visitor's. Safe only because every use of it is behind
-   * `mode === "paper"`, which cannot be true until hydration has finished.
-   */
-  const [phase] = useState<Phase>(() =>
-    typeof window === "undefined" ? "morning" : currentPhase(),
   );
 
   const { scrollYProgress } = useScroll({
@@ -489,14 +472,9 @@ export default function NewspaperShell({
           >
             {mode === "paper" && (
               <>
-                <RoomBackdrop pos={pos} steps={steps} lead={lead} phase={phase} />
+                <RoomBackdrop pos={pos} steps={steps} lead={lead} />
                 <SceneBoundary>
-                  <NewspaperScene
-                    posRef={scenePosRef}
-                    turns={turns}
-                    lead={lead}
-                    phase={phase}
-                  />
+                  <NewspaperScene posRef={scenePosRef} turns={turns} lead={lead} />
                 </SceneBoundary>
               </>
             )}

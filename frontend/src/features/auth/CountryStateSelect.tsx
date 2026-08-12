@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Country, State } from "country-state-city";
 
 const selectClass =
-  "border-2 border-black bg-white text-black p-3 font-ui text-[15px] w-full appearance-none " +
+  "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full appearance-none " +
   "focus:outline-none focus:border-[#057DBC] disabled:opacity-40 rounded-none";
 
 const labelClass = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
