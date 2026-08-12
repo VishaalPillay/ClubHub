@@ -1,10 +1,11 @@
 /**
  * Screenshots the live 3D scene at a given scroll step.
  *
- *   npm run scene:shot -- <step> [outfile] [phase]
+ *   npm run scene:shot -- <step> [outfile]
  *
- * `phase` is morning | evening | night and overrides the wall clock, so a
- * time-of-day that is not the current hour can still be checked.
+ * It used to take a third argument that forced the clock to a chosen time of
+ * day. The scene has one room at every hour now, so there is nothing left for it
+ * to select and the wall clock no longer changes what is on screen.
  *
  * Exists because a WebGL scene cannot be checked by reading the DOM. Nothing
  * about the camera framing, the page curl, which texture landed on which face,
@@ -56,17 +57,9 @@ function serve(root) {
   });
 }
 
-/** Hour to force for each phase. Mirrors phaseForHour in timeOfDay.ts. */
-const PHASE_HOUR = { morning: 9, evening: 18, night: 22 };
-
 async function main() {
   const step = Number(process.argv[2] ?? 0);
   const outFile = resolve(process.argv[3] ?? `scene-step-${step}.png`);
-  const phase = process.argv[4];
-  if (phase && !(phase in PHASE_HOUR)) {
-    console.error(`Unknown phase "${phase}". Expected: ${Object.keys(PHASE_HOUR).join(", ")}`);
-    process.exit(1);
-  }
 
   try {
     await stat(OUT_DIR);
@@ -92,18 +85,11 @@ async function main() {
     reducedMotion: "no-preference",
   });
 
-  await context.addInitScript(
-    ({ hour }) => {
-      try {
-        localStorage.setItem("clubhub:reading-mode", "paper");
-      } catch {}
-      /* Only `getHours` is replaced, never the Date constructor. Swapping the
-         whole class breaks any caller that invokes `Date()` without `new`, which
-         is enough to take the page down before it renders. */
-      if (hour !== undefined) Date.prototype.getHours = () => hour;
-    },
-    { hour: phase ? PHASE_HOUR[phase] : undefined },
-  );
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem("clubhub:reading-mode", "paper");
+    } catch {}
+  });
 
   const page = await context.newPage();
   page.on("console", (m) => {
@@ -134,7 +120,7 @@ async function main() {
   // Long enough for Lenis to settle and the textures to have decoded.
   await page.waitForTimeout(2500);
   await page.screenshot({ path: outFile });
-  console.log(`  step ${step}${phase ? ` (${phase})` : ""} -> ${outFile}`);
+  console.log(`  step ${step} -> ${outFile}`);
 
   await browser.close();
   server.close();

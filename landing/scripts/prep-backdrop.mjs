@@ -1,26 +1,24 @@
 /**
- * Turns a raw room clip into the scene's backdrop.
+ * Turns the raw room clip into the scene's backdrop.
  *
- *   npm run backdrop:prep              # every clip in backdrop-src/
- *   npm run backdrop:prep -- morning   # just one
+ *   npm run backdrop:prep
  *
- * Reads `backdrop-src/<phase>.<ext>` and writes `public/backdrop/<phase>.mp4`
- * plus a matching `.avif` poster. Source files are NOT committed; the outputs
+ * Reads `backdrop-src/morning.<ext>` and writes `public/backdrop/morning.mp4`
+ * plus a matching `.avif` poster. The source file is NOT committed; the outputs
  * are, because Cloudflare Pages builds from the repo and has no ffmpeg.
  *
- * ── Why this is nearly free ──────────────────────────────────────────────────
- * The backdrop is heavily out of focus, and blur is the best thing that can
- * happen to a video encoder: there is no high-frequency detail left to spend
- * bits on. A ten-second 1280x720 source at 2.4MB comes out around a tenth of
- * that. Blur also makes resolution irrelevant — 960x540 blurred is
- * indistinguishable from 4K blurred — so the downscale costs nothing visible.
+ * ── One clip ─────────────────────────────────────────────────────────────────
+ * This used to loop over three named times of day and pick an encode profile per
+ * clip — a blurred one for clips that were only a room, a sharp one for clips
+ * with the table in them. There is one room now and it has the table in it, so
+ * there is one profile. The NAME still matters: `morning` is what
+ * `ROOM_VIDEO` in src/features/scene/roomLight.ts asks for.
  *
  * ── Order of operations matters ──────────────────────────────────────────────
  * delogo runs FIRST, at full resolution. It reconstructs the covered box by
  * interpolating from its edges, so it needs the original neighbouring pixels;
  * downscaling first would smear the watermark into them and leave it with
- * nothing clean to interpolate from. Everything else is cheaper after the
- * downscale, so the scale comes next and the blur last.
+ * nothing clean to interpolate from. Everything else is cheaper afterwards.
  */
 
 import { execFile } from "node:child_process";
@@ -36,52 +34,38 @@ const run = promisify(execFile);
 const SRC_DIR = resolve("backdrop-src");
 const DEST_DIR = resolve("public/backdrop");
 
-/** The three times of day the scene knows about. See sceneConfig.ts. */
-const PHASES = ["morning", "evening", "night"];
+/** The clip's name, on both sides. Bound to ROOM_VIDEO in roomLight.ts. */
+const CLIP = "morning";
 const VIDEO_EXT = [".mp4", ".mov", ".webm", ".m4v", ".mkv"];
 
 /**
- * Per-phase encode profile.
+ * The encode profile.
  *
- * Two kinds of clip, and they want opposite settings:
+ * The paper rests on the clip's OWN table, so the first frame has to be sharp or
+ * the illusion never lands. That costs several times the bytes of a defocused
+ * backdrop and there is no way around it — the defocus happens at runtime
+ * instead, in RoomBackdrop, once the paper has taken over the frame.
  *
- *   · **Room only.** The scene draws its own table over it, so it is out of
- *     focus from the first frame. Blur it at encode time — blur strips exactly
- *     the detail an encoder spends bits on, and makes resolution irrelevant, so
- *     this is both smaller and better.
- *   · **Room WITH the table in it.** The paper rests on the clip's own table, so
- *     the first frame has to be sharp or the illusion never lands. Full
- *     resolution, no blur, a lower CRF — several times the bytes, and there is
- *     no way around it. Defocus happens at runtime instead, in RoomBackdrop.
+ * It renders ABOVE its source resolution, which sounds wrong and is not. The
+ * source is 1280x720 and no upscale invents detail — but the browser is going to
+ * scale this to a viewport that is usually wider than 1280 anyway, and its own
+ * upscaler is bilinear and mushy. Doing it here with lanczos and then
+ * re-sharpening beats letting the browser do it.
+ *
+ * 1440x810 specifically, because that is the width most desktop viewports
+ * actually are — the browser then scales roughly 1:1 and does nothing at all.
+ * 1600x900 was tried and cost 40% more bytes for detail the source never had.
+ *
+ * CRF is low because this clip is on screen sharp before anyone scrolls, so it
+ * is the one frame quality is actually visible in.
  */
 const PROFILE = {
-  blurred: { width: 960, height: 540, blur: 11, crf: 30,
-             grade: "eq=brightness=-0.01:saturation=1.14:contrast=1.15" },
-  /* Sharp clips are rendered ABOVE their source resolution, which sounds wrong
-     and is not. The source is 1280x720 and no upscale invents detail — but the
-     browser is going to scale this to a viewport that is usually wider than
-     1280 anyway, and its own upscaler is bilinear and mushy. Doing it here with
-     lanczos and then re-sharpening beats letting the browser do it, and the
-     paper resting on the filmed table needs every bit of crispness it can get
-     to look like it belongs there.
-
-     1440x810 specifically, because that is the width most desktop viewports
-     actually are — the browser then scales roughly 1:1 and does nothing at all.
-     1600x900 was tried and cost 40% more bytes for detail the 1280 source never
-     had in the first place.
-
-     CRF is well below the blurred profile's for the same reason: this clip is
-     on screen sharp before anyone scrolls, so it is the one frame quality is
-     actually visible in. */
-  sharp:   { width: 1440, height: 810, blur: 0, crf: 24,
-             sharpen: "unsharp=5:5:0.55:5:5:0.0",
-             grade: "eq=brightness=-0.02:saturation=1.04:contrast=1.04" },
+  width: 1440,
+  height: 810,
+  crf: 24,
+  sharpen: "unsharp=5:5:0.55:5:5:0.0",
+  grade: "eq=brightness=-0.02:saturation=1.04:contrast=1.04",
 };
-
-/** Which phases ship sharp. Keep in step with `clipTable` in timeOfDay.ts. */
-const SHARP_PHASES = new Set(["morning", "night"]);
-
-const profileFor = (phase) => (SHARP_PHASES.has(phase) ? PROFILE.sharp : PROFILE.blurred);
 
 /**
  * The generator's watermark, as fractions of the frame.
@@ -163,11 +147,9 @@ function frameDistance(a, b) {
  * been. Keeping b as well would hold a duplicate frame once per cycle.
  *
  * ── It does not get all the way there on its own ────────────────────────────
- * Measured, these clips loop CLOSE but not exactly. The best available wrap is
- * about twice an ordinary frame step for the morning clip and four times for the
- * night one — which is small, but the night room is so still that there is
- * nothing else moving to hide it behind. So the cut is followed by a very short
- * dissolve; see SEAM_FRAMES.
+ * Measured, the best available wrap is still about twice an ordinary frame step
+ * — small, but small is not nothing on a clip that plays all day. So the cut is
+ * followed by a very short dissolve; see SEAM_FRAMES.
  */
 function findLoopPoint(sigs, fps) {
   const n = sigs.length;
@@ -193,7 +175,7 @@ function findLoopPoint(sigs, fps) {
   return { ...best, typical: step / (n - 1) };
 }
 
-async function findSource(phase) {
+async function findSource() {
   let entries;
   try {
     entries = await readdir(SRC_DIR);
@@ -201,7 +183,7 @@ async function findSource(phase) {
     return null;
   }
   const hit = entries.find(
-    (f) => basename(f, extname(f)).toLowerCase() === phase && VIDEO_EXT.includes(extname(f).toLowerCase()),
+    (f) => basename(f, extname(f)).toLowerCase() === CLIP && VIDEO_EXT.includes(extname(f).toLowerCase()),
   );
   return hit ? join(SRC_DIR, hit) : null;
 }
@@ -225,7 +207,7 @@ async function probe(file) {
   };
 }
 
-function filterGraph({ width, height, fps }, prof, loop) {
+function filterGraph({ width, height, fps }, loop) {
   const wm = [
     `x=${Math.round(WATERMARK.x * width)}`,
     `y=${Math.round(WATERMARK.y * height)}`,
@@ -233,17 +215,12 @@ function filterGraph({ width, height, fps }, prof, loop) {
     `h=${Math.round(WATERMARK.h * height)}`,
   ].join(":");
 
-  /* Graded AFTER the blur, and for blurred clips pushed UP rather than knocked
-     down. Blur is an averaging operation: it pulls the bright shafts and the
-     shadows between them toward each other, so a clip that was vivid sharp comes
-     out flat and grey once defocused. Those numbers restore what the blur
-     removed rather than adding stylisation — which is why the sharp profile does
-     not use them. Dimming is a DOM overlay, so it stays tunable. */
-  const blur = prof.blur ? `gblur=sigma=${prof.blur},` : "";
-  const sharpen = prof.sharpen ? `${prof.sharpen},` : "";
+  /* Graded last, and only lightly: this clip ships sharp, so there is no blur
+     averaging the contrast out of it to restore. Dimming is a DOM overlay, so it
+     stays tunable without re-running ffmpeg. */
   const post =
-    `scale=${prof.width}:${prof.height}:flags=lanczos,` +
-    `${blur}${sharpen}${prof.grade},format=yuv420p`;
+    `scale=${PROFILE.width}:${PROFILE.height}:flags=lanczos,` +
+    `${PROFILE.sharpen},${PROFILE.grade},format=yuv420p`;
 
   if (!loop) return `[0:v]delogo=${wm},${post}[out]`;
 
@@ -273,27 +250,26 @@ function filterGraph({ width, height, fps }, prof, loop) {
   ].join(";");
 }
 
-async function processPhase(phase) {
-  const src = await findSource(phase);
+async function processClip() {
+  const src = await findSource();
   if (!src) return null;
 
   const info = await probe(src);
-  const prof = profileFor(phase);
   const loop = await findLoopPoint(await frameSignatures(src), info.fps);
-  const dest = resolve(DEST_DIR, `${phase}.mp4`);
-  const poster = resolve(DEST_DIR, `${phase}.avif`);
+  const dest = resolve(DEST_DIR, `${CLIP}.mp4`);
+  const poster = resolve(DEST_DIR, `${CLIP}.avif`);
 
   await run(ffmpegPath, [
     "-y", "-v", "error",
     "-i", src,
-    "-filter_complex", filterGraph(info, prof, loop),
+    "-filter_complex", filterGraph(info, loop),
     "-map", "[out]",
     // No audio, ever. It is a background, and a muted track is dead bytes.
     "-an",
     "-c:v", "libx264",
     "-profile:v", "high",
     "-pix_fmt", "yuv420p",
-    "-crf", String(prof.crf),
+    "-crf", String(PROFILE.crf),
     "-preset", "slow",
     "-movflags", "+faststart",
     dest,
@@ -302,7 +278,7 @@ async function processPhase(phase) {
   /* The poster is the processed video's OWN first frame, not the source's.
      It has to match what the video shows in its first moment, otherwise the
      handover from poster to playback is a visible jump. */
-  const tmp = resolve(DEST_DIR, `.${phase}-poster.png`);
+  const tmp = resolve(DEST_DIR, `.${CLIP}-poster.png`);
   await run(ffmpegPath, ["-y", "-v", "error", "-i", dest, "-frames:v", "1", tmp]);
   await sharp(tmp).avif({ quality: 55, effort: 6 }).toFile(poster);
   await unlink(tmp);
@@ -320,12 +296,11 @@ async function processPhase(phase) {
 
   const [v, p] = await Promise.all([stat(dest), stat(poster)]);
   return {
-    phase,
     src: basename(src),
     kb: v.size / 1024,
     posterKb: p.size / 1024,
     from: `${info.width}x${info.height} ${info.duration.toFixed(1)}s`,
-    to: `${prof.width}x${prof.height}${prof.blur ? ` blur${prof.blur}` : " sharp"}`,
+    to: `${PROFILE.width}x${PROFILE.height} sharp`,
     loop: loop
       ? `cut ${loop.a}..${loop.b - 1}, source wrap was ${loop.d.toFixed(2)}; ` +
         `encoded wrap ${outWrap.toFixed(2)} vs ${outStep.toFixed(2)} per ordinary frame ` +
@@ -335,44 +310,27 @@ async function processPhase(phase) {
 }
 
 async function main() {
-  const only = process.argv[2];
-  const wanted = only ? [only] : PHASES;
-
-  for (const p of wanted) {
-    if (!PHASES.includes(p)) {
-      console.error(`Unknown phase "${p}". Expected one of: ${PHASES.join(", ")}`);
-      process.exit(1);
-    }
-  }
-
   try {
     await access(SRC_DIR);
   } catch {
-    console.error(`No ${basename(SRC_DIR)}/ directory. Put your clips there as <phase>.mp4`);
+    console.error(`No ${basename(SRC_DIR)}/ directory. Put the clip there as ${CLIP}.mp4`);
     process.exit(1);
   }
 
   await mkdir(DEST_DIR, { recursive: true });
 
-  let done = 0;
-  for (const phase of wanted) {
-    const out = await processPhase(phase);
-    if (!out) {
-      console.log(`  ${phase.padEnd(9)} — no source, skipped`);
-      continue;
-    }
-    done++;
-    console.log(
-      `  ${out.phase.padEnd(9)} ${out.from} -> ${out.to}  ` +
-        `${out.kb.toFixed(0)} KB video + ${out.posterKb.toFixed(0)} KB poster\n` +
-        `             loop: ${out.loop}`,
-    );
+  const out = await processClip();
+  if (!out) {
+    console.log("");
+    console.log(`  Nothing to do. Expected ${basename(SRC_DIR)}/${CLIP}.mp4`);
+    return;
   }
 
-  if (!done) {
-    console.log("");
-    console.log(`  Nothing to do. Expected files like ${basename(SRC_DIR)}/morning.mp4`);
-  }
+  console.log(
+    `  ${CLIP.padEnd(9)} ${out.from} -> ${out.to}  ` +
+      `${out.kb.toFixed(0)} KB video + ${out.posterKb.toFixed(0)} KB poster\n` +
+      `             loop: ${out.loop}`,
+  );
 }
 
 main().catch((err) => {
