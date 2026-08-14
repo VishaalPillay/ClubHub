@@ -129,7 +129,7 @@ function PortalContent() {
                 Join a Club
               </button>
               <button
-                onClick={() => router.push("/onboarding/step-1")}
+                onClick={() => router.push("/onboarding")}
                 className="font-ui text-[12px] font-bold border-2 border-black bg-black text-paper px-5 py-2 uppercase hover:bg-paper hover:text-black transition-colors"
               >
                 Create New Club

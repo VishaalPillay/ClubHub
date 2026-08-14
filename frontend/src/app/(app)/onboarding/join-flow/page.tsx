@@ -2,11 +2,13 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { directory, joinClub, lookupClub } from "@/lib/api/clubs";
 import { JOINABLE_ROLES as ROLES } from "@/lib/roles";
-import { Wordmark } from "@/components/ui/Wordmark";
+import FlowShell from "@/features/flow/FlowShell";
+import Folio from "@/features/flow/Folio";
+import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
 
 type Domain = { id: number; name: string; description: string | null };
 
@@ -39,9 +41,8 @@ function JoinFlowContent() {
   const [resolving, setResolving] = useState(!!directoryClubId);
   const [resolveError, setResolveError] = useState("");
 
-  // Multi-step state
-  const [step, setStep] = useState(directoryClubId ? 2 : 1); // 1 = code, 2 = role/domain, 3 = confirm
-  const [progress, setProgress] = useState(directoryClubId ? 66 : 33);
+  // Multi-step state — 1 = code, 2 = role/domain, 3 = confirm.
+  const { step, direction, go } = useFlowStep<number>(directoryClubId ? 2 : 1);
 
   // Form state
   const [code, setCode] = useState("");
@@ -81,8 +82,7 @@ function JoinFlowContent() {
   }, [directoryClubId]);
 
   const goTo = (s: number) => {
-    setStep(s);
-    setProgress(s === 1 ? 33 : s === 2 ? 66 : 99);
+    go(s);
     setSubmitError("");
   };
 
@@ -190,56 +190,28 @@ function JoinFlowContent() {
   }
 
   return (
-    <div className="bg-paper text-black min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="flex justify-between items-center w-full px-8 py-4 bg-paper border-b-2 border-black sticky top-0 z-30">
-        <div>
-          <Wordmark className="w-[240px]" />
-        </div>
-        <div className="flex items-center gap-6">
-          <Link
-            href={entryMode === "directory" ? "/directory" : "/portal"}
-            className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest no-underline text-black hover:text-[#057DBC] transition-colors"
-          >
-            <span className="material-symbols-outlined text-[16px] max-w-0 translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:mr-1">
-              arrow_back
-            </span>
-            {entryMode === "directory" ? "Back to Directory" : "Back to Portal"}
-          </Link>
-        </div>
-      </header>
-
-      <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+    <FlowShell
+      right={
+        <Link
+          href={entryMode === "directory" ? "/directory" : "/portal"}
+          className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest no-underline text-black hover:text-[#057DBC] transition-colors"
+        >
+          <span className="material-symbols-outlined text-[16px] max-w-0 translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:mr-1">
+            arrow_back
+          </span>
+          {entryMode === "directory" ? "Back to Directory" : "Back to Portal"}
+        </Link>
+      }
+    >
         <div className="w-full max-w-2xl">
 
-          {/* Progress */}
-          <div className="mb-10">
-            <div className="flex justify-between items-center mb-2">
-              <span className="font-mono text-[12px] uppercase tracking-widest text-[#757575]">
-                Step {step} of 3 — Join a Club
-              </span>
-              <span className="font-mono text-[12px] text-[#757575]">{progress}%</span>
-            </div>
-            <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
-              <motion.div
-                className="absolute top-0 left-0 h-full bg-black"
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              />
-            </div>
-          </div>
+          <Folio step={step} total={3} />
 
-          <AnimatePresence mode="wait">
+          <StepDeck stepKey={step} direction={direction}>
 
             {/* ─── STEP 1: Enter Club Code ─── */}
             {step === 1 && (
-              <motion.div
-                key="step1"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: 0.2 }}
-              >
+              <div>
                 <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
                   Club Code
                 </p>
@@ -284,18 +256,12 @@ function JoinFlowContent() {
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* ─── STEP 2: Select Role & Domain ─── */}
             {step === 2 && (
-              <motion.div
-                key="step2"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: 0.2 }}
-              >
+              <div>
                 <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
                   Role Selection
                 </p>
@@ -393,18 +359,12 @@ function JoinFlowContent() {
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
             {/* ─── STEP 3: Message & Confirm ─── */}
             {step === 3 && (
-              <motion.div
-                key="step3"
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -30 }}
-                transition={{ duration: 0.2 }}
-              >
+              <div>
                 <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
                   Confirm Request
                 </p>
@@ -480,22 +440,11 @@ function JoinFlowContent() {
                     <span className="material-symbols-outlined text-[16px]">send</span>
                   </button>
                 </div>
-              </motion.div>
+              </div>
             )}
 
-          </AnimatePresence>
+          </StepDeck>
         </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-[#1a1a1a] text-paper py-8 px-8 flex justify-between items-center mt-auto">
-        <div>
-          <Wordmark className="w-[150px]" invert />
-        </div>
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
-          © 2024 CLUB-HUB EDITORIAL.
-        </div>
-      </footer>
-    </div>
+    </FlowShell>
   );
 }

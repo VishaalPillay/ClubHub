@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { GithubLogo, InstagramLogo, LinkedinLogo } from "@phosphor-icons/react";
 import { register } from "@/lib/api/auth";
 import { getProfile, updateProfile } from "@/lib/api/users";
@@ -14,6 +13,8 @@ import AvatarUpload from "@/features/auth/AvatarUpload";
 import CollegeSelect from "@/features/auth/CollegeSelect";
 import CountryStateSelect, { countryHasStates } from "@/features/auth/CountryStateSelect";
 import GoogleButton from "@/features/auth/GoogleButton";
+import Folio from "@/features/flow/Folio";
+import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
 
 const inputClass =
   "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
@@ -35,8 +36,6 @@ function initialsOf(name: string): string {
     .map((w) => w[0]!.toUpperCase())
     .join("");
 }
-
-const STEP_LABELS = ["Account", "Location", "Portrait", "Socials"] as const;
 
 /**
  * Four-step registration wizard. Steps 1–2 are required; 3–4 are skippable.
@@ -61,7 +60,7 @@ export default function RegisterWizard() {
   // "fresh" = no account yet (show Google + password form); "confirm" = a session
   // exists, step 1 shows the editable name + locked email.
   const [mode, setMode] = useState<"fresh" | "confirm">("fresh");
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const { step, direction, go: setStep } = useFlowStep<1 | 2 | 3 | 4>(1);
 
   // Step 1 — account
   const [name, setName] = useState("");
@@ -248,22 +247,7 @@ export default function RegisterWizard() {
 
   return (
     <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
-      {/* Progress */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
-            Step {step} of 4 — {STEP_LABELS[step - 1]}
-          </span>
-          <span className="font-mono text-[10px] text-[#757575]">{step * 25}%</span>
-        </div>
-        <div className="w-full h-[2px] bg-[#e0d9ca] relative overflow-hidden">
-          <motion.div
-            className="absolute top-0 left-0 h-full bg-black"
-            animate={{ width: `${step * 25}%` }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
-        </div>
-      </div>
+      <Folio step={step} total={4} />
 
       {error && (
         <div className="border-2 border-red-600 bg-red-50 px-4 py-3 mb-6">
@@ -271,14 +255,7 @@ export default function RegisterWizard() {
         </div>
       )}
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={`${mode}-${step}`}
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -30 }}
-          transition={{ duration: 0.2 }}
-        >
+      <StepDeck stepKey={`${mode}-${step}`} direction={direction}>
           {/* ─── STEP 1: Account ─── */}
           {step === 1 && mode === "fresh" && (
             <>
@@ -527,8 +504,7 @@ export default function RegisterWizard() {
               </form>
             </>
           )}
-        </motion.div>
-      </AnimatePresence>
+        </StepDeck>
     </div>
   );
 }
