@@ -1,9 +1,14 @@
 "use client";
 
-import Link from "next/link";
-
 import { Wordmark } from "@/components/ui/Wordmark";
 import { LANDING_URL } from "@/lib/urls";
+import CollageBackdrop from "@/features/flow/CollageBackdrop";
+
+// The collage treatment. Every rule in it is scoped to a `.flow-*` or
+// `.mobile-gate` class, so although the root layout now pulls it in too (the
+// small-screen gate needs it on every route), nothing it contains can reach a
+// page that does not opt in by using those classes.
+import "@/features/flow/collage.css";
 
 /**
  * The one masthead for every full-page flow: the (public) auth pages, club
@@ -29,8 +34,12 @@ export default function FlowShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-paper text-black min-h-screen flex flex-col">
-      <header className="flex justify-between items-center w-full px-6 py-4 bg-paper border-b-2 border-black">
+    <div className="text-black min-h-screen flex flex-col">
+      <CollageBackdrop />
+
+      {/* The masthead is opaque paper: it sits ON the collage rather than in it,
+          which is what keeps the wordmark legible at any scrap density. */}
+      <header className="relative z-10 flex justify-between items-center w-full px-6 py-4 bg-paper border-b-2 border-black">
         {/* Leaves this origin for the marketing site — a plain <a>, not next/link. */}
         <a href={LANDING_URL} className="no-underline block">
           <Wordmark className="w-[210px]" />
@@ -38,22 +47,15 @@ export default function FlowShell({
         {right}
       </header>
 
-      {/* items-center keeps the deck vertically centred, so the height change
-          between two steps expands symmetrically instead of yanking the page up. */}
-      <main className="flex-grow flex items-center justify-center w-full max-w-[1600px] mx-auto px-6 py-12">
+      {/* items-center keeps the sheet vertically centred, so the size difference
+          between two steps expands symmetrically instead of yanking the page up.
+
+          There is deliberately NO footer here. Footers belong to the app proper;
+          a flow is one uninterrupted surface, and the collage runs to the bottom
+          edge of the viewport. */}
+      <main className="relative z-10 flex-grow flex items-center justify-center w-full max-w-[1600px] mx-auto px-6 py-12">
         {children}
       </main>
-
-      <footer className="bg-ink text-paper font-mono text-xs uppercase w-full flex flex-col md:flex-row justify-between items-center gap-4 px-8 py-10 mt-auto">
-        <div className="text-paper font-black tracking-widest text-center md:text-left">
-          © 2026 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
-        </div>
-        <div className="flex flex-wrap justify-center gap-6 tracking-widest">
-          <Link href="#" className="text-ink-dim hover:text-paper underline">Privacy</Link>
-          <Link href="#" className="text-ink-dim hover:text-paper underline">Terms</Link>
-          <Link href="#" className="text-ink-dim hover:text-paper underline">Contact</Link>
-        </div>
-      </footer>
     </div>
   );
 }

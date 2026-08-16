@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api/auth";
 import GoogleButton from "@/features/auth/GoogleButton";
+import FlowSheet from "@/features/flow/FlowSheet";
 
 const inputClass =
   "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
@@ -33,7 +34,7 @@ export default function LoginCard() {
   };
 
   return (
-    <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
+    <FlowSheet className="max-w-xl" tape>
       <div className="mb-8 pb-6 border-b-2 border-black">
         <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
           Welcome Back
@@ -99,6 +100,6 @@ export default function LoginCard() {
         New to Club-Hub?{" "}
         <Link href="/register" className="text-[#057DBC] underline">Register</Link>
       </p>
-    </div>
+    </FlowSheet>
   );
 }

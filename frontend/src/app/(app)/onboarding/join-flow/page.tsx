@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { directory, joinClub, lookupClub } from "@/lib/api/clubs";
 import { JOINABLE_ROLES as ROLES } from "@/lib/roles";
+import FlowSheet from "@/features/flow/FlowSheet";
 import FlowShell from "@/features/flow/FlowShell";
 import Folio from "@/features/flow/Folio";
 import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
@@ -137,28 +138,34 @@ function JoinFlowContent() {
 
   if (resolveError) {
     return (
-      <div className="bg-paper text-black min-h-screen flex flex-col items-center justify-center px-6 text-center">
-        <p className="font-mono text-[12px] uppercase tracking-widest text-red-600 mb-6">
-          {resolveError}
-        </p>
-        <button
-          onClick={() => router.push("/directory")}
-          className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors"
-        >
-          Back to Directory
-        </button>
-      </div>
+      <FlowShell>
+        <FlowSheet className="max-w-lg">
+          <div className="text-center">
+            <p className="font-mono text-[12px] uppercase tracking-widest text-red-600 mb-6">
+              {resolveError}
+            </p>
+            <button
+              onClick={() => router.push("/directory")}
+              className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors"
+            >
+              Back to Directory
+            </button>
+          </div>
+        </FlowSheet>
+      </FlowShell>
     );
   }
 
   if (submitted) {
     return (
-      <div className="bg-paper text-black min-h-screen flex flex-col items-center justify-center px-6">
+      <FlowShell>
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-lg w-full text-center"
+          className="max-w-lg w-full"
         >
+          <FlowSheet tape>
+          <div className="text-center">
           <div className="w-16 h-16 bg-black flex items-center justify-center mx-auto mb-8">
             <span className="material-symbols-outlined text-paper text-[32px]">
               check
@@ -184,8 +191,10 @@ function JoinFlowContent() {
               arrow_forward
             </span>
           </button>
+          </div>
+          </FlowSheet>
         </motion.div>
-      </div>
+      </FlowShell>
     );
   }
 
@@ -204,10 +213,9 @@ function JoinFlowContent() {
       }
     >
         <div className="w-full max-w-2xl">
-
-          <Folio step={step} total={3} />
-
           <StepDeck stepKey={step} direction={direction}>
+            <FlowSheet>
+            <Folio step={step} total={3} />
 
             {/* ─── STEP 1: Enter Club Code ─── */}
             {step === 1 && (
@@ -442,7 +450,7 @@ function JoinFlowContent() {
                 </div>
               </div>
             )}
-
+            </FlowSheet>
           </StepDeck>
         </div>
     </FlowShell>

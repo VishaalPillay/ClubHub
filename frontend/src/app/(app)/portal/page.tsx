@@ -88,7 +88,7 @@ function PortalContent() {
       {/* Header */}
       <header className="flex justify-between items-center w-full px-8 py-4 bg-paper border-b-2 border-black sticky top-0 z-30 relative">
         <div className="z-10">
-          <Wordmark className="w-[240px]" />
+          <Wordmark className="w-[210px]" />
         </div>
         <AppNav />
         <div className="flex items-center gap-6 z-10">

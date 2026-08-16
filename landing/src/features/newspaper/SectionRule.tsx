@@ -13,8 +13,8 @@ import { PAGES, SECTIONS } from "./edition";
  * scroll position rather than navigating — the honest element for the job.
  */
 export default function SectionRule({ compact = false }: { compact?: boolean }) {
-  const { index, goTo } = useNewspaper();
-  const activeSection = PAGES[index]?.section;
+  const { page, goTo } = useNewspaper();
+  const activeSection = PAGES[page]?.section;
 
   return (
     <nav className={`np-sections${compact ? " np-sections--compact" : ""}`} aria-label="Sections">

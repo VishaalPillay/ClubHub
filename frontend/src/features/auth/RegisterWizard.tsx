@@ -14,6 +14,7 @@ import CollegeSelect from "@/features/auth/CollegeSelect";
 import CountryStateSelect, { countryHasStates } from "@/features/auth/CountryStateSelect";
 import GoogleButton from "@/features/auth/GoogleButton";
 import Folio from "@/features/flow/Folio";
+import FlowSheet from "@/features/flow/FlowSheet";
 import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
 
 const inputClass =
@@ -214,11 +215,11 @@ export default function RegisterWizard() {
 
   if (phase === "checking") {
     return (
-      <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
+      <FlowSheet className="max-w-xl">
         <div className="font-mono text-[12px] uppercase tracking-widest text-[#757575] animate-pulse text-center py-16">
           Loading...
         </div>
-      </div>
+      </FlowSheet>
     );
   }
 
@@ -246,16 +247,17 @@ export default function RegisterWizard() {
   );
 
   return (
-    <div className="w-full max-w-xl border-2 border-black p-8 md:p-10 bg-paper">
-      <Folio step={step} total={4} />
-
-      {error && (
-        <div className="border-2 border-red-600 bg-red-50 px-4 py-3 mb-6">
-          <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">{error}</p>
-        </div>
-      )}
-
+    <div className="w-full max-w-xl">
       <StepDeck stepKey={`${mode}-${step}`} direction={direction}>
+        <FlowSheet tape>
+          <Folio step={step} total={4} />
+
+          {error && (
+            <div className="border-2 border-red-600 bg-red-50 px-4 py-3 mb-6">
+              <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">{error}</p>
+            </div>
+          )}
+
           {/* ─── STEP 1: Account ─── */}
           {step === 1 && mode === "fresh" && (
             <>
@@ -504,7 +506,8 @@ export default function RegisterWizard() {
               </form>
             </>
           )}
-        </StepDeck>
+        </FlowSheet>
+      </StepDeck>
     </div>
   );
 }

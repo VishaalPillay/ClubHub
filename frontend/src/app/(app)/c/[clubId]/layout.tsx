@@ -22,7 +22,7 @@ export default function ClubLayout({ children }: { children: React.ReactNode }) 
         <header className="bg-paper text-black w-full border-b-2 border-black flex px-8 py-4 sticky top-0 z-30 justify-between items-center relative">
           <div className="flex items-center gap-4 z-10">
             <Link href="/portal" className="block cursor-pointer no-underline" title="Back to club portal">
-              <Wordmark className="w-[240px]" />
+              <Wordmark className="w-[210px]" />
             </Link>
           </div>
 

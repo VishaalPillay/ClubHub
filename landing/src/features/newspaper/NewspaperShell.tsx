@@ -172,8 +172,8 @@ export default function NewspaperShell({
 
   /**
    * Scroll position for a PAGE. Every caller — the corners, the section rule,
-   * the teasers, the pager, deep links — speaks in page numbers and never has
-   * to know which layout is running.
+   * the teasers, deep links — speaks in page numbers and never has to know
+   * which layout is running.
    */
   const posForPage = useCallback(
     (p: number) => (spread ? spreadForPage(p) : p) + lead,
@@ -207,8 +207,11 @@ export default function NewspaperShell({
   /**
    * Move by whole steps. This is what "previous" and "next" mean, and it is the
    * only correct way to express them on a spread: `goTo(page - 1)` from a recto
-   * lands on that same spread's verso, which is the same scroll position, so
-   * the button did nothing at all. Steps have no such ambiguity.
+   * lands on that same spread's verso, which is the same scroll position, so a
+   * back-one built on pages does nothing at all. Steps have no such ambiguity.
+   *
+   * Local to this component — the keyboard handler is the only caller now that
+   * the prev/next buttons are gone.
    */
   const goToStep = useCallback(
     (i: number, opts?: { behavior?: ScrollBehavior }) => {
@@ -234,7 +237,7 @@ export default function NewspaperShell({
   );
 
   /** Relative move, chained off the pending target rather than the settled one
-   *  so repeated clicks/presses accumulate instead of re-issuing the same jump. */
+   *  so repeated presses accumulate instead of re-issuing the same jump. */
   const stepBy = useCallback((delta: number) => goToStep(intentRef.current + delta), [goToStep]);
 
   /** Jump to a specific PAGE — section links, teasers, dog-ears, deep links. */
@@ -357,12 +360,13 @@ export default function NewspaperShell({
     };
   }, [mode, measure]);
 
-  /** Keyboard. Up/Down are deliberately NOT intercepted — native scroll drives
-   *  the scrub, and hijacking them is what makes these pages feel broken.
+  /** Keyboard — the only non-scroll way to turn a page now that the prev/next
+   *  buttons are gone. Up/Down are deliberately NOT intercepted: native scroll
+   *  drives the scrub, and hijacking it is what makes these pages feel broken.
    *
-   *  These step by PAGE, not by spread: on a wide screen `goTo(page + 1)` from
-   *  a recto lands on its own verso, which is the same spread, so the pager
-   *  moves a whole pair at a time without any special case. */
+   *  These move by STEP, which is already the right unit in both layouts — a
+   *  whole spread on a wide screen, a single page on a narrow one — so neither
+   *  needs a special case here. */
   useEffect(() => {
     if (mode !== "paper") return;
     const onKey = (e: KeyboardEvent) => {
@@ -408,21 +412,14 @@ export default function NewspaperShell({
 
   const ctx = useMemo<NewspaperCtx>(
     () => ({
-      pos,
       page,
-      index: page,
       sheet,
-      step: pos0,
-      steps,
-      stepBy,
       count: pages.length,
       spread,
       mode,
       goTo,
-      goToStep,
-      setMode: setReadingMode,
     }),
-    [pos, page, sheet, pos0, steps, stepBy, pages.length, spread, mode, goTo, goToStep],
+    [page, sheet, pages.length, spread, mode, goTo],
   );
 
   /** "Pages 2–3 of 8" while a pair is open, "Page 1 of 8" on a closed cover. */

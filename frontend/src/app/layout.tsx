@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Newsreader, Inter, Space_Grotesk } from "next/font/google";
 import { QueryProvider } from "@/lib/queryClient";
+import { DeckleDefs } from "@/features/flow/FlowSheet";
+import MobileGate from "@/features/flow/MobileGate";
 import "./globals.css";
 
 // WiredDisplay / BreveText substitute — display headlines and body decks
@@ -64,7 +66,15 @@ export default function RootLayout({
         />
       </head>
       <body style={{ backgroundColor: "#f5f2ec", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
-        <QueryProvider>{children}</QueryProvider>
+        {/* Hidden wholesale below the laptop breakpoint — see MobileGate. */}
+        <div className="app-shell">
+          <QueryProvider>{children}</QueryProvider>
+        </div>
+        <MobileGate />
+        {/* Defined once for the whole document rather than per shell: two copies
+            of the same filter id is a duplicate-ID document, and the gate needs
+            it on routes that never mount a FlowShell. */}
+        <DeckleDefs />
       </body>
     </html>
   );

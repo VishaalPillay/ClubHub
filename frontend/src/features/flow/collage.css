@@ -1,0 +1,224 @@
+/**
+ * Collage treatment for the full-page flows — the second sanctioned exception to
+ * the WIRED law in `globals.css` (zero shadows, no gradients, no texture).
+ *
+ * The first exception is the landing page's `newspaper.css`, fenced to that one
+ * route. This is the same idea for the app's front door: it is imported by
+ * `FlowShell.tsx` alone, so only pages that mount the shell pay for it and the
+ * app proper stays flat.
+ *
+ * ── Why this file is unlayered ──────────────────────────────────────────────
+ * Every rule here sits outside `@layer`. Unlayered rules beat ALL layered rules
+ * in the cascade, so these win against globals' `@layer base` — including the
+ * `*:focus { outline: none }` reset that the focus rules at the bottom have to
+ * override — without `!important` and without this file having to reason about
+ * Tailwind v4's layer ordering from outside the file that establishes it. The
+ * landing stylesheet solves the same problem by hand-duplicating tokens and
+ * relying on a load-bearing `@layer` order; do not copy that here.
+ *
+ * Colour tokens come from `globals.css`'s `@theme` — they are real custom
+ * properties at runtime, so they resolve normally from this file. Nothing is
+ * duplicated.
+ */
+
+/* ── The small-screen gate ────────────────────────────────────────────────────
+ *
+ * Club-Hub is a laptop application for now. Below the breakpoint the whole app
+ * is hidden and `MobileGate` stands in its place.
+ *
+ * This is a media query rather than a width check in React on purpose: JS cannot
+ * run until hydration, so a phone would paint the full app and only then replace
+ * it. Done here, the swap is correct in the first frame.
+ *
+ * 1023px means "laptops only" — it turns away phones AND portrait tablets. Move
+ * it to 767px if the intent is only to stop phones. It is the single knob.
+ */
+
+.mobile-gate {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .app-shell {
+    display: none;
+  }
+
+  .mobile-gate {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    overflow-y: auto;
+  }
+
+  .mobile-gate__inner {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    /* The gate's sheet is a notice, not a form — it does not want the full
+       measure the auth card uses. */
+    --gate-sheet: 380px;
+  }
+
+  .mobile-gate__inner .flow-sheet {
+    max-width: var(--gate-sheet);
+  }
+}
+
+/* ── The ground ───────────────────────────────────────────────────────────── */
+
+.flow-ground {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--color-paper);
+}
+
+/* Paper tooth. A tiling fractal-noise SVG as a data URI — ~300 bytes, no asset,
+ * no network request. `multiply` keeps it reading as fibre in the sheet rather
+ * than as a grey film laid over it. */
+.flow-ground::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.42;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23g)' opacity='0.55'/></svg>");
+  background-size: 160px 160px;
+}
+
+/* ── Scraps ───────────────────────────────────────────────────────────────────
+ *
+ * The collage pieces. Placement is data, not CSS: each scrap carries its own
+ * --x/--y/--w/--r inline, so adding or nudging one is a one-line change in the
+ * manifest rather than a new rule here.
+ *
+ * `--scrap-scale` is the single knob the breakpoints turn. */
+
+.flow-collage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  --scrap-scale: 1;
+}
+
+.flow-scrap {
+  position: absolute;
+  /* All four sides, because a piece is anchored either to a viewport CORNER
+     (which may pin right/bottom) or to the sheet's edge (which pins left/top).
+     The unused sides resolve to `auto` and stay out of the way.
+
+     `--w` arrives fully formed from the manifest — a `clamp()` against viewport
+     width for corners, a scale-aware `calc()` for gutter pieces — rather than
+     being multiplied here, because those two need different responsive rules. */
+  left: var(--x, auto);
+  top: var(--y, auto);
+  right: var(--right, auto);
+  bottom: var(--bottom, auto);
+  width: var(--w);
+  height: auto;
+  transform: rotate(var(--r, 0deg));
+  opacity: var(--o, 1);
+  /* `--sat` pulls a piece that arrived in full colour back toward the sepia
+     field without re-exporting the artwork.
+
+     The shadow is not decoration — it is what makes a scrap an object sitting on
+     the desk rather than a texture printed into it. It also rescues the pale
+     pieces: a white note on #f5f2ec has almost no tonal separation from the
+     ground, and read as a smudge until it cast something. drop-shadow follows
+     the torn alpha edge; box-shadow would draw a rectangle. */
+  filter: saturate(var(--sat, 1)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.18));
+  user-select: none;
+}
+
+/* Between the gate and a wide laptop the gutters narrow faster than the
+   percentages do, so the whole collage steps down with them. Anything that still
+   reaches under the sheet is simply occluded — the sheet's ground is opaque and
+   sits above this layer — which is how a real collage behaves, and is why the
+   layout does not have to be collision-free at every single width.
+
+   There is no rule below 1023px: MobileGate has replaced the entire app by then,
+   so there is nothing here to size. */
+@media (max-width: 1279px) {
+  .flow-collage { --scrap-scale: 0.78; }
+}
+
+/* ── The sheet ────────────────────────────────────────────────────────────────
+ *
+ * Three elements, because the deckle filter displaces everything it touches and
+ * must not be allowed near the text:
+ *
+ *   .flow-sheet          positioning context only
+ *   .flow-sheet__ground  paints the paper; carries the filter
+ *   .flow-sheet__body    the real content, above and unfiltered
+ *
+ * The shadow rides inside the same filter chain rather than being a box-shadow,
+ * because `drop-shadow` follows the alpha of the filtered result while
+ * `box-shadow` follows the element's rectangle — a box-shadow would draw a crisp
+ * rectangle behind a torn edge and give the whole thing away. */
+
+.flow-sheet {
+  position: relative;
+  width: 100%;
+}
+
+.flow-sheet__ground {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: var(--color-paper);
+  filter: url("#flow-deckle") drop-shadow(0 16px 26px rgb(0 0 0 / 0.16));
+}
+
+.flow-sheet__body {
+  position: relative;
+  z-index: 1;
+  /* Generous enough that the displaced edge (±9px) never reaches the content. */
+  padding: clamp(24px, 5vw, 44px);
+}
+
+/* Masking tape, for sheets that want it. No asset — a warm translucent rectangle
+ * multiplied into the paper, with softened ends. */
+.flow-sheet__tape {
+  position: absolute;
+  z-index: 2;
+  top: -14px;
+  left: 50%;
+  width: 148px;
+  height: 34px;
+  margin-left: -74px;
+  transform: rotate(-1.6deg);
+  background-color: rgb(214 201 176 / 0.62);
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.12));
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 5px,
+    #000 calc(100% - 5px),
+    transparent 100%
+  );
+}
+
+/* ── Focus ────────────────────────────────────────────────────────────────────
+ *
+ * globals.css kills every focus ring (`*:focus { outline: none }`) and the
+ * inputs signal focus only by swapping their border from black to blue. On plain
+ * newsprint that was marginal; over a collage it is not enough to find. These
+ * rules are unlayered so they win, and they use :focus-visible so a mouse click
+ * doesn't ring the control. */
+
+.flow-sheet__body :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-link-blue);
+  outline-offset: 2px;
+}
+
+.flow-sheet__body :is(button, a, [role="button"]):focus-visible {
+  outline: 2px solid var(--color-link-blue);
+  outline-offset: 3px;
+}

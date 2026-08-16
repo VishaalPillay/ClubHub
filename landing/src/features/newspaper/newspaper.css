@@ -1423,7 +1423,8 @@
     right: 0;
     bottom: 0;
     z-index: 60;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 20px;
     padding: 10px 20px;
@@ -1443,49 +1444,23 @@
      size, and the mark itself carries --invert for the reversed palette. */
   .np-scope .np-controls-mark {
     display: block;
+    grid-column: 1;
     width: 132px;
-    flex: none;
+    justify-self: start;
     line-height: 0;
   }
 
-  .np-scope .np-pager {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .np-scope .np-pager button {
-    background: none;
-    border: 1px solid rgb(255 255 255 / 0.32);
-    color: #efe9dd;
-    width: 26px;
-    height: 26px;
-    line-height: 1;
-    cursor: pointer;
-    font-size: 15px;
-    transition: background-color 150ms linear, opacity 150ms linear;
-  }
-
-  .np-scope .np-pager button:hover:not(:disabled) {
-    background: rgb(255 255 255 / 0.16);
-  }
-
-  .np-scope .np-pager button:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  .np-scope .np-folio {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
-  }
-
+  /* The centre column is `auto` between two equal `1fr` flanks, so the section
+     rule sits dead-centre in the BAR rather than centred in the gap left over by
+     the mark and the CTAs — those two are different widths, and the difference
+     is visible.
+     Each child names its column explicitly: below 900px the sections are
+     `display: none` and auto-placement would otherwise slide the CTAs into the
+     vacated middle column instead of leaving them hard right. */
   .np-scope .np-controls-sections {
-    margin-left: auto;
+    grid-column: 2;
+    justify-self: center;
+    min-width: 0;
   }
 
   /* The section rule inherits the paper's cqw type scale, which is meaningless
@@ -1513,8 +1488,10 @@
   }
 
   .np-scope .np-controls-auth {
+    grid-column: 3;
     display: flex;
     gap: 8px;
+    justify-self: end;
   }
 
   .np-scope .np-authbtn {
@@ -1552,11 +1529,6 @@
 
     .np-scope .np-controls {
       gap: 12px;
-      justify-content: space-between;
-    }
-
-    .np-scope .np-folio {
-      font-size: 10px;
     }
 
     .np-scope .np-controls-auth .np-authbtn:not(.np-authbtn--solid) {

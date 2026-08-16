@@ -10,6 +10,7 @@ import { createDomain } from "@/lib/api/domains";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import CollegeSelect from "@/features/auth/CollegeSelect";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
+import FlowSheet from "@/features/flow/FlowSheet";
 import FlowShell from "@/features/flow/FlowShell";
 import Folio from "@/features/flow/Folio";
 import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
@@ -219,15 +220,16 @@ export default function CreateClubWizard() {
   return (
     <FlowShell right={<UserAvatarBadge />}>
       <div className="w-full max-w-5xl">
-        <Folio step={step} total={5} label={STEP_LABELS[step - 1]} />
-
-        {error && (
-          <div className="border-2 border-error bg-[#fdf0f0] px-4 py-3 mb-6">
-            <p className="font-mono text-[11px] text-error uppercase tracking-widest">{error}</p>
-          </div>
-        )}
-
         <StepDeck stepKey={step} direction={direction}>
+          <FlowSheet>
+            <Folio step={step} total={5} label={STEP_LABELS[step - 1]} />
+
+            {error && (
+              <div className="border-2 border-error bg-[#fdf0f0] px-4 py-3 mb-6">
+                <p className="font-mono text-[11px] text-error uppercase tracking-widest">{error}</p>
+              </div>
+            )}
+
           {/* ─── STEP 1: Intent ─── */}
           {step === 1 && (
             <div className="w-full">
@@ -588,6 +590,7 @@ export default function CreateClubWizard() {
               </div>
             </div>
           )}
+          </FlowSheet>
         </StepDeck>
       </div>
     </FlowShell>
