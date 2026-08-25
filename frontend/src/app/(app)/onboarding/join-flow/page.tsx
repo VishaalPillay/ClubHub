@@ -8,15 +8,33 @@ import { directory, joinClub, lookupClub } from "@/lib/api/clubs";
 import { JOINABLE_ROLES as ROLES } from "@/lib/roles";
 import FlowSheet from "@/features/flow/FlowSheet";
 import FlowShell from "@/features/flow/FlowShell";
+import FlowSpread, { FlowIndex } from "@/features/flow/FlowSpread";
 import Folio from "@/features/flow/Folio";
 import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
 
 type Domain = { id: number; name: string; description: string | null };
 
+/**
+ * The three step names, used in three places at once: the folio line at the top
+ * of the sheet, the index at the foot of the rail, and (as the strings they
+ * already were) the eyebrow each step used to print above its own headline. The
+ * eyebrow is gone because the folio now says the same words in the same sheet.
+ */
+const STEP_LABELS = ["Club Code", "Role Selection", "Confirm Request"] as const;
+
+const btnGhost =
+  "font-ui text-[14px] font-bold text-black bg-paper border-2 border-black py-2.5 px-6 uppercase " +
+  "tracking-[0.5px] hover:bg-black hover:text-paper transition-colors flex items-center gap-1.5";
+const btnSolid =
+  "font-ui text-[14px] font-bold text-paper bg-black border-2 border-black py-2.5 px-6 uppercase " +
+  "tracking-[0.5px] hover:bg-paper hover:text-black transition-colors flex items-center gap-1.5 " +
+  "disabled:opacity-40 disabled:cursor-not-allowed";
+const labelClass = "font-mono text-[11px] font-bold uppercase tracking-[2px] text-black";
+
 function JoinFlowLoading() {
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center">
-      <div className="font-mono text-12 uppercase tracking-widest text-[#757575] animate-pulse">
+      <div className="font-mono text-[12px] uppercase tracking-widest text-caption-gray animate-pulse">
         Loading...
       </div>
     </div>
@@ -31,6 +49,16 @@ export default function JoinFlowPage() {
   );
 }
 
+/**
+ * Joining an existing club — the other branch of `/onboarding`.
+ *
+ * Laid out in the same fixed sheet as `CreateClubWizard`: `FlowShell fill` →
+ * `.flow-stage` → `FlowSheet fill` → `FlowSpread`, so nothing scrolls and the
+ * paper is the same size on all three steps. It matters more here than on the
+ * create side — step 2 lists up to six roles and then grows a domain picker
+ * underneath the one that needs it, which is exactly the kind of step that used
+ * to push its own "Continue" off the bottom of the screen.
+ */
 function JoinFlowContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,7 +158,7 @@ function JoinFlowContent() {
     }
   };
 
-  const roleConfig = ROLES.find(r => r.value === selectedRole);
+  const roleConfig = ROLES.find((r) => r.value === selectedRole);
 
   if (resolving) {
     return <JoinFlowLoading />;
@@ -138,10 +166,10 @@ function JoinFlowContent() {
 
   if (resolveError) {
     return (
-      <FlowShell>
+      <FlowShell fill logoHref="/portal">
         <FlowSheet className="max-w-lg">
           <div className="text-center">
-            <p className="font-mono text-[12px] uppercase tracking-widest text-red-600 mb-6">
+            <p className="font-mono text-[12px] uppercase tracking-widest text-error mb-6">
               {resolveError}
             </p>
             <button
@@ -158,52 +186,61 @@ function JoinFlowContent() {
 
   if (submitted) {
     return (
-      <FlowShell>
+      <FlowShell fill logoHref="/portal">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           className="max-w-lg w-full"
         >
           <FlowSheet tape>
-          <div className="text-center">
-          <div className="w-16 h-16 bg-black flex items-center justify-center mx-auto mb-8">
-            <span className="material-symbols-outlined text-paper text-[32px]">
-              check
-            </span>
-          </div>
-          <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
-            Request Submitted
-          </p>
-          <h1 className="font-display text-[48px] leading-[0.93] tracking-[-0.5px] font-bold text-black mb-6">
-            You&apos;re in the queue.
-          </h1>
-          <p className="font-ui text-[16px] text-[#757575] mb-10 leading-relaxed">
-            Your request to join <strong>{clubName}</strong> as{" "}
-            <strong>{roleConfig?.label}</strong>{" "}
-            has been sent. The club&apos;s leadership will review it shortly.
-          </p>
-          <button
-            onClick={() => router.push("/portal")}
-            className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors w-full"
-          >
-            Go to My Clubs Portal
-            <span className="material-symbols-outlined text-[16px] align-middle ml-2">
-              arrow_forward
-            </span>
-          </button>
-          </div>
+            <div className="text-center">
+              <div className="w-16 h-16 bg-black flex items-center justify-center mx-auto mb-8">
+                <span className="material-symbols-outlined text-paper text-[32px]">check</span>
+              </div>
+              <p className="font-mono text-[12px] uppercase tracking-widest text-caption-gray mb-4">
+                Request Submitted
+              </p>
+              <h1 className="flow-title font-display font-bold text-black mb-6">
+                You&apos;re in the queue.
+              </h1>
+              <p className="font-ui text-[16px] text-caption-gray mb-10 leading-relaxed">
+                Your request to join <strong>{clubName}</strong> as{" "}
+                <strong>{roleConfig?.label}</strong> has been sent. The club&apos;s leadership will
+                review it shortly.
+              </p>
+              <button
+                onClick={() => router.push("/portal")}
+                className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors w-full"
+              >
+                Go to My Clubs Portal
+                <span className="material-symbols-outlined text-[16px] align-middle ml-2">
+                  arrow_forward
+                </span>
+              </button>
+            </div>
           </FlowSheet>
         </motion.div>
       </FlowShell>
     );
   }
 
+  const index = <FlowIndex labels={STEP_LABELS} current={step} />;
+
+  const backButton = (onClick: () => void) => (
+    <button type="button" onClick={onClick} className={btnGhost}>
+      <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+      Back
+    </button>
+  );
+
   return (
     <FlowShell
+      fill
+      logoHref="/portal"
       right={
         <Link
           href={entryMode === "directory" ? "/directory" : "/portal"}
-          className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest no-underline text-black hover:text-[#057DBC] transition-colors"
+          className="group flex items-center font-ui text-[12px] font-bold uppercase tracking-widest no-underline text-black hover:text-link-blue transition-colors"
         >
           <span className="material-symbols-outlined text-[16px] max-w-0 translate-x-1 opacity-0 overflow-hidden transition-all duration-300 ease-out group-hover:max-w-[24px] group-hover:translate-x-0 group-hover:opacity-100 group-hover:mr-1">
             arrow_back
@@ -212,106 +249,123 @@ function JoinFlowContent() {
         </Link>
       }
     >
-        <div className="w-full max-w-2xl">
-          <StepDeck stepKey={step} direction={direction}>
-            <FlowSheet>
-            <Folio step={step} total={3} />
+      <div className="flow-stage">
+        <StepDeck stepKey={step} direction={direction} className="h-full">
+          <FlowSheet fill>
+            <Folio step={step} total={3} label={STEP_LABELS[step - 1]} className="flow-folio" />
 
             {/* ─── STEP 1: Enter Club Code ─── */}
             {step === 1 && (
-              <div>
-                <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
-                  Club Code
-                </p>
-                <h2 className="font-display text-[48px] leading-[0.93] tracking-[-0.5px] font-bold mb-8 border-b-2 border-black pb-6">
-                  Enter your club&apos;s invite code.
-                </h2>
-
-                <div className="flex flex-col gap-4">
-                  <label className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
+              <FlowSpread
+                title={<>Enter your club&apos;s invite code.</>}
+                rail={index}
+                footer={
+                  <>
+                    {backButton(() => router.push("/portal"))}
+                    <button
+                      type="button"
+                      onClick={validateCode}
+                      disabled={loading || code.length < 4}
+                      className={btnSolid}
+                    >
+                      {loading ? "Checking..." : "Continue"}
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    </button>
+                  </>
+                }
+              >
+                <div className="flex flex-col gap-3 max-w-[520px]">
+                  <label className={labelClass} htmlFor="join-code">
                     Club Code
                   </label>
                   <input
+                    id="join-code"
                     type="text"
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === "Enter" && validateCode()}
                     placeholder="e.g. CS-7X3K"
                     maxLength={10}
-                    className="border-2 border-black p-4 font-mono text-[20px] uppercase tracking-widest outline-none focus:border-[#057DBC] placeholder:text-[#cec7b6] w-full"
+                    className="border-2 border-black bg-paper p-4 font-mono text-[20px] uppercase tracking-widest outline-none focus:border-link-blue placeholder:text-disabled-gray w-full"
                   />
                   {codeError && (
-                    <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">
+                    <p className="font-mono text-[11px] text-error uppercase tracking-widest">
                       {codeError}
                     </p>
                   )}
                 </div>
-
-                <div className="mt-10 pt-6 border-t border-black flex justify-between">
-                  <button
-                    onClick={() => router.push("/portal")}
-                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                    Back
-                  </button>
-                  <button
-                    onClick={validateCode}
-                    disabled={loading || code.length < 4}
-                    className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
-                  >
-                    {loading ? "Checking..." : "Continue"}
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </button>
-                </div>
-              </div>
+              </FlowSpread>
             )}
 
             {/* ─── STEP 2: Select Role & Domain ─── */}
             {step === 2 && (
-              <div>
-                <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
-                  Role Selection
-                </p>
-                <h2 className="font-display text-[48px] leading-[0.93] tracking-[-0.5px] font-bold mb-2 border-b-2 border-black pb-6">
-                  How do you fit into{" "}
-                  <span className="text-[#057DBC]">{clubName}</span>?
-                </h2>
-
-                <div className="mt-8 flex flex-col gap-3">
-                  {ROLES.filter(r => !enabledRoles || enabledRoles.includes(r.value)).map((role) => (
+              <FlowSpread
+                title={
+                  <>
+                    How do you fit into <span className="text-link-blue">{clubName}</span>?
+                  </>
+                }
+                rail={index}
+                footer={
+                  <>
+                    {backButton(() =>
+                      entryMode === "directory" ? router.push("/directory") : goTo(1),
+                    )}
                     <button
-                      key={role.value}
-                      onClick={() => {
-                        setSelectedRole(role.value);
-                        if (!role.needsDomain) setSelectedDomainId(null);
-                      }}
-                      className={`text-left p-5 border-2 transition-all ${
-                        selectedRole === role.value
-                          ? "border-[#057DBC] bg-[#f0f8ff]"
-                          : "border-black hover:bg-[#ebe6db]"
-                      }`}
+                      type="button"
+                      onClick={() => goTo(3)}
+                      disabled={
+                        !selectedRole ||
+                        (roleConfig?.needsDomain && domains.length > 0 && !selectedDomainId)
+                      }
+                      className={btnSolid}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[13px] uppercase tracking-widest font-bold">
-                          {role.label}
-                        </span>
-                        {selectedRole === role.value && (
-                          <span
-                            className="material-symbols-outlined text-[#057DBC]"
-                            style={{ fontVariationSettings: '"FILL" 1' }}
-                          >
-                            check_circle
-                          </span>
-                        )}
-                      </div>
-                      {role.needsDomain && (
-                        <p className="font-ui text-[12px] text-[#757575] mt-1">
-                          Domain assignment required
-                        </p>
-                      )}
+                      Continue
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </button>
-                  ))}
+                  </>
+                }
+              >
+                {/* Two columns: six roles stacked in one column is the single
+                    biggest reason this step used to run past the fold. */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  {ROLES.filter((r) => !enabledRoles || enabledRoles.includes(r.value)).map(
+                    (role) => (
+                      <button
+                        key={role.value}
+                        type="button"
+                        onClick={() => {
+                          setSelectedRole(role.value);
+                          if (!role.needsDomain) setSelectedDomainId(null);
+                        }}
+                        aria-pressed={selectedRole === role.value}
+                        className={`text-left px-4 py-3 border-2 transition-colors ${
+                          selectedRole === role.value
+                            ? "border-link-blue bg-[#f0f8ff]"
+                            : "border-black bg-paper hover:bg-paper-hover"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-[13px] uppercase tracking-widest font-bold">
+                            {role.label}
+                          </span>
+                          {selectedRole === role.value && (
+                            <span
+                              className="material-symbols-outlined text-link-blue text-[20px]"
+                              style={{ fontVariationSettings: '"FILL" 1' }}
+                            >
+                              check_circle
+                            </span>
+                          )}
+                        </div>
+                        {role.needsDomain && (
+                          <p className="font-ui text-[12px] text-caption-gray mt-0.5">
+                            Domain assignment required
+                          </p>
+                        )}
+                      </button>
+                    ),
+                  )}
                 </div>
 
                 {/* Domain selector — shown only when role needs it */}
@@ -319,22 +373,26 @@ function JoinFlowContent() {
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
-                    className="mt-6"
+                    className="mt-5"
                   >
-                    <label className="font-mono text-[11px] uppercase tracking-widest text-[#757575] block mb-2">
+                    <label
+                      className={`${labelClass} block mb-2`}
+                      htmlFor="join-domain"
+                    >
                       Select Domain
                     </label>
                     {domains.length === 0 ? (
-                      <p className="font-mono text-[11px] text-[#757575] uppercase">
+                      <p className="font-mono text-[11px] text-caption-gray uppercase">
                         This club has no domains yet. The president will assign you one on approval.
                       </p>
                     ) : (
                       <select
+                        id="join-domain"
                         value={selectedDomainId ?? ""}
                         onChange={(e) =>
                           setSelectedDomainId(e.target.value ? Number(e.target.value) : null)
                         }
-                        className="border-2 border-black p-3 font-mono text-[13px] uppercase tracking-wider outline-none focus:border-[#057DBC] w-full bg-paper"
+                        className="border-2 border-black p-3 font-mono text-[13px] uppercase tracking-wider outline-none focus:border-link-blue w-full max-w-[400px] bg-paper"
                       >
                         <option value="">-- Select a domain --</option>
                         {domains.map((d) => (
@@ -346,113 +404,92 @@ function JoinFlowContent() {
                     )}
                   </motion.div>
                 )}
-
-                <div className="mt-10 pt-6 border-t border-black flex justify-between">
-                  <button
-                    onClick={() => (entryMode === "directory" ? router.push("/directory") : goTo(1))}
-                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                    Back
-                  </button>
-                  <button
-                    onClick={() => goTo(3)}
-                    disabled={
-                      !selectedRole ||
-                      (roleConfig?.needsDomain && domains.length > 0 && !selectedDomainId)
-                    }
-                    className="font-ui text-[14px] font-bold border-2 border-black bg-black text-paper px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
-                  >
-                    Continue
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </button>
-                </div>
-              </div>
+              </FlowSpread>
             )}
 
             {/* ─── STEP 3: Message & Confirm ─── */}
             {step === 3 && (
-              <div>
-                <p className="font-mono text-[12px] uppercase tracking-widest text-[#757575] mb-4">
-                  Confirm Request
-                </p>
-                <h2 className="font-display text-[48px] leading-[0.93] tracking-[-0.5px] font-bold mb-8 border-b-2 border-black pb-6">
-                  Review &amp; send your request.
-                </h2>
-
-                {/* Summary Card */}
-                <div className="border-2 border-black p-6 mb-6 bg-[#f0ede4]">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Club</p>
-                      <p className="font-ui text-[16px] font-bold">{clubName}</p>
-                    </div>
-                    {entryMode === "code" && (
+              <FlowSpread
+                title={<>Review &amp; send your request.</>}
+                rail={index}
+                error={submitError}
+                footer={
+                  <>
+                    {backButton(() => goTo(2))}
+                    <button
+                      type="button"
+                      onClick={submitRequest}
+                      disabled={loading}
+                      className="font-ui text-[14px] font-bold border-2 border-link-blue bg-link-blue text-paper px-6 py-2.5 uppercase tracking-[0.5px] hover:bg-black hover:border-black transition-colors disabled:opacity-40 flex items-center gap-1.5"
+                    >
+                      {loading ? "Sending..." : "Send Request"}
+                      <span className="material-symbols-outlined text-[18px]">send</span>
+                    </button>
+                  </>
+                }
+              >
+                <div className="flex flex-col gap-[clamp(14px,2.2vh,24px)]">
+                  {/* Summary Card */}
+                  <div className="border-2 border-black p-5 bg-paper-quiet">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Code</p>
-                        <p className="font-mono text-[14px] uppercase">{code}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Requesting Role</p>
-                      <span className="inline-block font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-paper">
-                        {roleConfig?.label}
-                      </span>
-                    </div>
-                    {selectedDomainId && (
-                      <div>
-                        <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575] mb-1">Domain</p>
-                        <p className="font-ui text-[14px]">
-                          {domains.find((d) => d.id === selectedDomainId)?.name ?? "—"}
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-caption-gray mb-1">
+                          Club
                         </p>
+                        <p className="font-ui text-[16px] font-bold">{clubName}</p>
                       </div>
-                    )}
+                      {entryMode === "code" && (
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-widest text-caption-gray mb-1">
+                            Code
+                          </p>
+                          <p className="font-mono text-[14px] uppercase">{code}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-widest text-caption-gray mb-1">
+                          Requesting Role
+                        </p>
+                        <span className="inline-block font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-paper">
+                          {roleConfig?.label}
+                        </span>
+                      </div>
+                      {selectedDomainId && (
+                        <div>
+                          <p className="font-mono text-[10px] uppercase tracking-widest text-caption-gray mb-1">
+                            Domain
+                          </p>
+                          <p className="font-ui text-[14px]">
+                            {domains.find((d) => d.id === selectedDomainId)?.name ?? "—"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Optional message */}
+                  <div className="flex flex-col gap-2">
+                    <label className={labelClass} htmlFor="join-message">
+                      Message to leadership{" "}
+                      <span className="normal-case tracking-normal text-caption-gray">
+                        (optional)
+                      </span>
+                    </label>
+                    <textarea
+                      id="join-message"
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      placeholder="Introduce yourself or explain why you'd like to join..."
+                      rows={3}
+                      className="border-2 border-black bg-paper p-3 font-ui text-[14px] outline-none focus:border-link-blue resize-none placeholder:text-disabled-gray"
+                    />
                   </div>
                 </div>
-
-                {/* Optional message */}
-                <div className="flex flex-col gap-2 mb-8">
-                  <label className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
-                    Message to leadership{" "}
-                    <span className="normal-case text-[#757575]">(optional)</span>
-                  </label>
-                  <textarea
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Introduce yourself or explain why you'd like to join..."
-                    rows={3}
-                    className="border-2 border-black p-3 font-ui text-[14px] outline-none focus:border-[#057DBC] resize-none placeholder:text-[#cec7b6]"
-                  />
-                </div>
-
-                {submitError && (
-                  <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest mb-4">
-                    {submitError}
-                  </p>
-                )}
-
-                <div className="mt-4 pt-6 border-t border-black flex justify-between">
-                  <button
-                    onClick={() => goTo(2)}
-                    className="font-ui text-[14px] font-bold border-2 border-black px-6 py-3 uppercase hover:bg-black hover:text-paper transition-colors flex items-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                    Back
-                  </button>
-                  <button
-                    onClick={submitRequest}
-                    disabled={loading}
-                    className="font-ui text-[14px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-8 py-3 uppercase hover:bg-black hover:border-black transition-colors disabled:opacity-40 flex items-center gap-2"
-                  >
-                    {loading ? "Sending..." : "Send Request"}
-                    <span className="material-symbols-outlined text-[16px]">send</span>
-                  </button>
-                </div>
-              </div>
+              </FlowSpread>
             )}
-            </FlowSheet>
-          </StepDeck>
-        </div>
+          </FlowSheet>
+        </StepDeck>
+      </div>
     </FlowShell>
   );
 }

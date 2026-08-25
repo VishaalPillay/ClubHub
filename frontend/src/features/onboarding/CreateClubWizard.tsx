@@ -12,6 +12,7 @@ import CollegeSelect from "@/features/auth/CollegeSelect";
 import UserAvatarBadge from "@/features/auth/UserAvatarBadge";
 import FlowSheet from "@/features/flow/FlowSheet";
 import FlowShell from "@/features/flow/FlowShell";
+import FlowSpread, { FlowIndex } from "@/features/flow/FlowSpread";
 import Folio from "@/features/flow/Folio";
 import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
 
@@ -35,6 +36,17 @@ import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
  * resumes at Launch instead of offering FINISH again. It is cleared only by
  * "Enter Dashboard" on the last step, so that a later "Create New Club" starts
  * clean and this club's id can't trip the guard for that next, unrelated club.
+ *
+ * ── The flow does not scroll ────────────────────────────────────────────────
+ * Every step is laid out inside one sheet of a fixed size — `FlowShell fill` →
+ * `.flow-stage` → `FlowSheet fill` → `FlowSpread` — so the paper holds still and
+ * only what is written on it changes. Before this, the page was as tall as its
+ * tallest step: "Continue" sat below the fold on a laptop, and the sheet jumped
+ * size between steps because each one summed to a different height.
+ *
+ * The cost is a real constraint on this file: a step has to FIT. Type and rhythm
+ * are `vh`-relative clamps in `collage.css` and shrink with the window, but a
+ * step that adds another block of controls has to give one up.
  */
 
 const STEP_LABELS = ["Intent", "Club Details", "Domains", "Roles", "Launch"] as const;
@@ -49,15 +61,16 @@ const K = {
 } as const;
 
 const btnGhost =
-  "font-ui text-[15px] font-bold text-black bg-paper border-2 border-black py-2 px-6 uppercase " +
-  "hover:bg-black hover:text-paper transition-colors flex items-center gap-1";
+  "font-ui text-[14px] font-bold text-black bg-paper border-2 border-black py-2.5 px-6 uppercase " +
+  "tracking-[0.5px] hover:bg-black hover:text-paper transition-colors flex items-center gap-1.5";
 const btnSolid =
-  "font-ui text-[15px] font-bold text-paper bg-black border-2 border-black py-2 px-6 uppercase " +
-  "hover:bg-paper hover:text-black transition-colors flex items-center gap-1 " +
+  "font-ui text-[14px] font-bold text-paper bg-black border-2 border-black py-2.5 px-6 uppercase " +
+  "tracking-[0.5px] hover:bg-paper hover:text-black transition-colors flex items-center gap-1.5 " +
   "disabled:opacity-40 disabled:cursor-not-allowed";
-const h1Class =
-  "font-display text-[40px] md:text-[64px] leading-[1.05] tracking-[-0.5px] text-black";
-const leadClass = "font-body text-[19px] leading-[1.47] text-caption-gray";
+const labelClass = "font-mono text-[11px] font-bold uppercase tracking-[2px] text-black";
+const fieldClass =
+  "w-full border-2 border-black bg-paper rounded-none px-4 py-3 font-ui text-[15px] text-black " +
+  "placeholder:text-disabled-gray focus:outline-none focus:border-link-blue transition-colors";
 
 export default function CreateClubWizard() {
   const router = useRouter();
@@ -202,7 +215,7 @@ export default function CreateClubWizard() {
 
   if (!ready || clubsLoading) {
     return (
-      <FlowShell right={<UserAvatarBadge />}>
+      <FlowShell fill logoHref="/portal" right={<UserAvatarBadge />}>
         <div className="font-mono text-[13px] uppercase tracking-widest text-caption-gray animate-pulse">
           Loading...
         </div>
@@ -217,379 +230,384 @@ export default function CreateClubWizard() {
     </button>
   );
 
-  return (
-    <FlowShell right={<UserAvatarBadge />}>
-      <div className="w-full max-w-5xl">
-        <StepDeck stepKey={step} direction={direction}>
-          <FlowSheet>
-            <Folio step={step} total={5} label={STEP_LABELS[step - 1]} />
+  const continueTo = (onClick: () => void, disabled = false) => (
+    <button type="button" disabled={disabled} onClick={onClick} className={btnSolid}>
+      Continue
+      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+    </button>
+  );
 
-            {error && (
-              <div className="border-2 border-error bg-[#fdf0f0] px-4 py-3 mb-6">
-                <p className="font-mono text-[11px] text-error uppercase tracking-widest">{error}</p>
-              </div>
+  const index = <FlowIndex labels={STEP_LABELS} current={step} />;
+
+  return (
+    <FlowShell fill logoHref="/portal" right={<UserAvatarBadge />}>
+      <div className="flow-stage">
+        <StepDeck stepKey={step} direction={direction} className="h-full">
+          <FlowSheet fill>
+            <Folio step={step} total={5} label={STEP_LABELS[step - 1]} className="flow-folio" />
+
+            {/* ─── STEP 1: Intent ─── */}
+            {step === 1 && (
+              <FlowSpread
+                eyebrow="Organization Configuration"
+                title={
+                  clubs.length === 0 ? (
+                    <>
+                      Your First Club!
+                      <br />
+                      Let&apos;s get started.
+                    </>
+                  ) : (
+                    <>
+                      New Club,
+                      <br />
+                      Let&apos;s get started.
+                    </>
+                  )
+                }
+                rail={index}
+                error={error}
+                footer={
+                  <>
+                    <button type="button" onClick={() => router.back()} className={btnGhost}>
+                      <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                      Back
+                    </button>
+                    {continueTo(() => {
+                      if (intent === "join") router.push("/onboarding/join-flow");
+                      else if (intent === "create") go(2);
+                    }, !intent)}
+                  </>
+                }
+              >
+                <div className="grid grid-cols-2 gap-5">
+                  {(
+                    [
+                      {
+                        id: "join" as const,
+                        icon: "group_add",
+                        title: "Join an Existing Club",
+                        body: "Search the global directory to request access to an established organization within the network.",
+                      },
+                      {
+                        id: "create" as const,
+                        icon: "add_box",
+                        title: "Create a Club Space",
+                        body: "Initialize a brand new secure space for your organization, setting up rules, rosters, and identity.",
+                      },
+                    ]
+                  ).map((card) => {
+                    const on = intent === card.id;
+                    return (
+                      <button
+                        key={card.id}
+                        type="button"
+                        onClick={() => setIntent(card.id)}
+                        aria-pressed={on}
+                        className={`flex h-full flex-col items-start p-6 border-2 bg-paper text-left transition-colors hover:bg-paper-hover group relative ${
+                          on
+                            ? "border-link-blue outline outline-2 outline-link-blue outline-offset-2"
+                            : "border-black"
+                        }`}
+                      >
+                        {on && (
+                          <span
+                            className="material-symbols-outlined text-link-blue absolute top-4 right-4 text-[20px]"
+                            style={{ fontVariationSettings: '"FILL" 1' }}
+                          >
+                            check_circle
+                          </span>
+                        )}
+                        <span
+                          className={`material-symbols-outlined text-[34px] mb-4 ${
+                            on ? "text-link-blue" : "text-black"
+                          }`}
+                        >
+                          {card.icon}
+                        </span>
+                        <h2
+                          className={`font-ui text-[18px] font-bold leading-[1.20] tracking-[-0.28px] mb-1.5 group-hover:underline ${
+                            on ? "text-link-blue" : "text-black"
+                          }`}
+                        >
+                          {card.title}
+                        </h2>
+                        <p className="font-body text-[15px] leading-[1.45] text-caption-gray">
+                          {card.body}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </FlowSpread>
             )}
 
-          {/* ─── STEP 1: Intent ─── */}
-          {step === 1 && (
-            <div className="w-full">
-              <header className="border-b border-black pb-8 mb-12">
-                <p className="font-mono text-[13px] tracking-[1px] text-caption-gray mb-4 uppercase">
-                  Organization Configuration
-                </p>
-                <h1 className={h1Class}>
-                  {clubs.length === 0 ? (
-                    <>Your First Club!<br />Let&apos;s get started.</>
-                  ) : (
-                    <>New Club,<br />Let&apos;s get started.</>
-                  )}
-                </h1>
-              </header>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                {(
-                  [
-                    {
-                      id: "join" as const,
-                      icon: "group_add",
-                      title: "Join an Existing Club",
-                      body: "Search the global directory to request access to an established organization within the network.",
-                    },
-                    {
-                      id: "create" as const,
-                      icon: "add_box",
-                      title: "Create a Club Space",
-                      body: "Initialize a brand new secure space for your organization, setting up rules, rosters, and identity.",
-                    },
-                  ]
-                ).map((card) => {
-                  const on = intent === card.id;
-                  return (
+            {/* ─── STEP 2: Club details ─── */}
+            {step === 2 && (
+              <FlowSpread
+                title="Name your Club-Space."
+                lead="Establish the typographic identity of your organization."
+                rail={index}
+                error={error}
+                footer={
+                  <>
+                    {backTo(1)}
+                    {/* `form=` rather than nesting the footer inside the <form>:
+                        the footer belongs to the spread's pane, not to the step's
+                        controls, and this keeps Enter-to-submit working from the
+                        field without the two fighting over the layout. */}
                     <button
-                      key={card.id}
-                      type="button"
-                      onClick={() => setIntent(card.id)}
-                      aria-pressed={on}
-                      className={`flex flex-col items-start p-8 border-2 bg-paper text-left transition-colors hover:bg-paper-hover group relative ${
-                        on
-                          ? "border-link-blue outline outline-2 outline-link-blue outline-offset-2"
-                          : "border-black"
-                      }`}
+                      type="submit"
+                      form="club-details"
+                      disabled={!form.name || !form.institution}
+                      className={btnSolid}
                     >
-                      {on && (
-                        <span
-                          className="material-symbols-outlined text-link-blue absolute top-6 right-6"
-                          style={{ fontVariationSettings: '"FILL" 1' }}
-                        >
-                          check_circle
-                        </span>
-                      )}
-                      <span
-                        className={`material-symbols-outlined text-[48px] mb-6 ${
-                          on ? "text-link-blue" : "text-black"
-                        }`}
-                      >
-                        {card.icon}
-                      </span>
-                      <h2
-                        className={`font-ui text-[20px] font-bold leading-[1.20] tracking-[-0.28px] mb-2 group-hover:underline ${
-                          on ? "text-link-blue" : "text-black"
-                        }`}
-                      >
-                        {card.title}
-                      </h2>
-                      <p className="font-body text-[16px] leading-[1.50] text-caption-gray">
-                        {card.body}
-                      </p>
+                      Continue
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </button>
-                  );
-                })}
-              </div>
-
-              <div className="w-full pt-6 border-t border-black flex justify-between items-center">
-                <button type="button" onClick={() => router.back()} className={btnGhost}>
-                  <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                  Back
-                </button>
-                <button
-                  type="button"
-                  disabled={!intent}
-                  onClick={() => {
-                    if (intent === "join") router.push("/onboarding/join-flow");
-                    else if (intent === "create") go(2);
-                  }}
-                  className={btnSolid}
-                >
-                  Continue
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ─── STEP 2: Club details ─── */}
-          {step === 2 && (
-            <div className="w-full max-w-[720px] mx-auto">
-              <section className="mb-8 border-b-2 border-black pb-4">
-                <h1 className={`${h1Class} mb-2`}>Name your Club-Space.</h1>
-                <p className={`${leadClass} max-w-[500px]`}>
-                  Establish the typographic identity of your organization.
-                </p>
-              </section>
-
-              <form
-                className="flex flex-col gap-8"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!form.name || !form.institution) return;
-                  localStorage.setItem(K.name, form.name);
-                  localStorage.setItem(K.institution, form.institution);
-                  go(3);
-                }}
+                  </>
+                }
               >
-                <div className="flex flex-col gap-2">
-                  <label className="font-ui text-[16px] font-bold uppercase text-black" htmlFor="club-name">
-                    Full Club Name
-                  </label>
-                  <input
-                    id="club-name"
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="e.g. The Architecture League"
-                    className="w-full border-2 border-black bg-transparent rounded-none px-4 py-2 font-body text-[16px] text-black placeholder:text-disabled-gray focus:outline-none focus:border-link-blue transition-colors"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <CollegeSelect
-                    id="club-institution"
-                    country={user.country ?? ""}
-                    state={user.state ?? ""}
-                    value={form.institution}
-                    onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
-                    disabled
-                    label="College / Institution"
-                    labelClassName="font-ui text-[16px] font-bold uppercase text-black"
-                    inputClassName="w-full border-2 border-caption-gray bg-paper-hover rounded-none px-4 py-2 font-body text-[16px] text-caption-gray cursor-not-allowed"
-                  />
-                  <p className="font-ui text-[13px] text-caption-gray">
-                    Matches your profile — update it from your profile menu, not here.
-                  </p>
-                </div>
-
-                <div className="w-full mt-8 pt-6 border-t border-black flex justify-between items-center">
-                  {backTo(1)}
-                  <button type="submit" disabled={!form.name || !form.institution} className={btnSolid}>
-                    Continue
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* ─── STEP 3: Domains ─── */}
-          {step === 3 && (
-            <div className="w-full max-w-[600px] mx-auto">
-              <div className="mb-8">
-                <h1 className={`${h1Class} mb-2`}>Define your Domains</h1>
-                <p className={`${leadClass} max-w-md`}>What departments make up your club?</p>
-              </div>
-
-              <form onSubmit={addDomain} className="flex flex-col sm:flex-row gap-4 mb-8 w-full">
-                <input
-                  type="text"
-                  value={domainDraft}
-                  onChange={(e) => setDomainDraft(e.target.value)}
-                  placeholder="e.g. Marketing, Finance, Logistics"
-                  aria-label="New domain"
-                  className="flex-1 bg-paper border-2 border-black rounded-none px-4 py-3 font-ui text-[16px] font-bold text-black placeholder:text-caption-gray focus:outline-none focus:border-link-blue transition-colors"
-                />
-                <button
-                  type="submit"
-                  className="bg-paper border-2 border-black text-black font-ui text-[16px] font-bold px-8 py-3 uppercase hover:bg-black hover:text-paper transition-colors whitespace-nowrap"
-                >
-                  Add Domain
-                </button>
-              </form>
-
-              <div className="border-t border-black pt-6">
-                <h3 className="font-mono text-[13px] text-black uppercase mb-4">Active Domains</h3>
-                <div className="flex flex-wrap gap-3">
-                  {domains.map((d) => (
-                    <span
-                      key={d}
-                      className="inline-flex items-center gap-2 border-2 border-black bg-paper px-3 py-1.5 hover:bg-paper-hover transition-colors"
-                    >
-                      <span className="font-mono text-[12px] text-black uppercase">{d}</span>
-                      <button
-                        type="button"
-                        onClick={() => setDomains(domains.filter((x) => x !== d))}
-                        aria-label={`Remove ${d}`}
-                        className="text-caption-gray hover:text-black transition-colors flex items-center justify-center"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">close</span>
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="w-full mt-8 pt-6 border-t border-black flex justify-between items-center">
-                {backTo(2)}
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.setItem(K.domains, JSON.stringify(domains));
-                    go(4);
+                <form
+                  id="club-details"
+                  className="flex flex-col gap-[clamp(16px,2.6vh,28px)] max-w-[560px]"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!form.name || !form.institution) return;
+                    localStorage.setItem(K.name, form.name);
+                    localStorage.setItem(K.institution, form.institution);
+                    go(3);
                   }}
-                  className={btnSolid}
                 >
-                  Continue
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          )}
+                  <div className="flex flex-col gap-2">
+                    <label className={labelClass} htmlFor="club-name">
+                      Full Club Name
+                    </label>
+                    <input
+                      id="club-name"
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="e.g. The Architecture League"
+                      className={fieldClass}
+                    />
+                  </div>
 
-          {/* ─── STEP 4: Roles ─── */}
-          {step === 4 && (
-            <div className="w-full max-w-4xl mx-auto">
-              <div className="text-center mb-12">
-                <h1 className={`${h1Class} mb-2`}>Establish your Hierarchy</h1>
-                <p className={`${leadClass} max-w-2xl mx-auto`}>
-                  Select the structural roles necessary for your organization&apos;s operational density.
-                </p>
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <CollegeSelect
+                      id="club-institution"
+                      country={user.country ?? ""}
+                      state={user.state ?? ""}
+                      value={form.institution}
+                      onChange={(institution) => setForm((prev) => ({ ...prev, institution }))}
+                      disabled
+                      label="College / Institution"
+                      labelClassName={labelClass}
+                      inputClassName="w-full border-2 border-caption-gray bg-paper-hover rounded-none px-4 py-3 font-ui text-[15px] text-caption-gray cursor-not-allowed"
+                    />
+                    <p className="font-ui text-[13px] text-caption-gray">
+                      Matches your profile — update it from your profile menu, not here.
+                    </p>
+                  </div>
+                </form>
+              </FlowSpread>
+            )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 border-t border-black pt-6">
-                {(
-                  [
+            {/* ─── STEP 3: Domains ─── */}
+            {step === 3 && (
+              <FlowSpread
+                title="Define your Domains"
+                lead="What departments make up your club?"
+                rail={index}
+                error={error}
+                footer={
+                  <>
+                    {backTo(2)}
+                    {continueTo(() => {
+                      localStorage.setItem(K.domains, JSON.stringify(domains));
+                      go(4);
+                    })}
+                  </>
+                }
+              >
+                <div className="flex flex-col gap-[clamp(16px,2.4vh,26px)]">
+                  <form onSubmit={addDomain} className="flex gap-3 w-full max-w-[620px]">
+                    <input
+                      type="text"
+                      value={domainDraft}
+                      onChange={(e) => setDomainDraft(e.target.value)}
+                      placeholder="e.g. Marketing, Finance, Logistics"
+                      aria-label="New domain"
+                      className={`${fieldClass} flex-1`}
+                    />
+                    <button
+                      type="submit"
+                      className="bg-paper border-2 border-black text-black font-ui text-[14px] font-bold px-6 uppercase tracking-[0.5px] hover:bg-black hover:text-paper transition-colors whitespace-nowrap"
+                    >
+                      Add Domain
+                    </button>
+                  </form>
+
+                  <div className="border-t border-hairline-tint pt-[clamp(14px,2vh,22px)]">
+                    <h3 className="font-mono text-[11px] text-caption-gray uppercase tracking-[2px] mb-3">
+                      Active Domains
+                    </h3>
+                    <div className="flex flex-wrap gap-2.5">
+                      {domains.map((d) => (
+                        <span
+                          key={d}
+                          className="inline-flex items-center gap-2 border-2 border-black bg-paper px-3 py-1.5 hover:bg-paper-hover transition-colors"
+                        >
+                          <span className="font-mono text-[12px] text-black uppercase">{d}</span>
+                          <button
+                            type="button"
+                            onClick={() => setDomains(domains.filter((x) => x !== d))}
+                            aria-label={`Remove ${d}`}
+                            className="text-caption-gray hover:text-black transition-colors flex items-center justify-center"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">close</span>
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </FlowSpread>
+            )}
+
+            {/* ─── STEP 4: Roles ─── */}
+            {step === 4 && (
+              <FlowSpread
+                title="Establish your Hierarchy"
+                lead="Select the structural roles necessary for your organization's operational density."
+                rail={index}
+                error={error}
+                footer={
+                  <>
+                    {backTo(3)}
+                    <button
+                      type="button"
+                      onClick={handleFinish}
+                      disabled={creating}
+                      className={btnSolid}
+                    >
+                      {creating ? "Creating..." : "Finish"}
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    </button>
+                  </>
+                }
+              >
+                {/* One flat grid filled column-major, rather than two hand-split
+                    columns: the old pair held four rows and three, so the second
+                    column ended in a hole that made the block look unfinished. */}
+                <div className="grid grid-cols-2 grid-rows-4 grid-flow-col gap-2.5">
+                  {(
                     [
                       { key: "president" as const, label: "President" },
                       { key: "secretary" as const, label: "Secretary" },
                       { key: "lead" as const, label: "Lead" },
                       { key: "member" as const, label: "Member" },
-                    ],
-                    [
                       { key: "vicePresident" as const, label: "Vice President" },
                       { key: "jointSecretary" as const, label: "Joint Secretary" },
                       { key: "associateLead" as const, label: "Associate Lead" },
-                    ],
-                  ] as const
-                ).map((column, ci) => (
-                  <div key={ci} className="flex flex-col">
-                    {column.map((r) => {
-                      const locked = LOCKED_ROLES.includes(r.key);
-                      const on = roles[r.key];
-                      return (
-                        <button
-                          key={r.key}
-                          type="button"
-                          onClick={() => toggleRole(r.key)}
-                          disabled={locked}
-                          aria-pressed={on}
-                          title={locked ? `${r.label} is always included and cannot be removed.` : undefined}
-                          className={`w-full text-left p-4 flex items-center justify-between group transition-colors mb-2 ${
-                            on
-                              ? "bg-black text-paper border-2 border-link-blue"
-                              : "bg-paper text-black border-2 border-black hover:bg-black hover:text-paper"
-                          } ${locked ? "cursor-default" : ""}`}
+                    ] as const
+                  ).map((r) => {
+                    const locked = LOCKED_ROLES.includes(r.key);
+                    const on = roles[r.key];
+                    return (
+                      <button
+                        key={r.key}
+                        type="button"
+                        onClick={() => toggleRole(r.key)}
+                        disabled={locked}
+                        aria-pressed={on}
+                        title={
+                          locked ? `${r.label} is always included and cannot be removed.` : undefined
+                        }
+                        className={`w-full text-left px-4 py-3 flex items-center justify-between group transition-colors ${
+                          on
+                            ? "bg-black text-paper border-2 border-link-blue"
+                            : "bg-paper text-black border-2 border-black hover:bg-black hover:text-paper"
+                        } ${locked ? "cursor-default" : ""}`}
+                      >
+                        <span className="font-ui text-[15px] font-bold">{r.label}</span>
+                        <span
+                          className={`material-symbols-outlined text-[20px] ${
+                            on ? "text-link-blue" : "text-transparent group-hover:text-paper"
+                          }`}
+                          style={on ? { fontVariationSettings: "'FILL' 1" } : undefined}
                         >
-                          <span className="font-ui text-[16px] font-bold">{r.label}</span>
-                          <span
-                            className={`material-symbols-outlined ${
-                              on ? "text-link-blue" : "text-transparent group-hover:text-paper"
-                            }`}
-                            style={on ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                          >
-                            {locked ? "lock" : on ? "check_circle" : "add"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-
-              <div className="w-full mt-8 pt-6 border-t border-black flex justify-between items-center">
-                {backTo(3)}
-                <button type="button" onClick={handleFinish} disabled={creating} className={btnSolid}>
-                  {creating ? "Creating..." : "Finish"}
-                  <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ─── STEP 5: Launch ─── */}
-          {step === 5 && (
-            <div className="w-full max-w-2xl mx-auto">
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.12, duration: 0.4, ease: [0.16, 0.84, 0.32, 1] }}
-                className="mb-12 text-center"
-              >
-                <h1 className={`${h1Class} mb-6`}>Your Club-Space is Ready!</h1>
-                <p className={`${leadClass} max-w-lg mx-auto`}>
-                  The foundation is set. It&apos;s time to populate your new editorial environment.
-                  Invite your first members or step directly into the command center.
-                </p>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.24, duration: 0.4, ease: [0.16, 0.84, 0.32, 1] }}
-                className="border-2 border-black mb-12 bg-paper p-8"
-              >
-                <h2 className="font-ui text-[20px] font-bold leading-[1.20] tracking-[-0.28px] text-black mb-2 uppercase">
-                  Invite Code
-                </h2>
-                <p className="font-body text-[16px] text-caption-gray mb-6">
-                  Share this code with your members — they can join from the portal using
-                  &quot;Join a Club&quot;.
-                </p>
-                <div className="flex items-stretch border-2 border-black">
-                  <input
-                    aria-label="Invite Code"
-                    readOnly
-                    type="text"
-                    value={created?.code ?? ""}
-                    className="w-full border-0 font-mono text-[12px] tracking-[1.1px] text-black font-bold bg-paper-hover px-4 py-3 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Copy invite code"
-                    onClick={async () => {
-                      if (!created?.code) return;
-                      await navigator.clipboard.writeText(created.code);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className="bg-paper border-l-2 border-black px-4 flex items-center justify-center hover:bg-black transition-colors group"
-                  >
-                    <span className="material-symbols-outlined text-black group-hover:text-paper">
-                      {copied ? "check" : "content_copy"}
-                    </span>
-                  </button>
+                          {locked ? "lock" : on ? "check_circle" : "add"}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              </motion.div>
+              </FlowSpread>
+            )}
 
-              <div className="flex justify-center border-t border-hairline-tint pt-12">
-                <button
-                  type="button"
-                  onClick={enterDashboard}
-                  className="bg-link-blue border-2 border-link-blue text-paper font-ui text-[16px] font-bold uppercase px-12 py-4 hover:bg-paper hover:text-link-blue transition-colors flex items-center gap-2"
+            {/* ─── STEP 5: Launch ─── */}
+            {step === 5 && (
+              <FlowSpread
+                title="Your Club-Space is Ready!"
+                lead="The foundation is set. It's time to populate your new editorial environment. Invite your first members or step directly into the command center."
+                rail={index}
+                footer={
+                  <>
+                    {/* Holds the left half of the footer open so "Enter Dashboard"
+                        lands exactly where every other step's Continue did. */}
+                    <span aria-hidden />
+                    <button
+                      type="button"
+                      onClick={enterDashboard}
+                      className="bg-link-blue border-2 border-link-blue text-paper font-ui text-[14px] font-bold uppercase tracking-[0.5px] px-8 py-2.5 hover:bg-paper hover:text-link-blue transition-colors flex items-center gap-2"
+                    >
+                      Enter Dashboard
+                      <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    </button>
+                  </>
+                }
+              >
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.12, duration: 0.4, ease: [0.16, 0.84, 0.32, 1] }}
+                  className="border-2 border-black bg-paper p-[clamp(20px,3vh,32px)] max-w-[620px]"
                 >
-                  Enter Dashboard
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </button>
-              </div>
-            </div>
-          )}
+                  <h2 className="font-ui text-[18px] font-bold leading-[1.20] tracking-[-0.28px] text-black mb-1.5 uppercase">
+                    Invite Code
+                  </h2>
+                  <p className="font-body text-[15px] leading-[1.45] text-caption-gray mb-5">
+                    Share this code with your members — they can join from the portal using
+                    &quot;Join a Club&quot;.
+                  </p>
+                  <div className="flex items-stretch border-2 border-black">
+                    <input
+                      aria-label="Invite Code"
+                      readOnly
+                      type="text"
+                      value={created?.code ?? ""}
+                      className="w-full border-0 font-mono text-[13px] tracking-[1.1px] text-black font-bold bg-paper-hover px-4 py-3 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Copy invite code"
+                      onClick={async () => {
+                        if (!created?.code) return;
+                        await navigator.clipboard.writeText(created.code);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="bg-paper border-l-2 border-black px-4 flex items-center justify-center hover:bg-black transition-colors group"
+                    >
+                      <span className="material-symbols-outlined text-black group-hover:text-paper">
+                        {copied ? "check" : "content_copy"}
+                      </span>
+                    </button>
+                  </div>
+                </motion.div>
+              </FlowSpread>
+            )}
           </FlowSheet>
         </StepDeck>
       </div>

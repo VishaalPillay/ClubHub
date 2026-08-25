@@ -205,6 +205,210 @@
   );
 }
 
+/* ── The stage: a flow that fits the screen ───────────────────────────────────
+ *
+ * Onboarding used to be as tall as its tallest step, and the page scrolled to
+ * meet it: "Continue" could sit below the fold, and the sheet changed size on
+ * every step so the paper never held still.
+ *
+ * `fill` mode pins the whole flow to the viewport instead. `FlowShell fill`
+ * makes the shell exactly one screen tall with nothing to scroll, `.flow-stage`
+ * is the box left over between the masthead and the bottom edge, and
+ * `FlowSheet fill` grows to occupy it. Every step is then laid out inside a
+ * sheet of exactly the same size — which is what makes the five steps read as
+ * one object being written on rather than as five pages of different lengths.
+ *
+ * The trade is that the content has to fit rather than the page growing, so
+ * everything below is sized in `vh`-aware clamps: a 720px laptop and a 1440px
+ * monitor both get a full sheet with the same proportions, just at different
+ * type sizes. Nothing here uses a fixed pixel height.
+ */
+
+.flow-stage {
+  width: 100%;
+  height: 100%;
+  /* Past this the sheet stops growing and simply centres in a tall window —
+     a 2000px-tall torn page would read as a wall, not as paper. */
+  max-width: 1180px;
+  max-height: 780px;
+}
+
+.flow-sheet--fill {
+  height: 100%;
+}
+
+/* A shorter lift than a hugging sheet gets. Not a style preference: the stage is
+   clipped to the viewport, and the default `0 16px 26px` reaches ~42px past the
+   sheet — further than the padding `FlowShell fill` can afford to leave around
+   it on a 768px laptop — so the tail of the shadow would be cut off in a
+   straight line. At `0 8px 16px` the whole shadow lands inside the padding. A
+   sheet that fills the stage needs less lift anyway: it reads as the page rather
+   than as a card resting on one. */
+.flow-sheet--fill .flow-sheet__ground {
+  filter: url("#flow-deckle") drop-shadow(0 8px 16px rgb(0 0 0 / 0.14));
+}
+
+.flow-sheet--fill .flow-sheet__body {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The folio hairline is the sheet's masthead: fixed height, never squeezed. */
+.flow-folio {
+  flex: none;
+  margin-bottom: clamp(14px, 2.2vh, 26px);
+}
+
+/* ── The spread ───────────────────────────────────────────────────────────────
+ *
+ * Under the folio, the sheet is a newspaper spread: a left rail that carries the
+ * step's headline and its place in the sequence, and a right pane that carries
+ * the controls. Splitting them is what buys back the height — the old layout
+ * stacked a 64px headline ON TOP of the controls and spent a third of the screen
+ * before the first input.
+ *
+ * Both flows use the same skeleton, so the rule down the gutter, the headline
+ * measure and the footer all land in the same place on every step of both.
+ */
+
+.flow-spread {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, clamp(250px, 26vw, 350px)) minmax(0, 1fr);
+}
+
+/* The gutter is split evenly either side of the rule rather than being a
+   `column-gap` after it, so the hairline sits in the middle of the trough the
+   way a printed gutter does. */
+.flow-spread__rail {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: clamp(16px, 2.4vh, 32px);
+  padding-right: clamp(22px, 2.4vw, 40px);
+  border-right: 1px solid var(--color-hairline-tint);
+}
+
+.flow-spread__pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-left: clamp(22px, 2.4vw, 40px);
+}
+
+.flow-spread__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* A last-resort valve for a window shorter than anything the clamps below
+     bottom out at. When the step fits — which is the whole point of the vh
+     scale — there is nothing to scroll and this is invisible. */
+  overflow-y: auto;
+}
+
+/* `margin-block: auto` and not `justify-content: center` on the parent: auto
+   margins centre the pane's contents while still letting the scroll valve reach
+   the TOP of an overflowing step. Centred flex content clips its own first line
+   once it overflows, which is exactly the failure this whole file is fixing. */
+.flow-spread__inner {
+  width: 100%;
+  margin-block: auto;
+}
+
+.flow-spread__foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: clamp(14px, 2.2vh, 28px);
+  padding-top: clamp(12px, 1.8vh, 22px);
+  border-top: 1px solid var(--color-black);
+}
+
+/* ── The type scale ──────────────────────────────────────────────────────────
+ *
+ * Height-relative, because in a flow that cannot scroll the vertical axis is the
+ * scarce one. The old fixed `40px / md:64px` headline is what pushed the first
+ * two steps off a 768px screen on its own. */
+
+.flow-title {
+  font-size: clamp(28px, 3.6vh, 42px);
+  line-height: 1.04;
+  letter-spacing: -0.6px;
+}
+
+.flow-lead {
+  font-size: clamp(14px, 1.7vh, 18px);
+  line-height: 1.5;
+}
+
+/* ── The step index ──────────────────────────────────────────────────────────
+ *
+ * Pinned to the foot of the rail. The folio says which step you are ON; this
+ * says what the whole sequence IS, which is the one thing a five-step flow
+ * cannot show you by moving. It is not a progress bar — nothing fills, nothing
+ * animates on a timer — it just marks the current line with a longer rule.
+ *
+ * The labels are `STEP_LABELS`, the same strings the folio prints. */
+
+.flow-index {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(3px, 0.7vh, 8px);
+}
+
+.flow-index__item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-disabled-gray);
+}
+
+.flow-index__item--done {
+  color: var(--color-caption-gray);
+}
+
+.flow-index__item--current {
+  color: var(--color-black);
+  font-weight: 700;
+}
+
+.flow-index__rule {
+  height: 1px;
+  width: 12px;
+  background-color: currentColor;
+  transition:
+    width var(--ease-structural, 200ms cubic-bezier(0.4, 0, 0.2, 1)),
+    height var(--ease-structural, 200ms cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+.flow-index__item--current .flow-index__rule {
+  width: 28px;
+  height: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-index__rule {
+    transition: none;
+  }
+}
+
 /* ── Focus ────────────────────────────────────────────────────────────────────
  *
  * globals.css kills every focus ring (`*:focus { outline: none }`) and the

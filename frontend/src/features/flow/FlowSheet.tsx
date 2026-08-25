@@ -17,14 +17,25 @@ export default function FlowSheet({
   children,
   className = "",
   tape = false,
+  fill = false,
 }: {
   children: React.ReactNode;
   className?: string;
   /** Masking tape across the top edge. */
   tape?: boolean;
+  /**
+   * Fill the height of the stage instead of hugging the step's content.
+   *
+   * The sheet is then the same size on every step of a flow, which is what the
+   * onboarding wizards want: the paper holds still and only what is written on
+   * it changes. It also means the deckle filter rasterizes once for the whole
+   * flow rather than once per step. Requires an ancestor with a definite height
+   * — `FlowShell fill` + `.flow-stage`.
+   */
+  fill?: boolean;
 }) {
   return (
-    <div className={`flow-sheet ${className}`}>
+    <div className={`flow-sheet ${fill ? "flow-sheet--fill" : ""} ${className}`}>
       <div className="flow-sheet__ground" aria-hidden />
       {tape && <span className="flow-sheet__tape" aria-hidden />}
       <div className="flow-sheet__body">{children}</div>

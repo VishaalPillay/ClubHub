@@ -21,6 +21,9 @@ const inputClass =
   "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
   "focus:outline-none focus:border-[#057DBC]";
 const labelClass = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
+const submitClass =
+  "w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase " +
+  "hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2";
 
 /** Prepend https:// to bare domains so pasted handles pass the API's URL validation. */
 function normalizeUrl(value: string): string | undefined {
@@ -41,18 +44,35 @@ function initialsOf(name: string): string {
 /**
  * Four-step registration wizard. Steps 1–2 are required; 3–4 are skippable.
  *
- * 1. Account — email/password sign-up or Google. Once a session exists the step
- *    becomes "confirm mode": the name (Google's claim included) is shown for the
- *    user to check/edit, and the email is locked.
+ * 1. Account — email/password sign-up or Google. The password path collects
+ *    only email + password; the name isn't asked for here (see below). Once a
+ *    session exists the step becomes "confirm mode": a dedicated name field —
+ *    pre-filled with Google's claim, blank for a password sign-up — locked
+ *    email underneath.
  * 2. Location & college — required; saving these flips the server-side
  *    `profile_completed` latch that the (app) shell gates on.
  * 3. Portrait — optional, with a pan/zoom crop dialog.
  * 4. Socials — optional GitHub/LinkedIn/Instagram links.
  *
- * On mount it restores any half-finished registration: silent refresh FIRST
- * (never a cold getProfile — the axios interceptor would hard-redirect signed-out
- * visitors to /login), then resume with prefills, or bounce completed users to
- * /portal.
+ * ── Why the account step has no name field ──────────────────────────────────
+ * It used to. But "confirm mode" — the step that shows a Google claim for the
+ * user to check before it's adopted — already exists and already asks the exact
+ * same question ("is this your name?"). Asking twice for password sign-ups
+ * (once to create the account, once again a beat later to confirm it) was pure
+ * duplication with no reason a Google user didn't also pay. `handleCreateAccount`
+ * now registers with a throwaway placeholder and lands in confirm mode with the
+ * name field blank, so every account — Google or password — ends up typing its
+ * real name exactly once, in exactly one place.
+ *
+ * ── Sizing: hug content, don't fill the screen ───────────────────────────────
+ * This deliberately does NOT use `FlowShell fill` / `.flow-stage` the way the
+ * onboarding and join-flow wizards do. That treatment forces every step into an
+ * identical, viewport-sized box — right for a two-pane rail/pane spread with
+ * enough furniture to fill it, wrong here: a two-field step ("This is you.")
+ * has nowhere for the leftover space to go but a dead gap between the fields
+ * and the footer. Sized like `LoginCard` instead — a plain `FlowSheet` that
+ * hugs its own content and is centred by `AuthShell`'s (still non-scrolling)
+ * shell — every step is only as tall as what's actually on it.
  */
 export default function RegisterWizard() {
   const router = useRouter();
@@ -126,17 +146,18 @@ export default function RegisterWizard() {
     setStep(s);
   };
 
-  // Step 1 (fresh): create the account, then continue in confirm mode.
+  // Step 1 (fresh): create the account with a throwaway name, then land in
+  // confirm mode — the one place every sign-up path (Google included) actually
+  // types its real name.
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const trimmed = name.trim();
-      await register(trimmed, email, password);
-      setSavedName(trimmed);
+      await register("New Member", email, password);
+      setSavedName("New Member");
+      setName("");
       setMode("confirm");
-      setStep(2);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Registration failed.");
     } finally {
@@ -224,14 +245,14 @@ export default function RegisterWizard() {
   }
 
   const stepHeader = (eyebrow: string, title: string, sub?: string) => (
-    <div className="mb-8 pb-6 border-b-2 border-black">
-      <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
+    <div className="mb-6 pb-5 border-b-2 border-black">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-2">
         {eyebrow}
       </p>
-      <h1 className="font-display text-[42px] md:text-[48px] leading-[0.93] tracking-[-0.5px] font-bold uppercase">
+      <h1 className="font-display text-[36px] md:text-[42px] leading-[0.95] tracking-[-0.5px] font-bold uppercase">
         {title}
       </h1>
-      {sub && <p className="font-body text-[15px] text-[#4c4546] mt-3 mb-0">{sub}</p>}
+      {sub && <p className="font-body text-[14px] leading-[1.4] text-[#4c4546] mt-2 mb-0">{sub}</p>}
     </div>
   );
 
@@ -281,18 +302,6 @@ export default function RegisterWizard() {
               />
               <form onSubmit={handleCreateAccount} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
-                  <label htmlFor="reg-name" className={labelClass}>Full Name</label>
-                  <input
-                    id="reg-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    placeholder="Aarav Sharma"
-                    className={inputClass}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
                   <label htmlFor="reg-email" className={labelClass}>Email Address</label>
                   <input
                     id="reg-email"
@@ -321,11 +330,7 @@ export default function RegisterWizard() {
                   </span>
                 </div>
                 <div className="pt-4 border-t border-[#e0d9ca] mt-1">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
-                  >
+                  <button type="submit" disabled={loading} className={submitClass}>
                     {loading ? "Please wait..." : "Create Account"}
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                   </button>
@@ -343,7 +348,7 @@ export default function RegisterWizard() {
               {stepHeader(
                 "Confirm Account",
                 "This is you.",
-                "Check your name — it's how clubmates will see you."
+                "Tell us your name — it's how clubmates will see you."
               )}
               <form onSubmit={handleConfirmName} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-2">
@@ -354,6 +359,8 @@ export default function RegisterWizard() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
+                    autoFocus
+                    placeholder="Aarav Sharma"
                     className={inputClass}
                   />
                 </div>
@@ -373,7 +380,7 @@ export default function RegisterWizard() {
                   <button
                     type="submit"
                     disabled={loading || !name.trim()}
-                    className="w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2"
+                    className={submitClass}
                   >
                     {loading ? "Please wait..." : "Continue"}
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -499,7 +506,7 @@ export default function RegisterWizard() {
                     disabled={loading}
                     className="bg-black text-paper border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex items-center gap-2"
                   >
-                    {loading ? "Please wait..." : "Enter Club-Hub"}
+                    {loading ? "Please wait..." : "Finish Up!!"}
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </button>
                 </div>

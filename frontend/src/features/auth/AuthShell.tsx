@@ -26,6 +26,7 @@ export default function AuthShell({
 
   return (
     <FlowShell
+      fill
       right={
         <Link
           href={other.href}

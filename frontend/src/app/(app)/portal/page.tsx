@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { myClubs, pendingRequests, withdrawJoin } from "@/lib/api/clubs";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { ROLE_LABELS } from "@/lib/roles";
+import { LANDING_URL } from "@/lib/urls";
 import ProfileMenu from "@/features/profile/ProfileMenu";
 import AppNav from "@/features/navigation/AppNav";
 import { Wordmark } from "@/components/ui/Wordmark";
@@ -87,9 +88,12 @@ function PortalContent() {
     <div className="bg-paper text-black min-h-screen flex flex-col">
       {/* Header */}
       <header className="flex justify-between items-center w-full px-8 py-4 bg-paper border-b-2 border-black sticky top-0 z-30 relative">
-        <div className="z-10">
+        {/* Signed-in users have nowhere else to click "home" to — the wordmark is
+            it. Leaves the app's origin for the marketing site, so a plain <a>,
+            not next/link (same convention as FlowShell's masthead). */}
+        <a href={LANDING_URL} className="z-10 no-underline block">
           <Wordmark className="w-[210px]" />
-        </div>
+        </a>
         <AppNav />
         <div className="flex items-center gap-6 z-10">
           <ProfileMenu />

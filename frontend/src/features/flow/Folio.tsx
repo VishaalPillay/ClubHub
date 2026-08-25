@@ -21,6 +21,7 @@ export default function Folio({
   step,
   total,
   label,
+  className = "mb-8",
 }: {
   step: number;
   total: number;
@@ -30,11 +31,18 @@ export default function Folio({
    * and join wizards) rather than printing the name twice.
    */
   label?: string;
+  /**
+   * Replaces the default bottom margin rather than adding to it — two competing
+   * margin utilities on one element resolve by stylesheet order, not by which
+   * was passed. A fill-mode flow passes `flow-folio`, whose margin is
+   * height-relative like everything else on that sheet.
+   */
+  className?: string;
 }) {
   const reduced = useReducedMotion();
 
   return (
-    <div className="w-full mb-8">
+    <div className={`w-full ${className}`}>
       <div className="flex justify-between items-baseline gap-4 mb-1.5">
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
