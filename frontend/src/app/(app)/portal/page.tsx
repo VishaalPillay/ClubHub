@@ -10,6 +10,7 @@ import { ROLE_LABELS } from "@/lib/roles";
 import { LANDING_URL } from "@/lib/urls";
 import ProfileMenu from "@/features/profile/ProfileMenu";
 import AppNav from "@/features/navigation/AppNav";
+import AppFooter from "@/features/navigation/AppFooter";
 import { Wordmark } from "@/components/ui/Wordmark";
 import type { MyClub } from "@/types/api";
 
@@ -92,7 +93,7 @@ function PortalContent() {
             it. Leaves the app's origin for the marketing site, so a plain <a>,
             not next/link (same convention as FlowShell's masthead). */}
         <a href={LANDING_URL} className="z-10 no-underline block">
-          <Wordmark className="w-[210px]" />
+          <Wordmark className="w-[185px]" />
         </a>
         <AppNav />
         <div className="flex items-center gap-6 z-10">
@@ -301,15 +302,7 @@ function PortalContent() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="bg-[#1a1a1a] text-paper py-10 px-8 flex justify-between items-center mt-auto">
-        <div>
-          <Wordmark className="w-[150px]" invert />
-        </div>
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
-          © 2026 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }

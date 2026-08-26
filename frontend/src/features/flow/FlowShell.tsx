@@ -73,12 +73,12 @@ export default function FlowShell({
       <header className="relative z-10 flex justify-between items-center w-full px-6 py-4 bg-paper border-b-2 border-black shrink-0">
         {logoHref.startsWith("/") ? (
           <Link href={logoHref} className="no-underline block">
-            <Wordmark className="w-[210px]" />
+            <Wordmark className="w-[185px]" />
           </Link>
         ) : (
           // Leaves this origin for the marketing site — a plain <a>, not next/link.
           <a href={logoHref} className="no-underline block">
-            <Wordmark className="w-[210px]" />
+            <Wordmark className="w-[185px]" />
           </a>
         )}
         {right}

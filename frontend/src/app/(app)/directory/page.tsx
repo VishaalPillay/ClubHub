@@ -8,6 +8,7 @@ import { directory, myClubs, pendingRequests } from "@/lib/api/clubs";
 import { JOINABLE_ROLES } from "@/lib/roles";
 import ProfileMenu from "@/features/profile/ProfileMenu";
 import AppNav from "@/features/navigation/AppNav";
+import AppFooter from "@/features/navigation/AppFooter";
 import { Wordmark } from "@/components/ui/Wordmark";
 import type { DirectoryClub } from "@/types/api";
 
@@ -58,7 +59,7 @@ export default function DirectoryPage() {
       {/* Header */}
       <header className="flex justify-between items-center w-full px-8 py-4 bg-paper border-b-2 border-black sticky top-0 z-30 relative">
         <button onClick={() => router.push("/portal")} className="z-10">
-          <Wordmark className="w-[210px]" />
+          <Wordmark className="w-[185px]" />
         </button>
         <AppNav />
         <div className="flex items-center gap-6 z-10">
@@ -177,14 +178,7 @@ export default function DirectoryPage() {
         )}
       </main>
 
-      <footer className="bg-[#1a1a1a] text-paper py-10 px-8 flex justify-between items-center mt-auto">
-        <div>
-          <Wordmark className="w-[150px]" invert />
-        </div>
-        <div className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
-          © 2026 CLUB-HUB EDITORIAL. ALL RIGHTS RESERVED.
-        </div>
-      </footer>
+      <AppFooter />
     </div>
   );
 }
