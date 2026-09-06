@@ -226,3 +226,16 @@ export type ClubEvent = {
   my_rsvp: boolean;
   created_at: string;
 };
+
+// ── Notices ───────────────────────────────────────────────────────────────────
+
+/** A one-shot role-change notice — polled by the affected user's own session, shown
+ * once, then acknowledged (deleted) so it never resurfaces. */
+export type PromotionNotice = {
+  id: number;
+  club_name: string;
+  new_role: string;
+  kind: "promote" | "demote";
+  message: string | null;
+  created_at: string;
+};

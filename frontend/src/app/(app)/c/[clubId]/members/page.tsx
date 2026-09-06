@@ -10,12 +10,15 @@ import WingedLetter from "@/features/members/WingedLetter";
 import { listDomains, createDomain, updateDomain, deleteDomain } from "@/lib/api/domains";
 import { listMembers, updateMemberRole, removeMember } from "@/lib/api/members";
 import { createActionRequest } from "@/lib/api/requests";
-import { humanizeRole, isSecPlus } from "@/lib/roles";
+import { canManage, humanizeRole, isSecPlus, roleRank } from "@/lib/roles";
 
 type MemberRow = {
   user_id: number;
   name: string;
   role: string;
+  /** Raw backend slug ("vice_president"), kept alongside the humanized `role` display
+   * string — permission checks need the slug, the UI wants the display form. */
+  rawRole: string;
   domain_id: number | null;
   points: number;
   pic: string;
@@ -24,6 +27,12 @@ type MemberRow = {
   instagram_url: string | null;
   rank?: number;
 };
+
+/** Roles that sit above a single domain — the club's leadership, shown in the
+ * always-visible Heads section rather than nested inside a domain card. */
+const HEAD_ROLES = ["president", "vice_president", "secretary", "joint_secretary", "lead"];
+/** Mirrors backend DOMAIN_SCOPED_ROLES — these need a domain_id to be valid. */
+const DOMAIN_SCOPED_ROLES = ["member", "associate", "lead"];
 
 /** LinkedIn/GitHub/Instagram — links to the member's actual profile when set, else a
  * dimmed non-interactive placeholder so the socials column never shifts row-to-row. */
@@ -73,8 +82,11 @@ export default function MembersPage() {
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [actionModal, setActionModal] = useState<{ type: 'Promote' | 'Kick', memberId: number, memberName: string, memberDomainId: number } | null>(null);
+  const [actionModal, setActionModal] = useState<{ type: 'Promote' | 'Demote' | 'Kick', memberId: number, memberName: string, memberDomainId: number | null, memberRole: string } | null>(null);
   const [actionReason, setActionReason] = useState("");
+  // Only asked for when the target has no home domain (a Head) and the picked new
+  // role needs one — every other flow already has a domain to fall back on.
+  const [actionPickedDomainId, setActionPickedDomainId] = useState("");
 
   // Send-off animation state machine, replacing the old blocking alert():
   //   form → (confirm succeeds) folding → flying → toast
@@ -97,6 +109,23 @@ export default function MembersPage() {
 
   const isExecutive = isSecPlus(currentRole);
 
+  // The same options regardless of which of the three sections opened the modal —
+  // scoped only to what the acting user is allowed to grant. The target's current
+  // role is filtered out wherever this is used, so "promoting" someone to the rank
+  // they already hold is never offered (confusing, and a no-op).
+  const buildRoleOptions = (type: 'Promote' | 'Demote'): { value: string; label: string }[] => {
+    const opts: { value: string; label: string }[] = [];
+    if (['president', 'vice_president'].includes(currentRole)) {
+      opts.push({ value: 'vice_president', label: 'Vice President' });
+      opts.push({ value: 'secretary', label: 'Secretary' });
+      opts.push({ value: 'joint_secretary', label: 'Joint Secretary' });
+    }
+    if (isExecutive) opts.push({ value: 'lead', label: 'Lead' });
+    opts.push({ value: 'associate', label: 'Associate' });
+    if (type === 'Demote') opts.push({ value: 'member', label: 'Member' });
+    return opts;
+  };
+
   const { data: domainsData = [] } = useQuery({
     queryKey: ["club", clubId, "domains"],
     queryFn: () => listDomains(clubId),
@@ -116,6 +145,7 @@ export default function MembersPage() {
     user_id: m.user_id,
     name: m.name,
     role: humanizeRole(m.role),
+    rawRole: m.role,
     domain_id: m.domain_id,
     points: m.points || 0,
     pic: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=e2e2e2&color=000&size=150`,
@@ -132,6 +162,16 @@ export default function MembersPage() {
     members: members.filter((m) => m.domain_id === d.id),
   }));
 
+  const domainNameById = Object.fromEntries(domainsData.map((d) => [d.id, d.name]));
+
+  // Executives are club-wide (no domain_id) and leads belong to whichever domain they
+  // lead — neither ever shows up in a per-domain roster above, so without this list
+  // the club's own leadership would be invisible on this page. Visible to everyone;
+  // only the action buttons per row are gated by rank.
+  const heads = [...members]
+    .filter((m) => HEAD_ROLES.includes(m.rawRole))
+    .sort((a, b) => roleRank(b.rawRole) - roleRank(a.rawRole) || a.name.localeCompare(b.name));
+
   const toggleExpand = (id: number) => {
     if (!isExecutive) return;
     if (expandedId === id) {
@@ -144,27 +184,73 @@ export default function MembersPage() {
 
   const [actionNewRole, setActionNewRole] = useState("associate");
 
+  /** Opens the action modal and, for Promote/Demote, seeds the role dropdown with
+   * the closest option in the right direction from the member's current role — one
+   * rank up for Promote, one rank down for Demote. The default used to be a fixed
+   * "associate" regardless of direction, which was a no-op (and confusing) whenever
+   * the target already held that exact role, and — worse — could default a Demote
+   * to a role that's actually a promotion (e.g. "Vice President") if "associate"
+   * wasn't the target's current role either. */
+  const openActionModal = (type: 'Promote' | 'Demote' | 'Kick', member: MemberRow) => {
+    setActionModal({
+      type,
+      memberId: member.user_id,
+      memberName: member.name,
+      memberDomainId: member.domain_id,
+      memberRole: member.rawRole,
+    });
+    if (type !== 'Kick') {
+      const currentRank = roleRank(member.rawRole);
+      const opts = buildRoleOptions(type).filter((o) => o.value !== member.rawRole);
+      const directional = type === 'Promote'
+        ? opts.filter((o) => roleRank(o.value) > currentRank).sort((a, b) => roleRank(a.value) - roleRank(b.value))
+        : opts.filter((o) => roleRank(o.value) < currentRank).sort((a, b) => roleRank(b.value) - roleRank(a.value));
+      setActionNewRole((directional[0] ?? opts[0])?.value ?? 'associate');
+    }
+  };
+
+  // A Head with no home domain (any executive) being moved into a domain-scoped role
+  // has nothing to fall back on — every other target here already belongs to one.
+  const needsDomainPicker =
+    !!actionModal &&
+    actionModal.memberDomainId == null &&
+    DOMAIN_SCOPED_ROLES.includes(actionNewRole);
+
   /** Clear the action modal + its form back to a neutral state. */
   const resetActionForm = () => {
     setActionModal(null);
     setActionReason("");
     setActionNewRole("associate");
+    setActionPickedDomainId("");
     setFolding(false);
     setSubmitting(false);
   };
 
   const handleActionSubmit = async () => {
     if (!actionModal || submitting) return;
+    if (needsDomainPicker && !actionPickedDomainId) return;
     const isPromote = actionModal.type === "Promote";
+    const isDemote = actionModal.type === "Demote";
     const { memberName } = actionModal;
     setSubmitting(true);
 
     try {
       let message: string;
       if (isExecutive) {
-        if (isPromote) {
-          await updateMemberRole(clubId, actionModal.memberId, actionNewRole, actionModal.memberDomainId ?? domainId);
-          message = `${memberName} is now ${humanizeRole(actionNewRole)}.`;
+        if (isPromote || isDemote) {
+          const targetDomainId = needsDomainPicker
+            ? Number(actionPickedDomainId)
+            : (actionModal.memberDomainId ?? domainId);
+          await updateMemberRole(
+            clubId,
+            actionModal.memberId,
+            actionNewRole,
+            targetDomainId,
+            actionReason
+          );
+          message = isDemote
+            ? `${memberName} has been demoted to ${humanizeRole(actionNewRole)}.`
+            : `${memberName} is now ${humanizeRole(actionNewRole)}.`;
         } else {
           await removeMember(clubId, actionModal.memberId);
           message = `${memberName} has been removed from the club.`;
@@ -195,6 +281,7 @@ export default function MembersPage() {
     setActionModal(null);
     setActionReason("");
     setActionNewRole("associate");
+    setActionPickedDomainId("");
     setSubmitting(false);
   };
 
@@ -267,6 +354,51 @@ export default function MembersPage() {
 
   return (
     <div className="w-full flex flex-col gap-8 relative">
+      {/* HEADS — always visible to every member, unlike the domain cards below (a
+          non-executive only sees their own). Executives carry no domain_id and leads
+          belong to whichever domain they lead, so neither ever appears in a per-domain
+          roster — without this list the club's own leadership shows up nowhere. */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col flex-1 mb-2">
+          <div className="w-full h-[2px] bg-black"></div>
+          <h1 className="bg-black text-paper px-3 py-1 font-mono text-12 uppercase tracking-widest w-max inline-block">
+            Heads
+          </h1>
+        </div>
+        <div className="border-2 border-black bg-paper">
+          <div className="grid grid-cols-12 bg-[#e8e4da] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
+            <div className="col-span-4">Name</div>
+            <div className="col-span-3">Domain</div>
+            <div className="col-span-2 text-center">Socials</div>
+            <div className="col-span-3 text-right">Actions</div>
+          </div>
+          <div className="flex flex-col">
+            {heads.map((member, index) => (
+              <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === heads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
+                <div className="col-span-4 flex items-center gap-3">
+                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                    <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
+                  </div>
+                  <div className="font-ui text-16 font-bold truncate flex flex-col">
+                    <span>{member.name}</span>
+                    <span className="font-mono text-[10px] text-caption-gray uppercase tracking-widest mt-0.5">{member.role}</span>
+                  </div>
+                </div>
+                <div className="col-span-3 font-mono text-[11px] uppercase tracking-widest text-[#757575]">
+                  {member.domain_id != null ? (domainNameById[member.domain_id] ?? "—") : "Club-Wide"}
+                </div>
+                <SocialIcons member={member} />
+                <div className="col-span-3 flex justify-end gap-2 text-black">
+                  {canManage(currentRole, member.rawRole) && <button onClick={() => openActionModal('Promote', member)} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
+                  {canManage(currentRole, member.rawRole) && <button onClick={() => openActionModal('Demote', member)} className="font-ui text-[11px] font-bold border-2 border-amber-600 text-amber-600 px-2 py-1 uppercase hover:bg-amber-600 hover:text-paper transition-colors">Demote</button>}
+                  {canManage(currentRole, member.rawRole) && <button onClick={() => openActionModal('Kick', member)} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-end mb-6 w-full gap-4">
         <div className="flex flex-col flex-1">
           <div className="w-full h-[2px] bg-black"></div>
@@ -385,8 +517,9 @@ export default function MembersPage() {
                                 </div>
                                 <SocialIcons member={member} />
                                 <div className="col-span-3 flex justify-end gap-2 text-black">
-                                  {(['president', 'vice_president'].includes(currentRole) || (isExecutive && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
-                                  {(isExecutive || (currentRole === 'lead' && member.role === 'Associate')) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
+                                  {(['president', 'vice_president'].includes(currentRole) || (isExecutive && member.role === 'Associate')) && <button onClick={() => openActionModal('Promote', member)} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
+                                  {isExecutive && <button onClick={() => openActionModal('Demote', member)} className="font-ui text-[11px] font-bold border-2 border-amber-600 text-amber-600 px-2 py-1 uppercase hover:bg-amber-600 hover:text-paper transition-colors">Demote</button>}
+                                  {(isExecutive || (currentRole === 'lead' && member.role === 'Associate')) && <button onClick={() => openActionModal('Kick', member)} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
                                 </div>
                               </div>
                             ))}
@@ -420,8 +553,9 @@ export default function MembersPage() {
                                 <div className="col-span-2 text-right font-display text-xl font-bold">{member.points.toLocaleString()}</div>
                                 <SocialIcons member={member} />
                                 <div className="col-span-3 flex justify-end gap-2 text-black">
-                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Promote', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
-                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead', 'associate'].includes(currentRole) && <button onClick={() => setActionModal({ type: 'Kick', memberId: member.user_id, memberName: member.name, memberDomainId: domain.id })} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
+                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead'].includes(currentRole) && <button onClick={() => openActionModal('Promote', member)} className="font-ui text-[11px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-2 py-1 uppercase hover:bg-[#057DBC] hover:text-paper transition-colors">Promote</button>}
+                                  {isExecutive && <button onClick={() => openActionModal('Demote', member)} className="font-ui text-[11px] font-bold border-2 border-amber-600 text-amber-600 px-2 py-1 uppercase hover:bg-amber-600 hover:text-paper transition-colors">Demote</button>}
+                                  {['president', 'vice_president', 'secretary', 'joint_secretary', 'lead', 'associate'].includes(currentRole) && <button onClick={() => openActionModal('Kick', member)} className="font-ui text-[11px] font-bold border-2 border-red-600 text-red-600 px-2 py-1 uppercase hover:bg-red-600 hover:text-paper transition-colors">Kick</button>}
                                 </div>
                               </div>
                             ))}
@@ -467,7 +601,7 @@ export default function MembersPage() {
         {(actionModal || flight) && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 overflow-hidden"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
           >
             {actionModal && (
             <motion.div
@@ -497,7 +631,7 @@ export default function MembersPage() {
                 <p className="font-ui text-16 mb-6">
                   Are you sure you want to {actionModal.type.toLowerCase()} <strong>{actionModal.memberName}</strong>?
                 </p>
-                {actionModal.type === 'Promote' && (
+                {(actionModal.type === 'Promote' || actionModal.type === 'Demote') && (
                   <div className="flex flex-col gap-2 mb-4">
                     <label className="font-mono text-12 uppercase tracking-widest text-[#757575]">
                       Select New Role
@@ -507,15 +641,32 @@ export default function MembersPage() {
                       onChange={e => setActionNewRole(e.target.value)}
                       className="w-full border-2 border-black p-2 font-ui text-14 outline-none focus:border-[#057DBC] bg-paper"
                     >
-                      {['president', 'vice_president'].includes(currentRole) && (
-                        <>
-                          <option value="vice_president">Vice President</option>
-                          <option value="secretary">Secretary</option>
-                          <option value="joint_secretary">Joint Secretary</option>
-                        </>
-                      )}
-                      {isExecutive && <option value="lead">Lead</option>}
-                      <option value="associate">Associate</option>
+                      {/* The member's current role is never offered — picking it would be a
+                          confusing no-op dressed up as a promote/demote. */}
+                      {buildRoleOptions(actionModal.type as 'Promote' | 'Demote')
+                        .filter(o => o.value !== actionModal.memberRole)
+                        .map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+                {needsDomainPicker && (
+                  <div className="flex flex-col gap-2 mb-4">
+                    <label className="font-mono text-12 uppercase tracking-widest text-[#757575]">
+                      Select Domain
+                    </label>
+                    <select
+                      value={actionPickedDomainId}
+                      onChange={e => setActionPickedDomainId(e.target.value)}
+                      className="w-full border-2 border-black p-2 font-ui text-14 outline-none focus:border-[#057DBC] bg-paper"
+                    >
+                      <option value="" disabled>
+                        {actionModal.memberName} has no domain yet — pick one
+                      </option>
+                      {domainsData.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
                     </select>
                   </div>
                 )}
@@ -532,7 +683,7 @@ export default function MembersPage() {
                 </div>
                 <div className="flex justify-end gap-4">
                   <button onClick={resetActionForm} disabled={submitting} className="font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors disabled:opacity-40">Cancel</button>
-                  <button onClick={handleActionSubmit} disabled={submitting} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-paper transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-paper hover:text-[#057DBC]' : 'bg-red-600 border-red-600 hover:bg-paper hover:text-red-600'}`}>
+                  <button onClick={handleActionSubmit} disabled={submitting || (needsDomainPicker && !actionPickedDomainId)} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-paper transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-paper hover:text-[#057DBC]' : actionModal.type === 'Demote' ? 'bg-amber-600 border-amber-600 hover:bg-paper hover:text-amber-600' : 'bg-red-600 border-red-600 hover:bg-paper hover:text-red-600'}`}>
                     {submitting ? "Sending..." : "Confirm"}
                   </button>
                 </div>
@@ -541,7 +692,11 @@ export default function MembersPage() {
             )}
 
             {/* The folded letter sprouts wings and flies off with the outcome. */}
-            {flight && <WingedLetter tone={flight.tone} onDone={handleFlightDone} />}
+            {/* Gated on !actionModal too: `flight` is set in the same tick as `folding`,
+                so without this the letter used to mount and start its sprout+flight
+                immediately, rendering on top of the still-folding confirmation card for
+                its whole fold duration instead of waiting for the card to actually clear. */}
+            {flight && !actionModal && <WingedLetter tone={flight.tone} onDone={handleFlightDone} />}
           </motion.div>
         )}
       </AnimatePresence>

@@ -28,7 +28,9 @@ def change_member_role(
     ctx: ClubContext = Depends(verify_club_path("joint_secretary")),
     session: Session = Depends(get_session),
 ):
-    return service.change_role(session, ctx, user_id, body.new_role, body.new_domain_id)
+    return service.change_role(
+        session, ctx, user_id, body.new_role, body.new_domain_id, body.message
+    )
 
 
 @router.delete("/{club_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

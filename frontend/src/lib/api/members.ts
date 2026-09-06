@@ -12,11 +12,12 @@ export async function updateMemberRole(
   clubId: number,
   userId: number,
   newRole: string,
-  newDomainId: number | null
+  newDomainId: number | null,
+  message?: string
 ): Promise<Member> {
   const res = await api.put<Member>(
     `/clubs/${clubId}/members/${userId}/role`,
-    { new_role: newRole, new_domain_id: newDomainId },
+    { new_role: newRole, new_domain_id: newDomainId, message: message || null },
     { headers: clubHeaders(clubId) }
   );
   return res.data;

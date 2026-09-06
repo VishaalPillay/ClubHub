@@ -5,13 +5,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useClub } from "@/features/club/ClubProvider";
 import { getLeaderboard } from "@/lib/api/leaderboard";
 import { listDomains } from "@/lib/api/domains";
-import { humanizeRole } from "@/lib/roles";
+import { humanizeRole, isSecPlus } from "@/lib/roles";
 
 const ITEMS_PER_PAGE = 10;
 
-/** Club leaderboard — GET /clubs/{id}/leaderboard?domain_id= with a domain filter. */
+/** Club leaderboard — GET /clubs/{id}/leaderboard?domain_id= with a domain filter.
+ * Below joint_secretary, the domain isn't a choice — the picker is replaced with a
+ * fixed badge and every query is scoped to that domain (the server enforces this
+ * too; hiding the picker is just so the UI doesn't offer a control that would 403). */
 export default function LeaderboardPage() {
-  const { clubId, userId } = useClub();
+  const { clubId, userId, currentRole, domainId } = useClub();
+  const isExecutive = isSecPlus(currentRole);
   const [domainFilter, setDomainFilter] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -20,9 +24,12 @@ export default function LeaderboardPage() {
     queryFn: () => listDomains(clubId),
   });
 
+  const effectiveDomainFilter = isExecutive ? domainFilter : domainId;
+  const myDomainName = domains.find((d) => d.id === domainId)?.name;
+
   const { data: entries = [], isPending } = useQuery({
-    queryKey: ["club", clubId, "leaderboard", domainFilter],
-    queryFn: () => getLeaderboard(clubId, domainFilter),
+    queryKey: ["club", clubId, "leaderboard", effectiveDomainFilter],
+    queryFn: () => getLeaderboard(clubId, effectiveDomainFilter),
   });
 
   const totalPages = Math.ceil(entries.length / ITEMS_PER_PAGE) || 1;
@@ -41,19 +48,25 @@ export default function LeaderboardPage() {
             Leaderboard
           </h1>
         </div>
-        <select
-          value={domainFilter ?? ""}
-          onChange={(e) => {
-            setDomainFilter(e.target.value === "" ? null : Number(e.target.value));
-            setCurrentPage(1);
-          }}
-          className="border-2 border-black p-2 font-mono text-12 uppercase bg-paper outline-none focus:border-[#057DBC] shrink-0"
-        >
-          <option value="">All Domains</option>
-          {domains.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
-          ))}
-        </select>
+        {isExecutive ? (
+          <select
+            value={domainFilter ?? ""}
+            onChange={(e) => {
+              setDomainFilter(e.target.value === "" ? null : Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="border-2 border-black p-2 font-mono text-12 uppercase bg-paper outline-none focus:border-[#057DBC] shrink-0"
+          >
+            <option value="">All Domains</option>
+            {domains.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        ) : (
+          <div className="border-2 border-black p-2 font-mono text-12 uppercase bg-[#e8e4da] text-[#757575] shrink-0">
+            {myDomainName ?? "Your Domain"}
+          </div>
+        )}
       </div>
 
       {/* My standing */}

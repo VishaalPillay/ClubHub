@@ -194,7 +194,7 @@ function PortalContent() {
                         <span className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
                           {club.code ?? ""}
                         </span>
-                        <span className="font-ui text-[12px] font-bold text-[#057DBC] flex items-center gap-1">
+                        <span className="font-ui text-[12px] font-bold border-2 border-[#057DBC] text-[#057DBC] px-4 py-1.5 uppercase flex items-center gap-1 transition-colors group-hover:bg-[#057DBC] group-hover:text-paper">
                           Enter
                           <span className="material-symbols-outlined text-[16px] transition-transform duration-200 group-hover:scale-125">
                             arrow_forward

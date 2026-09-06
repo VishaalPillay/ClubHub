@@ -10,6 +10,9 @@ from app.core.permissions import ROLE_HIERARCHY
 class UpdateRoleIn(BaseModel):
     new_role: str
     new_domain_id: int | None = None
+    # Shown back to the member only if this turns out to be a promotion (see
+    # members.service.change_role) — a demote or lateral move ignores it.
+    message: str | None = None
 
     @field_validator("new_role")
     @classmethod

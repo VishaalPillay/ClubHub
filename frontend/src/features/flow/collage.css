@@ -229,8 +229,8 @@
   height: 100%;
   /* Past this the sheet stops growing and simply centres in a tall window —
      a 2000px-tall torn page would read as a wall, not as paper. */
-  max-width: 1180px;
-  max-height: 780px;
+  max-width: 960px;
+  max-height: 620px;
 }
 
 .flow-sheet--fill {

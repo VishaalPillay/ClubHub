@@ -7,6 +7,7 @@ import { tokenStore } from "@/lib/auth/tokenStore";
 import { logout } from "@/lib/api/auth";
 import { getProfile } from "@/lib/api/users";
 import type { Profile } from "@/types/api";
+import PromotionNoticeWatcher from "@/features/notices/PromotionNoticeWatcher";
 
 type AuthContextType = {
   user: Profile;
@@ -74,7 +75,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, signOut }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, setUser, signOut }}>
+      {children}
+      <PromotionNoticeWatcher />
+    </AuthContext.Provider>
   );
 }
 

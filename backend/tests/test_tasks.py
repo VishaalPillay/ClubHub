@@ -338,19 +338,35 @@ def test_member_cannot_complete_task(client):
 
 def test_leaderboard_sorted_by_points(client):
     pres = _register(client, "pres@lb.com", "Pres")
+    mem = _register(client, "mem@lb.com", "Member")
     club = _create_club(client, pres)
     cid = club["id"]
+    domain = _create_domain(client, pres, cid, "LBDomain")
+
+    _approve_join(client, pres, cid, club["code"], mem, "member", domain["id"])
 
     r = client.get(f"/clubs/{cid}/leaderboard", headers=_h(pres, cid))
     assert r.status_code == 200
     entries = r.json()
-    # President starts at 0 points; ordering and rank field must be present.
+    # The president is a Head, excluded from the competition entirely.
     assert len(entries) >= 1
     assert entries[0]["rank"] == 1
     assert "points" in entries[0]
     # Verify ordering
     points = [e["points"] for e in entries]
     assert points == sorted(points, reverse=True)
+
+
+def test_leaderboard_excludes_heads(client):
+    """Heads (lead and up) don't compete for rank — a club with none yet should just
+    show an empty board rather than pinning the president at 0 pts."""
+    pres = _register(client, "pres@lbh.com", "Pres")
+    club = _create_club(client, pres)
+    cid = club["id"]
+
+    r = client.get(f"/clubs/{cid}/leaderboard", headers=_h(pres, cid))
+    assert r.status_code == 200
+    assert r.json() == []
 
 
 def test_leaderboard_domain_filter(client):
@@ -372,6 +388,42 @@ def test_leaderboard_domain_filter(client):
     entries = r2.json()
     # President has no domain; only the member should appear
     assert all(e["domain_id"] == domain["id"] for e in entries)
+
+
+def test_leaderboard_non_exec_cannot_see_other_domains(client):
+    """Below joint_secretary, the domain isn't a choice: a member's own domain_id is
+    what the server uses regardless of what the request asks for, and the whole-club
+    "all domains" view (no domain_id at all) is equally out of reach."""
+    pres = _register(client, "pres@lbscope.com", "Pres")
+    mem = _register(client, "mem@lbscope.com", "Member")
+    club = _create_club(client, pres)
+    cid = club["id"]
+    domain_a = _create_domain(client, pres, cid, "DomainA")
+    domain_b = _create_domain(client, pres, cid, "DomainB")
+    _approve_join(client, pres, cid, club["code"], mem, "member", domain_a["id"])
+
+    # Explicitly asking for a domain that isn't theirs still returns their own.
+    r = client.get(
+        f"/clubs/{cid}/leaderboard",
+        params={"domain_id": domain_b["id"]},
+        headers=_h(mem, cid),
+    )
+    assert r.status_code == 200
+    assert all(e["domain_id"] == domain_a["id"] for e in r.json())
+
+    # No domain_id at all (the "All Domains" request) is scoped the same way.
+    r2 = client.get(f"/clubs/{cid}/leaderboard", headers=_h(mem, cid))
+    assert r2.status_code == 200
+    assert all(e["domain_id"] == domain_a["id"] for e in r2.json())
+
+    # The president, being joint_secretary+, really does get the other domain.
+    r3 = client.get(
+        f"/clubs/{cid}/leaderboard",
+        params={"domain_id": domain_b["id"]},
+        headers=_h(pres, cid),
+    )
+    assert r3.status_code == 200
+    assert all(e["domain_id"] == domain_b["id"] for e in r3.json())
 
 
 # ── Status-update authorization ──────────────────────────────────────────────

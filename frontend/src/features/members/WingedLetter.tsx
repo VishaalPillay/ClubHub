@@ -27,7 +27,7 @@ const EASE_BACK: [number, number, number, number] = [0.34, 1.4, 0.64, 1];
 
 /** Total time from mount to onDone, in seconds (fold is handled by the parent). */
 const SPROUT = 0.26;
-const FLIGHT = 1.0;
+const FLIGHT = 1.4;
 
 type Tone = "angel" | "devil";
 
@@ -43,7 +43,7 @@ type Tone = "angel" | "devil";
 function Wing({ tone }: { tone: Tone }) {
   if (tone === "devil") {
     return (
-      <svg width="76" height="52" viewBox="0 0 76 52" fill="none" aria-hidden="true">
+      <svg width="94" height="64" viewBox="0 0 76 52" fill="none" aria-hidden="true">
         {/* Jagged bat membrane: out to the tip, then scalloped back along the fingers. */}
         <path
           d="M2 30 L70 6 L56 22 L72 26 L48 34 L56 48 L30 39 L26 50 L4 34 Z"
@@ -73,7 +73,7 @@ function Wing({ tone }: { tone: Tone }) {
     { rotate: 24, length: 0.66 },
   ];
   return (
-    <svg width="76" height="52" viewBox="0 0 76 52" fill="none" aria-hidden="true">
+    <svg width="94" height="64" viewBox="0 0 76 52" fill="none" aria-hidden="true">
       {feathers.map((f, i) => (
         <path
           key={i}
@@ -93,7 +93,7 @@ function Wing({ tone }: { tone: Tone }) {
 function Envelope({ tone }: { tone: Tone }) {
   const seal = tone === "angel" ? "#057DBC" : "#dc2626";
   return (
-    <svg width="132" height="86" viewBox="0 0 132 86" fill="none" aria-hidden="true">
+    <svg width="164" height="107" viewBox="0 0 132 86" fill="none" aria-hidden="true">
       <rect
         x="2"
         y="2"
@@ -152,19 +152,31 @@ export default function WingedLetter({
   return (
     <motion.div
       className="relative flex items-center justify-center pointer-events-none"
-      // Flight: a small anticipatory dip, then up-and-away with a lean into the turn.
+      // Flight: a small anticipatory dip, then a long diagonal sweep clear off the
+      // screen. Distance is viewport-relative (vw/vh), not fixed pixels, so it
+      // always travels far enough to exit regardless of window size — a fixed-px
+      // distance tuned for one screen either undershoots a bigger one or, worse,
+      // gets clipped by the backdrop's edge before it's actually gone.
+      //
+      // Opacity gets its own transition, decoupled from position: it holds at 1
+      // for the first 75% and only then fades, so the letter reads as flying the
+      // whole distance and disappearing by its own fade — never by vanishing
+      // mid-air because position and opacity were racing on the same clock.
       animate={{
-        y: [0, 14, -140, -680],
-        x: [0, 0, 26, 150],
-        rotate: [0, -3, 8, 20],
-        scale: [1, 1.05, 0.92, 0.4],
-        opacity: [1, 1, 1, 0],
+        y: ["0vh", "3vh", "-55vh"],
+        x: ["0vw", "2vw", "62vw"],
+        rotate: [0, -4, 16],
+        scale: [1, 1.05, 0.6],
+        opacity: [1, 1, 0],
       }}
       transition={{
         duration: FLIGHT,
-        times: [0, 0.12, 0.45, 1],
-        ease: EASE_OUT,
         delay: SPROUT * 0.5,
+        x: { ease: EASE_OUT, times: [0, 0.12, 1] },
+        y: { ease: EASE_OUT, times: [0, 0.12, 1] },
+        rotate: { ease: EASE_OUT, times: [0, 0.12, 1] },
+        scale: { ease: EASE_OUT, times: [0, 0.12, 1] },
+        opacity: { ease: "linear", times: [0, 0.75, 1] },
       }}
       onAnimationComplete={onDone}
     >

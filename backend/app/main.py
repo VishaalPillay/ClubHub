@@ -22,6 +22,7 @@ from app.modules.events.router import router as events_router
 from app.modules.join_requests.router import router as join_requests_router
 from app.modules.leaderboard.router import router as leaderboard_router
 from app.modules.members.router import router as members_router
+from app.modules.notices.router import router as notices_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
 
@@ -68,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(announcements_router)
     app.include_router(events_router)
     app.include_router(users_router)
+    app.include_router(notices_router)
 
     # Local media (avatar uploads) — dev convenience only; the s3 backend serves
     # straight from the bucket/CDN and never hits this mount. See core/storage.py.

@@ -18,6 +18,7 @@ from app.core.permissions import (
 )
 from app.core.tenant import tenant_query
 from app.models import Club, ClubMember, Domain, User
+from app.modules.notices.service import create_promotion_notice
 
 
 def _user_map(session: Session, user_ids: set[int]) -> dict[int, User]:
@@ -105,6 +106,7 @@ def change_role(
     user_id: int,
     new_role: str,
     new_domain_id: int | None,
+    message: str | None = None,
 ) -> dict:
     member = _load_member(session, ctx, user_id)
     if not can_manage(ctx.role, member.role):
@@ -121,11 +123,26 @@ def change_role(
             "FORBIDDEN_GRANT",
         )
 
+    previous_rank = role_rank(member.role)
     member.domain_id = _resolve_domain(session, ctx, new_role, new_domain_id, member.domain_id)
     member.role = new_role
     session.add(member)
     session.commit()
     session.refresh(member)
+
+    # A real rank change either way gets the send-off notice; a lateral move (same
+    # rank, e.g. switching domains) stays quiet on the receiving end.
+    new_rank = role_rank(new_role)
+    if new_rank != previous_rank:
+        club = session.get(Club, ctx.club_id)
+        create_promotion_notice(
+            session,
+            member.user_id,
+            club.name if club else "",
+            new_role,
+            message,
+            kind="promote" if new_rank > previous_rank else "demote",
+        )
 
     user = session.get(User, member.user_id)
     domain_name = None

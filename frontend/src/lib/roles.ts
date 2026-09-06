@@ -16,6 +16,7 @@ export const ROLE_HIERARCHY = [
 export type Role = (typeof ROLE_HIERARCHY)[number];
 
 const rank = (role: string): number => ROLE_HIERARCHY.indexOf(role as Role);
+export const roleRank = rank;
 
 /** True when `role` is at or above `min` in the hierarchy. Unknown roles rank lowest. */
 export function roleAtLeast(role: string, min: Role): boolean {
@@ -25,6 +26,11 @@ export function roleAtLeast(role: string, min: Role): boolean {
 export const isLeadPlus = (role: string): boolean => roleAtLeast(role, "lead");
 export const isSecPlus = (role: string): boolean => roleAtLeast(role, "joint_secretary");
 export const isVPPlus = (role: string): boolean => roleAtLeast(role, "vice_president");
+
+/** Mirrors backend `can_manage`: strictly outranking the target, not just at-least. */
+export function canManage(actorRole: string, targetRole: string): boolean {
+  return rank(actorRole) > rank(targetRole);
+}
 
 export const ROLE_LABELS: Record<string, string> = {
   president: "PRESIDENT",

@@ -280,7 +280,7 @@ export default function CreateClubWizard() {
                   </>
                 }
               >
-                <div className="grid grid-cols-2 gap-5">
+                <div className="grid grid-cols-2 gap-4">
                   {(
                     [
                       {
@@ -304,35 +304,33 @@ export default function CreateClubWizard() {
                         type="button"
                         onClick={() => setIntent(card.id)}
                         aria-pressed={on}
-                        className={`flex h-full flex-col items-start p-6 border-2 bg-paper text-left transition-colors hover:bg-paper-hover group relative ${
-                          on
-                            ? "border-link-blue outline outline-2 outline-link-blue outline-offset-2"
-                            : "border-black"
+                        className={`flex h-full flex-col items-start p-5 border-2 bg-paper text-left transition-colors hover:bg-paper-hover group relative ${
+                          on ? "border-link-blue" : "border-black"
                         }`}
                       >
                         {on && (
                           <span
-                            className="material-symbols-outlined text-link-blue absolute top-4 right-4 text-[20px]"
+                            className="material-symbols-outlined text-link-blue absolute top-3.5 right-3.5 text-[18px]"
                             style={{ fontVariationSettings: '"FILL" 1' }}
                           >
                             check_circle
                           </span>
                         )}
                         <span
-                          className={`material-symbols-outlined text-[34px] mb-4 ${
+                          className={`material-symbols-outlined text-[28px] mb-3 ${
                             on ? "text-link-blue" : "text-black"
                           }`}
                         >
                           {card.icon}
                         </span>
                         <h2
-                          className={`font-ui text-[18px] font-bold leading-[1.20] tracking-[-0.28px] mb-1.5 group-hover:underline ${
+                          className={`font-ui text-[16px] font-bold leading-[1.20] tracking-[-0.28px] mb-1 group-hover:underline ${
                             on ? "text-link-blue" : "text-black"
                           }`}
                         >
                           {card.title}
                         </h2>
-                        <p className="font-body text-[15px] leading-[1.45] text-caption-gray">
+                        <p className="font-body text-[13.5px] leading-[1.4] text-caption-gray">
                           {card.body}
                         </p>
                       </button>
