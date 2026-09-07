@@ -25,6 +25,7 @@ export default function AvatarUpload({
   const [pendingSrc, setPendingSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [imgFailed, setImgFailed] = useState(false);
 
   // Revoke the preview object URL whenever it's replaced or on unmount.
   useEffect(() => {
@@ -32,6 +33,11 @@ export default function AvatarUpload({
       if (pendingSrc) URL.revokeObjectURL(pendingSrc);
     };
   }, [pendingSrc]);
+
+  // A new avatarUrl deserves a fresh chance to load before falling back again.
+  useEffect(() => {
+    setImgFailed(false);
+  }, [avatarUrl]);
 
   const handleFile = (file: File | undefined) => {
     if (!file || busy) return;
@@ -88,11 +94,12 @@ export default function AvatarUpload({
           dragOver ? "border-[#057DBC] bg-[#ebe6db]" : "border-black hover:bg-[#ebe6db]"
         }`}
       >
-        {avatarUrl ? (
+        {avatarUrl && !imgFailed ? (
           // eslint-disable-next-line @next/next/no-img-element -- runtime-uploaded URL (local /media or S3), not a static asset
           <img
             src={avatarUrl}
             alt="Your profile picture"
+            onError={() => setImgFailed(true)}
             className="w-16 h-16 rounded-full object-cover border-2 border-black flex-none"
           />
         ) : (

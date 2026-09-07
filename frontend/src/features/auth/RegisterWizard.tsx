@@ -270,7 +270,7 @@ export default function RegisterWizard() {
   return (
     <div className="w-full max-w-xl">
       <StepDeck stepKey={`${mode}-${step}`} direction={direction}>
-        <FlowSheet tape>
+        <FlowSheet>
           <Folio step={step} total={4} />
 
           {error && (
