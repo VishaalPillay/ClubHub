@@ -129,6 +129,7 @@ export type Member = {
   github_url: string | null;
   linkedin_url: string | null;
   instagram_url: string | null;
+  avatar_url: string | null;
 };
 
 // ── Requests (join + governance) ──────────────────────────────────────────────
@@ -184,6 +185,7 @@ export type LeaderboardEntry = {
   domain_id: number | null;
   domain_name: string | null;
   points: number;
+  avatar_url: string | null;
 };
 
 // ── Announcements ─────────────────────────────────────────────────────────────

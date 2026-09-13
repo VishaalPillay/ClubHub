@@ -16,18 +16,19 @@ import { motion, useReducedMotion } from "framer-motion";
  * a natural continuous rain once pieces start drifting out of sync on their own,
  * several seconds in.
  *
- * On dismiss (`dismissed=true`), pieces don't just vanish. Rather than trying to
- * retarget an animation that's already mid-flight — framer-motion's behavior there
- * isn't something to depend on — each piece is handed a fresh one-shot finishing pass:
- * it remounts (new `key`) with `initial` set to wherever along the fall it plausibly
- * already was, then animates the rest of the way down once, no repeat. `onSettled`
- * fires once every piece has had time to finish that pass, the parent's cue that it's
- * finally safe to unmount this for real.
+ * On dismiss (`dismissed=true`), pieces don't just vanish. Each one's *actual*
+ * position is reconstructed from wall-clock time elapsed since mount (`mountedAt`)
+ * — not guessed — so its one-shot finishing pass picks up exactly where the loop
+ * left off instead of jumping to a random new spot before falling the rest of the
+ * way. `onSettled` fires once every piece has had time to finish that pass, the
+ * parent's cue that it's finally safe to unmount this for real.
  *
  * Honors prefers-reduced-motion by rendering nothing — the pop-up message alone still
  * carries the news.
  */
 const COLORS = ["#057DBC", "#dc2626", "#f5b400", "#1a1a1a", "#16a34a"];
+
+type FinishState = { y: number; x: number; rotate: number; opacity: number; remaining: number };
 
 export default function ConfettiBurst({
   count = 130,
@@ -58,30 +59,43 @@ export default function ConfettiBurst({
     }))
   );
 
-  // Captured once, the instant dismissal happens: each piece's "already partway down"
-  // look for its final pass. The remaining duration is that piece's own full duration
-  // scaled by how much distance is actually left (`p.duration * (1 - fromVh/100)`) —
-  // its original falling speed, just for a shorter remaining trip — not an arbitrary
-  // fixed number, so a piece near the top still takes a while and one near the bottom
-  // finishes almost immediately, same as it would have mid-loop.
-  const [finishing, setFinishing] = useState<{ fromVh: number; duration: number }[] | null>(
-    null
-  );
+  // Wall-clock mount time — lets a piece's exact position at any later instant be
+  // reconstructed (elapsed time modulo its cycle) instead of guessed at. A lazy
+  // `useState` initializer, not `useRef(Date.now())` — `useRef` has no lazy form,
+  // so its argument is evaluated (impurely) on every render even though only the
+  // first result is kept.
+  const [mountedAt] = useState(() => Date.now());
+
+  const [finishing, setFinishing] = useState<FinishState[] | null>(null);
 
   useEffect(() => {
     if (!dismissed || finishing) return;
     // Deferred to a callback rather than called synchronously in the effect body —
     // this is a one-time response to `dismissed` flipping, not a derived value.
     const id = setTimeout(() => {
+      const elapsed = (Date.now() - mountedAt) / 1000;
       setFinishing(
         pieces.map((p) => {
-          const fromVh = Math.random() * 100;
-          return { fromVh, duration: p.duration * (1 - fromVh / 100) };
+          if (elapsed < p.delay) {
+            // Hasn't started its first fall yet — still waiting at the top.
+            return { y: -10, x: 0, rotate: 0, opacity: 1, remaining: 0.3 };
+          }
+          const timeInLoop = (elapsed - p.delay) % p.duration;
+          const linearT = timeInLoop / p.duration;
+          const eased = linearT * linearT; // approximates the loop's own "easeIn"
+          const opacity = linearT < 0.5 ? 1 : 1 - (linearT - 0.5) / 0.5;
+          return {
+            y: -10 + eased * 120,
+            x: eased * p.drift,
+            rotate: eased * p.spin,
+            opacity,
+            remaining: Math.max(p.duration * (1 - linearT), 0.2),
+          };
         })
       );
     }, 0);
     return () => clearTimeout(id);
-  }, [dismissed, finishing, pieces]);
+  }, [dismissed, finishing, pieces, mountedAt]);
 
   // A ref, not a dependency: `onSettled` is typically a fresh inline closure from the
   // parent on every render, and depending on it directly would reset the timer below
@@ -93,7 +107,7 @@ export default function ConfettiBurst({
 
   useEffect(() => {
     if (!finishing) return;
-    const settleMs = Math.max(...finishing.map((f) => f.duration)) * 1000;
+    const settleMs = Math.max(...finishing.map((f) => f.remaining)) * 1000;
     const timer = setTimeout(() => onSettledRef.current?.(), settleMs);
     return () => clearTimeout(timer);
   }, [finishing]);
@@ -109,17 +123,20 @@ export default function ConfettiBurst({
             key={f ? `${p.id}-finish` : p.id}
             initial={
               f
-                ? { y: `${f.fromVh}vh`, x: p.drift * (f.fromVh / 100), rotate: p.spin * (f.fromVh / 100), opacity: 1 }
+                ? { y: `${f.y}vh`, x: f.x, rotate: f.rotate, opacity: f.opacity }
                 : { y: "-10vh", x: 0, rotate: 0, opacity: 1 }
             }
             animate={
               f
-                ? { y: "110vh", opacity: 0 }
+                ? { y: "110vh", x: p.drift, rotate: p.spin, opacity: 0 }
                 : { y: "110vh", x: p.drift, rotate: p.spin, opacity: [1, 1, 0] }
             }
             transition={
+              // Linear for the finishing pass, not "easeIn" again — restarting an
+              // ease-in curve partway through would decelerate then reaccelerate
+              // right at the handoff, a little hitch on top of an already-short trip.
               f
-                ? { duration: f.duration, ease: "easeIn" }
+                ? { duration: f.remaining, ease: "linear" }
                 : { duration: p.duration, delay: p.delay, repeat: Infinity, ease: "easeIn" }
             }
             style={{

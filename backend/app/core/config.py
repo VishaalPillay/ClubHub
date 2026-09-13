@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     RATE_LIMIT_JOIN: str = "30/minute"  # /clubs/join + /clubs/lookup per client IP
     RATE_LIMIT_COLLEGE_REQUEST: str = "20/minute"  # /college-requests per client IP
 
+    # College-request auto-promotion (scripts/promote-college-requests.sh, weekly cron) — a
+    # pending request needs this many DISTINCT requesters (CollegeRequestSupporter rows) before
+    # it's promoted into the public `colleges` table with no human review. Raising it cuts the
+    # chance of a coordinated/typo'd name slipping through; lowering it gets real colleges live
+    # sooner. MIN_SIMILARITY (difflib.SequenceMatcher ratio, 0-1) is how close a candidate name
+    # has to be to an already-promoted college in the same country/state before it's folded in
+    # as a duplicate instead of promoted as a new entry.
+    COLLEGE_PROMOTION_THRESHOLD: int = 3
+    COLLEGE_PROMOTION_MIN_SIMILARITY: float = 0.82
+
     # Media storage (avatar uploads) — "local" writes under MEDIA_ROOT and serves via /media
     # (dev only; not durable on ephemeral hosts); "s3" writes to S3_BUCKET and returns
     # S3_PUBLIC_BASE_URL-based URLs. Switch to s3 in any real deployment.

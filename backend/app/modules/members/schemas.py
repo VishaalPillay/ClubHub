@@ -36,3 +36,4 @@ class MemberOut(BaseModel):
     github_url: str | None
     linkedin_url: str | None
     instagram_url: str | None
+    avatar_url: str | None

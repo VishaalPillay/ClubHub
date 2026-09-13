@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/auth/AuthProvider";
+import { Avatar } from "@/components/ui/Avatar";
 
 /**
  * Name + avatar badge for the onboarding header — replaces the old unwired
@@ -13,9 +14,6 @@ import { useAuth } from "@/lib/auth/AuthProvider";
  */
 export default function UserAvatarBadge() {
   const { user } = useAuth();
-  const src =
-    user.avatar_url ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=000&color=fff&size=80`;
 
   return (
     <div className="flex items-center gap-3 font-ui text-[15px]" title={user.name}>
@@ -23,8 +21,7 @@ export default function UserAvatarBadge() {
         {user.name.split(" ")[0]}
       </span>
       <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden flex-none">
-        {/* eslint-disable-next-line @next/next/no-img-element -- runtime avatar URL (local /media, S3, or ui-avatars fallback) */}
-        <img alt={user.name} src={src} className="w-full h-full object-cover" />
+        <Avatar name={user.name} avatarUrl={user.avatar_url} className="text-sm" />
       </div>
     </div>
   );

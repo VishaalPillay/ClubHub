@@ -50,6 +50,7 @@ def get_leaderboard(
             "domain_id": cm.domain_id,
             "domain_name": domains.get(cm.domain_id),
             "points": cm.points,
+            "avatar_url": user.avatar_url,
         }
         for i, (cm, user) in enumerate(rows)
     ]

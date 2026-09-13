@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Avatar } from "@/components/ui/Avatar";
 import { useClub } from "@/features/club/ClubProvider";
 import { getLeaderboard } from "@/lib/api/leaderboard";
 import { listDomains } from "@/lib/api/domains";
@@ -106,12 +107,8 @@ export default function LeaderboardPage() {
                 #{item.rank}
               </div>
               <div className="col-span-5 flex items-center gap-3">
-                <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
-                  <img
-                    alt={item.name}
-                    className="w-full h-full object-cover"
-                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=e2e2e2&color=000&size=150`}
-                  />
+                <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                  <Avatar name={item.name} avatarUrl={item.avatar_url} />
                 </div>
                 <div className="font-ui text-16 font-bold truncate">
                   {item.name}

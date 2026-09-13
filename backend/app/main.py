@@ -17,6 +17,7 @@ from app.modules.announcements.router import router as announcements_router
 from app.modules.auth.router import router as auth_router
 from app.modules.clubs.router import router as clubs_router
 from app.modules.college_requests.router import router as college_requests_router
+from app.modules.colleges.router import router as colleges_router
 from app.modules.domains.router import router as domains_router
 from app.modules.events.router import router as events_router
 from app.modules.join_requests.router import router as join_requests_router
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(clubs_router)
     app.include_router(college_requests_router)
+    app.include_router(colleges_router)
     app.include_router(domains_router)
     app.include_router(members_router)
     app.include_router(join_requests_router)

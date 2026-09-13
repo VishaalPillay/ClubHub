@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useClubOptional } from "@/features/club/ClubProvider";
 import { updateProfile } from "@/lib/api/users";
+import { Avatar } from "@/components/ui/Avatar";
 import AvatarUpload from "@/features/auth/AvatarUpload";
 import CollegeSelect from "@/features/auth/CollegeSelect";
 import CountryStateSelect from "@/features/auth/CountryStateSelect";
@@ -37,10 +38,6 @@ export default function ProfileMenu() {
     linkedin_url: user.linkedin_url ?? "",
     instagram_url: user.instagram_url ?? "",
   }));
-
-  const profilePic =
-    user.avatar_url ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=000&color=fff&size=150`;
 
   const openModal = () => {
     setForm({
@@ -114,7 +111,7 @@ export default function ProfileMenu() {
           {club ? ` (${club.currentRole.replace(/_/g, " ")})` : ""}
         </span>
         <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-hairline-tint hover:border-link-blue transition-150">
-          <img alt={user.name} className="w-full h-full object-cover" src={profilePic} />
+          <Avatar name={user.name} avatarUrl={user.avatar_url} className="text-sm" />
         </div>
       </div>
 

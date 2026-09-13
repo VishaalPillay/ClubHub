@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getLeaderboard } from "@/lib/api/leaderboard";
+import { Avatar } from "@/components/ui/Avatar";
 import { useClub } from "@/features/club/ClubProvider";
 import { humanizeRole } from "@/lib/roles";
 
@@ -46,11 +47,11 @@ export default function FeaturedProfilesCarousel() {
         onMouseLeave={() => setIsHovered(false)}
       >
         <div className="aspect-[4/3] border-2 border-black overflow-hidden mb-1 bg-[#e8e4da] relative">
-          <img
+          <Avatar
             key={profile.user_id}
-            alt={profile.name}
-            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-300"
-            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=e2e2e2&color=000&size=400`}
+            name={profile.name}
+            avatarUrl={profile.avatar_url}
+            className="text-6xl grayscale group-hover:grayscale-0 transition-all duration-300"
           />
           {/* Domain Tag */}
           <div className="absolute top-2 left-2 bg-black text-paper font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest">

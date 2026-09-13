@@ -45,6 +45,7 @@ def _to_member_dict(member: ClubMember, user: User, domain_name: str | None) -> 
         "github_url": user.github_url,
         "linkedin_url": user.linkedin_url,
         "instagram_url": user.instagram_url,
+        "avatar_url": user.avatar_url,
     }
 
 

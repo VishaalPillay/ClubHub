@@ -272,8 +272,9 @@ sudo crontab -e
 ```
 
 ```cron
-15 3 * * *  /srv/clubhub/scripts/backup.sh              >> /var/log/clubhub-backup.log 2>&1
-45 3 * * 0  /srv/clubhub/scripts/prune-refresh-tokens.sh >> /var/log/clubhub-prune.log  2>&1
+15 3 * * *  /srv/clubhub/scripts/backup.sh                  >> /var/log/clubhub-backup.log  2>&1
+45 3 * * 0  /srv/clubhub/scripts/prune-refresh-tokens.sh     >> /var/log/clubhub-prune.log   2>&1
+30 3 * * 0  /srv/clubhub/scripts/promote-college-requests.sh >> /var/log/clubhub-promote.log 2>&1
 ```
 
 Set `RCLONE_REMOTE` in `backup.sh`'s environment to replicate dumps off-box to R2. **A backup that

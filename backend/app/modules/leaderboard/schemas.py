@@ -11,3 +11,4 @@ class LeaderboardEntry(BaseModel):
     domain_id: int | None
     domain_name: str | None
     points: int
+    avatar_url: str | None

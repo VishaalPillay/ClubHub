@@ -441,25 +441,14 @@ export default function RegisterWizard() {
               />
               <div className="pt-6 border-t border-[#e0d9ca] mt-6 flex justify-between items-center">
                 {backButton(2)}
-                <div className="flex items-center gap-4">
-                  {!avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={() => goTo(4)}
-                      className="font-mono text-[10.5px] uppercase tracking-widest text-[#757575] underline hover:text-black bg-transparent border-0 cursor-pointer"
-                    >
-                      Skip
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => goTo(4)}
-                    className="bg-black text-paper border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors flex items-center gap-2"
-                  >
-                    Continue
-                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => goTo(4)}
+                  className="bg-black text-paper border-2 border-black font-ui text-[14px] font-bold px-8 py-3 uppercase hover:bg-paper hover:text-black transition-colors flex items-center gap-2"
+                >
+                  Continue
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </button>
               </div>
             </>
           )}

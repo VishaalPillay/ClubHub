@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GithubLogo, InstagramLogo, LinkedinLogo } from "@phosphor-icons/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Avatar } from "@/components/ui/Avatar";
 import Toast, { type ToastTone } from "@/components/ui/Toast";
 import { useClub } from "@/features/club/ClubProvider";
 import WingedLetter from "@/features/members/WingedLetter";
@@ -21,7 +22,7 @@ type MemberRow = {
   rawRole: string;
   domain_id: number | null;
   points: number;
-  pic: string;
+  avatar_url: string | null;
   github_url: string | null;
   linkedin_url: string | null;
   instagram_url: string | null;
@@ -148,7 +149,7 @@ export default function MembersPage() {
     rawRole: m.role,
     domain_id: m.domain_id,
     points: m.points || 0,
-    pic: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=e2e2e2&color=000&size=150`,
+    avatar_url: m.avatar_url,
     github_url: m.github_url,
     linkedin_url: m.linkedin_url,
     instagram_url: m.instagram_url,
@@ -376,8 +377,8 @@ export default function MembersPage() {
             {heads.map((member, index) => (
               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === heads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                 <div className="col-span-4 flex items-center gap-3">
-                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
-                    <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
+                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                    <Avatar name={member.name} avatarUrl={member.avatar_url} />
                   </div>
                   <div className="font-ui text-16 font-bold truncate flex flex-col">
                     <span>{member.name}</span>
@@ -507,8 +508,8 @@ export default function MembersPage() {
                             {leads.map((member, index) => (
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === leads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-7 flex items-center gap-3">
-                                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
-                                    <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
+                                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                                    <Avatar name={member.name} avatarUrl={member.avatar_url} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate flex flex-col">
                                     <span>{member.name}</span>
@@ -545,8 +546,8 @@ export default function MembersPage() {
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === currentMembers.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-1 text-center font-display text-xl font-bold text-caption-gray">#{member.rank}</div>
                                 <div className="col-span-4 flex items-center gap-3">
-                                  <div className="w-10 h-10 border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
-                                    <img alt={member.name} className="w-full h-full object-cover" src={member.pic} />
+                                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                                    <Avatar name={member.name} avatarUrl={member.avatar_url} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate">{member.name}</div>
                                 </div>

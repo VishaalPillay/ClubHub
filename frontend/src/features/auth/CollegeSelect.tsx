@@ -1,19 +1,30 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { collegesFor } from "@/data/collegesIndia";
-import { requestCollege } from "@/lib/api/colleges";
+import { getColleges, requestCollege, type CollegeOut } from "@/lib/api/colleges";
 
 const DEFAULT_LABEL_CLASS = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
 const DEFAULT_INPUT_CLASS =
   "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
   "focus:outline-none focus:border-[#057DBC]";
 
+/** Curated list + anything since auto-promoted from requestCollege (app/scripts/
+ * promote_college_requests.py on the backend) — dedupe case-insensitively, curated order
+ * first (it's NIRF-ranked, not alphabetical), promoted extras appended after. */
+function mergeOptions(curated: string[] | null, promoted: CollegeOut[]): string[] | null {
+  if (!curated && promoted.length === 0) return null;
+  const seen = new Set((curated ?? []).map((name) => name.toLowerCase()));
+  const extra = promoted.filter((c) => !seen.has(c.name.toLowerCase())).map((c) => c.name);
+  return [...(curated ?? []), ...extra];
+}
+
 /**
- * College picker: once `collegesFor(country, state)` has a curated list, this
- * renders a searchable combobox (type-to-filter + a persistent "Can't find your
- * college?" row). Everywhere else — non-India, an un-curated state, or no state
- * chosen yet — it's the plain free-text input it always was, so nothing is ever
+ * College picker: once there's a curated and/or promoted list for this country/state, this
+ * renders a searchable combobox (type-to-filter + a persistent "Can't find your college?"
+ * row). Everywhere else — non-India with nothing promoted yet, an un-curated state, or no
+ * state chosen yet — it's the plain free-text input it always was, so nothing is ever
  * blocked on the curated list being incomplete.
  */
 export default function CollegeSelect({
@@ -37,7 +48,17 @@ export default function CollegeSelect({
   labelClassName?: string;
   inputClassName?: string;
 }) {
-  const options = collegesFor(country, state);
+  const curated = collegesFor(country, state);
+  // Silent fallback by construction: on fetch failure `data` just stays [], so `options`
+  // degrades to curated-only (or the free-text input below, if there's no curated list either).
+  const { data: promoted = [] } = useQuery({
+    queryKey: ["colleges", country, state],
+    queryFn: () => getColleges(country, state || null),
+    enabled: !!country,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const options = mergeOptions(curated, promoted);
   const containerRef = useRef<HTMLDivElement>(null);
   const requestNameId = useId();
   const listboxId = useId();
