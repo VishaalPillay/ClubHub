@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 
 from app.core.deps import ClubContext
 from app.core.exceptions import AppError
-from app.core.permissions import DOMAIN_SCOPED_ROLES, role_at_least
+from app.core.permissions import DOMAIN_SCOPED_ROLES, can_manage, role_at_least
 from app.core.tenant import tenant_query
 from app.models import ClubMember, Domain, PointsLedger, Task, TaskAssignment, User
 from app.models.base import utcnow
@@ -71,6 +71,43 @@ def _load_task(session: Session, ctx: ClubContext, task_id: int) -> Task:
     return task
 
 
+def _creator_role(session: Session, club_id: int, creator_id: int) -> str | None:
+    member = session.exec(
+        select(ClubMember).where(
+            ClubMember.club_id == club_id, ClubMember.user_id == creator_id
+        )
+    ).first()
+    return member.role if member else None
+
+
+def _can_modify_task(ctx: ClubContext, creator_id: int, creator_role: str | None) -> bool:
+    """Only the task's creator, or someone who strictly outranks the creator's current
+    role, may edit its fields or delete it. A peer or subordinate Head (e.g. a Secretary
+    on a task a President created) must not be able to touch it — being Lead+ alone is
+    no longer enough, per the reported hierarchy gap.
+    """
+    if ctx.user_id == creator_id:
+        return True
+    if creator_role is None:
+        # Creator has since left the club; fall back to the plain Lead+ floor.
+        return role_at_least(ctx.role, "lead")
+    return can_manage(ctx.role, creator_role)
+
+
+def _assert_domain_access(ctx: ClubContext, task_domain_id: int) -> None:
+    """Domain-scoped roles (member/associate/lead) may only act on tasks in their own
+    domain — a Technical task is invisible and untouchable to a Design member, even one
+    who'd otherwise outrank its creator. Exec roles (joint_secretary+) aren't
+    domain-scoped, so this is a no-op for them.
+    """
+    if ctx.role in DOMAIN_SCOPED_ROLES and ctx.domain_id != task_domain_id:
+        raise AppError(
+            status.HTTP_403_FORBIDDEN,
+            "You can only act on tasks in your own domain.",
+            "WRONG_DOMAIN",
+        )
+
+
 # ── Points awarding ───────────────────────────────────────────────────────────
 
 def _award_points(session: Session, task: Task) -> None:
@@ -115,7 +152,13 @@ def _award_points(session: Session, task: Task) -> None:
 # ── Task CRUD ─────────────────────────────────────────────────────────────────
 
 def list_tasks(session: Session, ctx: ClubContext) -> list[dict]:
-    tasks = list(session.exec(tenant_query(Task, ctx)).all())
+    # Domain-scoped roles (member/associate/lead) only ever see their own domain's
+    # tasks — never another domain's board. Exec roles (joint_secretary+) see all of
+    # them, mirroring the leaderboard's own domain-scoping rule.
+    query = tenant_query(Task, ctx)
+    if ctx.role in DOMAIN_SCOPED_ROLES:
+        query = query.where(Task.domain_id == ctx.domain_id)
+    tasks = list(session.exec(query).all())
     return _enrich(session, tasks)
 
 
@@ -171,17 +214,28 @@ def update_task(
     title: str | None,
     description: str | None,
     due_date: date | None,
+    points: int | None,
     new_status: str | None,
 ) -> dict:
     task = _load_task(session, ctx, task_id)
 
-    # Field edits (title/description/due_date) require Lead+.
-    if any(f is not None for f in [title, description, due_date]):
+    # Field edits (title/description/due_date/points) require Lead+, are domain-scoped,
+    # and — beyond that floor — restricted to the task's creator or someone who
+    # outranks them (see _can_modify_task).
+    if any(f is not None for f in [title, description, due_date, points]):
         if not role_at_least(ctx.role, "lead"):
             raise AppError(
                 status.HTTP_403_FORBIDDEN,
                 "Only Lead+ can edit task details.",
                 "LEAD_REQUIRED",
+            )
+        _assert_domain_access(ctx, task.domain_id)
+        creator_role = _creator_role(session, ctx.club_id, task.creator_id)
+        if not _can_modify_task(ctx, task.creator_id, creator_role):
+            raise AppError(
+                status.HTTP_403_FORBIDDEN,
+                "Only this task's creator or someone who outranks them can edit it.",
+                "CANNOT_MODIFY_TASK",
             )
 
     if new_status is not None:
@@ -203,8 +257,14 @@ def update_task(
                 "LEAD_REQUIRED_FOR_REOPEN",
             )
 
-        # Below-Lead callers must be an assignee to change status at all.
-        if not is_lead:
+        if is_lead:
+            # A Lead's status authority (including a plain todo<->in_progress move,
+            # not just complete/reopen) is domain-scoped like everything else they do.
+            _assert_domain_access(ctx, task.domain_id)
+        else:
+            # Below-Lead callers must be an assignee to change status at all — no
+            # separate domain check needed, since a valid assignment already implies
+            # the assignee was in the task's domain at assign time.
             assigned = session.exec(
                 select(TaskAssignment).where(
                     TaskAssignment.task_id == task.id,
@@ -224,6 +284,8 @@ def update_task(
         task.description = description
     if due_date is not None:
         task.due_date = due_date
+    if points is not None:
+        task.points = points
 
     if new_status is not None:
         old_status = task.status
@@ -252,6 +314,14 @@ def update_task(
 
 def delete_task(session: Session, ctx: ClubContext, task_id: int) -> None:
     task = _load_task(session, ctx, task_id)
+    _assert_domain_access(ctx, task.domain_id)
+    creator_role = _creator_role(session, ctx.club_id, task.creator_id)
+    if not _can_modify_task(ctx, task.creator_id, creator_role):
+        raise AppError(
+            status.HTTP_403_FORBIDDEN,
+            "Only this task's creator or someone who outranks them can delete it.",
+            "CANNOT_MODIFY_TASK",
+        )
     session.delete(task)
     try:
         session.commit()
@@ -299,19 +369,49 @@ def _validate_and_assign(
         session.add(TaskAssignment(task_id=task_id, user_id=uid))
 
 
+def accept_task(session: Session, ctx: ClubContext, task_id: int) -> dict:
+    """First-come-first-served self-assignment: a member can claim an unassigned task
+    in their own domain (exec roles may claim across any domain) before someone else
+    does.
+    """
+    task = _load_task(session, ctx, task_id)
+
+    if task.status == "completed":
+        raise AppError(
+            status.HTTP_400_BAD_REQUEST, "This task is already completed.", "TASK_COMPLETED"
+        )
+
+    _assert_domain_access(ctx, task.domain_id)
+
+    existing = list(
+        session.exec(select(TaskAssignment).where(TaskAssignment.task_id == task_id)).all()
+    )
+    if existing:
+        raise AppError(
+            status.HTTP_409_CONFLICT,
+            "This task has already been taken by someone else.",
+            "TASK_ALREADY_TAKEN",
+        )
+
+    session.add(TaskAssignment(task_id=task_id, user_id=ctx.user_id))
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise AppError(
+            status.HTTP_409_CONFLICT,
+            "This task has already been taken by someone else.",
+            "TASK_ALREADY_TAKEN",
+        ) from None
+    session.refresh(task)
+    return _enrich(session, [task])[0]
+
+
 def assign_task(
     session: Session, ctx: ClubContext, task_id: int, assignee_ids: list[int]
 ) -> dict:
     task = _load_task(session, ctx, task_id)
-
-    # Domain-scoped callers (Lead/Associate) can only assign tasks in their own domain.
-    if ctx.role in DOMAIN_SCOPED_ROLES and ctx.domain_id != task.domain_id:
-        raise AppError(
-            status.HTTP_403_FORBIDDEN,
-            "You can only assign tasks in your own domain.",
-            "WRONG_DOMAIN",
-        )
-
+    _assert_domain_access(ctx, task.domain_id)
     _validate_and_assign(session, ctx, task_id, assignee_ids, task.domain_id)
     session.commit()
     session.refresh(task)

@@ -58,6 +58,7 @@ def update_task(
         body.title,
         body.description,
         body.due_date,
+        body.points,
         body.status,
     )
 
@@ -70,6 +71,16 @@ def delete_task(
     session: Session = Depends(get_session),
 ) -> None:
     service.delete_task(session, ctx, task_id)
+
+
+@router.post("/{club_id}/tasks/{task_id}/accept", response_model=TaskOut)
+def accept_task(
+    club_id: int,
+    task_id: int,
+    ctx: ClubContext = Depends(verify_club_path()),
+    session: Session = Depends(get_session),
+):
+    return service.accept_task(session, ctx, task_id)
 
 
 @router.post("/{club_id}/tasks/{task_id}/assign", response_model=TaskOut)

@@ -80,3 +80,28 @@ export async function updateClub(
   });
   return res.data;
 }
+
+export async function regenerateClubCode(clubId: number): Promise<ClubDetail> {
+  const res = await api.post<ClubDetail>(
+    `/clubs/${clubId}/regenerate-code`,
+    {},
+    { headers: clubHeaders(clubId) }
+  );
+  return res.data;
+}
+
+export async function transferPresidency(
+  clubId: number,
+  newPresidentUserId: number
+): Promise<ClubDetail> {
+  const res = await api.post<ClubDetail>(
+    `/clubs/${clubId}/transfer-presidency`,
+    { new_president_user_id: newPresidentUserId },
+    { headers: clubHeaders(clubId) }
+  );
+  return res.data;
+}
+
+export async function deleteClub(clubId: number): Promise<void> {
+  await api.delete(`/clubs/${clubId}`, { headers: clubHeaders(clubId) });
+}

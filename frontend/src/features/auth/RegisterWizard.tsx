@@ -16,6 +16,7 @@ import GoogleButton from "@/features/auth/GoogleButton";
 import Folio from "@/features/flow/Folio";
 import FlowSheet from "@/features/flow/FlowSheet";
 import StepDeck, { useFlowStep } from "@/features/flow/StepDeck";
+import { normalizeSocialUrl } from "@/lib/socialLinks";
 
 const inputClass =
   "border-2 border-black bg-paper text-black p-3 font-ui text-[15px] w-full rounded-none " +
@@ -24,13 +25,6 @@ const labelClass = "font-mono text-[11px] uppercase tracking-widest text-[#75757
 const submitClass =
   "w-full bg-black text-paper border-2 border-black font-ui text-[15px] font-bold p-4 uppercase " +
   "hover:bg-paper hover:text-black transition-colors disabled:opacity-40 flex justify-center items-center gap-2";
-
-/** Prepend https:// to bare domains so pasted handles pass the API's URL validation. */
-function normalizeUrl(value: string): string | undefined {
-  const v = value.trim();
-  if (!v) return undefined;
-  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
-}
 
 function initialsOf(name: string): string {
   return name
@@ -96,6 +90,7 @@ export default function RegisterWizard() {
   const [github, setGithub] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [instagram, setInstagram] = useState("");
+  const [touchedLinks, setTouchedLinks] = useState({ github: false, linkedin: false, instagram: false });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -217,15 +212,21 @@ export default function RegisterWizard() {
   const handleFinish = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const gh = normalizeSocialUrl("github", github);
+    const li = normalizeSocialUrl("linkedin", linkedin);
+    const ig = normalizeSocialUrl("instagram", instagram);
+    if (gh.error || li.error || ig.error) {
+      // Per-field messages under each box carry the detail now — nothing more to
+      // put in the generic banner. Reveal them even for a field never blurred.
+      setTouchedLinks({ github: true, linkedin: true, instagram: true });
+      return;
+    }
     setLoading(true);
     try {
       const changes: UpdateProfileIn = {};
-      const gh = normalizeUrl(github);
-      const li = normalizeUrl(linkedin);
-      const ig = normalizeUrl(instagram);
-      if (gh) changes.github_url = gh;
-      if (li) changes.linkedin_url = li;
-      if (ig) changes.instagram_url = ig;
+      if (gh.url) changes.github_url = gh.url;
+      if (li.url) changes.linkedin_url = li.url;
+      if (ig.url) changes.instagram_url = ig.url;
       if (Object.keys(changes).length > 0) await updateProfile(changes);
       router.push("/portal?welcome=1"); // first-ever arrival — portal greets differently
     } catch (e: unknown) {
@@ -432,7 +433,7 @@ export default function RegisterWizard() {
               {stepHeader(
                 "Portrait",
                 "Put a face to it.",
-                "Pick a photo and frame it however you like — or come back to this later."
+                "Pick a photo and frame it however you like."
               )}
               <AvatarUpload
                 initials={initialsOf(name) || "?"}
@@ -459,34 +460,54 @@ export default function RegisterWizard() {
               {stepHeader(
                 "Social Links",
                 "Stay Connected.",
-                "Link your profiles so clubmates can find your work — optional."
+                "Link your profiles so clubmates can find your work."
               )}
               <form onSubmit={handleFinish} className="flex flex-col gap-5">
                 <div className="flex flex-col gap-4">
                   {(
                     [
-                      [GithubLogo, "GitHub", github, setGithub, "github.com/you"],
-                      [LinkedinLogo, "LinkedIn", linkedin, setLinkedin, "linkedin.com/in/you"],
-                      [InstagramLogo, "Instagram", instagram, setInstagram, "instagram.com/you"],
+                      [GithubLogo, "GitHub", "github", github, setGithub, "github.com/you"],
+                      [LinkedinLogo, "LinkedIn", "linkedin", linkedin, setLinkedin, "linkedin.com/in/you"],
+                      [InstagramLogo, "Instagram", "instagram", instagram, setInstagram, "instagram.com/you"],
                     ] as const
-                  ).map(([Icon, label, value, set, ph]) => (
-                    <div key={label} className="flex items-center gap-3">
-                      <span
-                        className="w-9 h-9 border-2 border-black flex items-center justify-center flex-none"
-                        title={label}
-                      >
-                        <Icon size={18} weight="fill" aria-hidden />
-                      </span>
-                      <input
-                        type="text"
-                        value={value}
-                        onChange={(e) => set(e.target.value)}
-                        placeholder={ph}
-                        aria-label={`${label} URL`}
-                        className="flex-1 border-0 border-b-2 border-[#e0d9ca] bg-transparent p-2 font-ui text-[14px] focus:outline-none focus:border-[#057DBC] rounded-none"
-                      />
-                    </div>
-                  ))}
+                  ).map(([Icon, label, platform, value, set, ph]) => {
+                    const { url, error: linkError } = normalizeSocialUrl(platform, value);
+                    const touched = touchedLinks[platform];
+                    const isInvalid = touched && !!linkError;
+                    const isValid = touched && !!url;
+                    const borderClass = isInvalid
+                      ? "border-red-600 focus:border-red-600"
+                      : isValid
+                        ? "border-[#057DBC] focus:border-[#057DBC]"
+                        : "border-[#e0d9ca] focus:border-[#057DBC]";
+                    return (
+                      <div key={label} className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-3">
+                          <span
+                            className="w-9 h-9 border-2 border-black flex items-center justify-center flex-none"
+                            title={label}
+                          >
+                            <Icon size={18} weight="fill" aria-hidden />
+                          </span>
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={(e) => set(e.target.value)}
+                            onBlur={() =>
+                              setTouchedLinks((prev) => ({ ...prev, [platform]: true }))
+                            }
+                            placeholder={ph}
+                            aria-label={`${label} URL`}
+                            aria-invalid={isInvalid}
+                            className={`flex-1 border-0 border-b-2 ${borderClass} bg-transparent p-2 font-ui text-[14px] focus:outline-none rounded-none`}
+                          />
+                        </div>
+                        {isInvalid && (
+                          <p className="font-mono text-[11px] text-red-600 pl-12">{linkError}</p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="pt-4 border-t border-[#e0d9ca] mt-1 flex justify-between items-center">
                   {backButton(3)}

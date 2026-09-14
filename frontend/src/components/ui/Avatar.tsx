@@ -6,6 +6,11 @@ interface AvatarProps {
   name: string;
   avatarUrl?: string | null;
   className?: string;
+  /** "solid" (default) fills black with a white/paper initial — the nav trigger, leaderboard,
+   *  member list. "outline" inverts that: a paper-white fill with a black initial, for contexts
+   *  that want the opposite emphasis (e.g. the dashboard's Top Contributors card, which is
+   *  already framed by its own black border/ribbon). */
+  variant?: "solid" | "outline";
 }
 
 /**
@@ -15,7 +20,7 @@ interface AvatarProps {
  * so unlike a generated-avatar service it can never itself show the browser's broken-image
  * glyph.
  */
-export function Avatar({ name, avatarUrl, className = "" }: AvatarProps) {
+export function Avatar({ name, avatarUrl, className = "", variant = "solid" }: AvatarProps) {
   const [failed, setFailed] = useState(false);
 
   // Adjust state during render (React's recommended alternative to an effect for this
@@ -39,11 +44,14 @@ export function Avatar({ name, avatarUrl, className = "" }: AvatarProps) {
     );
   }
 
+  const fillClass = variant === "outline" ? "bg-paper text-black" : "bg-black text-paper";
   return (
     <div
-      className={`w-full h-full flex items-center justify-center bg-black text-paper font-display font-bold ${className}`}
+      className={`w-full h-full flex items-center justify-center leading-none font-display font-bold ${fillClass} ${className}`}
     >
-      {name.trim().charAt(0).toUpperCase() || "?"}
+      {/* leading-none: the default line-height added enough space above/below the glyph
+          to visibly throw off flexbox centering — this initial should sit dead center. */}
+      <span className="translate-y-[0.08em]">{name.trim().charAt(0).toUpperCase() || "?"}</span>
     </div>
   );
 }

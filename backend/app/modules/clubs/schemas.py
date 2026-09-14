@@ -63,6 +63,10 @@ class UpdateClubIn(BaseModel):
         return _validate_visibility(v)
 
 
+class TransferPresidencyIn(BaseModel):
+    new_president_user_id: int
+
+
 class JoinClubIn(BaseModel):
     """Either `club_code` (invite-code flow) or `club_id` (request-to-join a public
     club straight from the directory, no code needed) must be given."""
@@ -109,6 +113,7 @@ class MyClubItem(BaseModel):
     code: str | None
     role: str
     domain_id: int | None
+    enabled_roles: list[str] | None
 
 
 class DomainBrief(BaseModel):

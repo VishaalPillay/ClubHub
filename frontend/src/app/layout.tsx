@@ -64,6 +64,11 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
           rel="stylesheet"
         />
+        {/* GoogleButton loads gsi/client lazily on mount (register/login only); this
+            gets the DNS+TLS handshake to Google done ahead of that request instead of
+            paying it cold when the account step first appears. */}
+        <link rel="preconnect" href="https://accounts.google.com" />
+        <link rel="dns-prefetch" href="https://accounts.google.com" />
       </head>
       <body style={{ backgroundColor: "#f5f2ec", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
         {/* Hidden wholesale below the laptop breakpoint — see MobileGate. */}

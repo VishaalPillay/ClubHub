@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import AvatarUpload from "@/features/auth/AvatarUpload";
 import CollegeSelect from "@/features/auth/CollegeSelect";
 import CountryStateSelect from "@/features/auth/CountryStateSelect";
+import { normalizeSocialUrl, type SocialPlatform } from "@/lib/socialLinks";
 
 type FormState = {
   name: string;
@@ -19,6 +20,8 @@ type FormState = {
   instagram_url: string;
 };
 
+type LinkField = "github_url" | "linkedin_url" | "instagram_url";
+
 /** "" -> null so the backend clears the column; HttpUrl rejects empty strings. */
 const orNull = (v: string): string | null => (v.trim() === "" ? null : v.trim());
 
@@ -28,6 +31,11 @@ export default function ProfileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [touchedLinks, setTouchedLinks] = useState<Record<LinkField, boolean>>({
+    github_url: false,
+    linkedin_url: false,
+    instagram_url: false,
+  });
 
   const [form, setForm] = useState<FormState>(() => ({
     name: user.name,
@@ -50,6 +58,7 @@ export default function ProfileMenu() {
       instagram_url: user.instagram_url ?? "",
     });
     setError("");
+    setTouchedLinks({ github_url: false, linkedin_url: false, instagram_url: false });
     setIsOpen(true);
   };
 
@@ -61,6 +70,16 @@ export default function ProfileMenu() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const gh = normalizeSocialUrl("github", form.github_url);
+    const li = normalizeSocialUrl("linkedin", form.linkedin_url);
+    const ig = normalizeSocialUrl("instagram", form.instagram_url);
+    if (gh.error || li.error || ig.error) {
+      // Reveal per-field errors even for a link the user never blurred (e.g. left
+      // as-is from a previous save) — the inline message on each box carries the
+      // detail now, so there's nothing more to put in the generic banner.
+      setTouchedLinks({ github_url: true, linkedin_url: true, instagram_url: true });
+      return;
+    }
     setSaving(true);
     try {
       // avatar_url is deliberately omitted — the portrait is managed by AvatarUpload,
@@ -70,9 +89,9 @@ export default function ProfileMenu() {
         institution: orNull(form.institution),
         country: orNull(form.country),
         state: orNull(form.state),
-        github_url: orNull(form.github_url),
-        linkedin_url: orNull(form.linkedin_url),
-        instagram_url: orNull(form.instagram_url),
+        github_url: gh.url ?? null,
+        linkedin_url: li.url ?? null,
+        instagram_url: ig.url ?? null,
       });
       setUser(updated);
       setIsOpen(false);
@@ -83,22 +102,43 @@ export default function ProfileMenu() {
     }
   };
 
-  const urlField = (name: keyof FormState, label: string, placeholder: string) => (
-    <div className="flex flex-col gap-2">
-      <label className="font-ui text-16 font-bold text-black uppercase" htmlFor={name}>
-        {label}
-      </label>
-      <input
-        className="border-2 border-black bg-paper text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
-        id={name}
-        name={name}
-        value={form[name]}
-        onChange={handleChange}
-        placeholder={placeholder}
-        type="url"
-      />
-    </div>
-  );
+  // type="text" (not "url") deliberately — a native "Please enter a URL" tooltip
+  // can't be styled or scoped to just this field, so validation is entirely custom
+  // here: normalizeSocialUrl runs live, but the red/blue border only shows once the
+  // field's been touched (blurred, or a submit attempt), so it isn't red before the
+  // user has even started typing.
+  const urlField = (name: LinkField, platform: SocialPlatform, label: string, placeholder: string) => {
+    const { url, error: linkError } = normalizeSocialUrl(platform, form[name]);
+    const touched = touchedLinks[name];
+    const isInvalid = touched && !!linkError;
+    const isValid = touched && !!url;
+    const borderClass = isInvalid
+      ? "border-red-600 focus:border-red-600"
+      : isValid
+        ? "border-[#057DBC] focus:border-[#057DBC]"
+        : "border-black focus:border-black";
+    return (
+      <div className="flex flex-col gap-2">
+        <label className="font-ui text-16 font-bold text-black uppercase" htmlFor={name}>
+          {label}
+        </label>
+        <input
+          className={`border-2 ${borderClass} bg-paper text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 rounded-none`}
+          id={name}
+          name={name}
+          value={form[name]}
+          onChange={handleChange}
+          onBlur={() => setTouchedLinks((prev) => ({ ...prev, [name]: true }))}
+          placeholder={placeholder}
+          type="text"
+          aria-invalid={isInvalid}
+        />
+        {isInvalid && (
+          <p className="font-mono text-[11px] text-red-600">{linkError}</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -203,9 +243,9 @@ export default function ProfileMenu() {
                 inputClassName="border-2 border-black bg-paper text-black p-3 font-ui text-16 focus:outline-none focus:ring-0 focus:border-black rounded-none"
               />
 
-              {urlField("github_url", "GitHub URL", "https://github.com/you")}
-              {urlField("linkedin_url", "LinkedIn URL", "https://linkedin.com/in/you")}
-              {urlField("instagram_url", "Instagram URL", "https://instagram.com/you")}
+              {urlField("github_url", "github", "GitHub URL", "https://github.com/you")}
+              {urlField("linkedin_url", "linkedin", "LinkedIn URL", "https://linkedin.com/in/you")}
+              {urlField("instagram_url", "instagram", "Instagram URL", "https://instagram.com/you")}
 
               <div className="pt-6 border-t-2 border-black mt-8 flex gap-4">
                 <button

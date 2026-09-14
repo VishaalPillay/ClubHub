@@ -128,6 +128,13 @@ export default function GoogleButton({
 
   return (
     <div>
+      <div className="flex items-center gap-4 mb-3">
+        <span className="flex-1 h-px bg-[#e0d9ca]" />
+        <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
+          with google
+        </span>
+        <span className="flex-1 h-px bg-[#e0d9ca]" />
+      </div>
       <div ref={slotRef} className="flex justify-center" />
       <div className="flex items-center gap-4 my-5">
         <span className="flex-1 h-px bg-[#e0d9ca]" />

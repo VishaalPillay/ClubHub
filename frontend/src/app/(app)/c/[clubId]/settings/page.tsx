@@ -2,11 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useClub } from "@/features/club/ClubProvider";
-import { getClub, updateClub } from "@/lib/api/clubs";
-import { isVPPlus } from "@/lib/roles";
+import {
+  getClub,
+  updateClub,
+  regenerateClubCode,
+  transferPresidency,
+  deleteClub,
+} from "@/lib/api/clubs";
+import { listMembers } from "@/lib/api/members";
+import { isVPPlus, JOINABLE_ROLES, roleRank } from "@/lib/roles";
 import type { ClubDetail, ClubVisibility } from "@/types/api";
+
+/** The six ranks a club can toggle on/off — everything JOINABLE_ROLES lists (which
+ *  already excludes 'president', per its own doc comment), reordered low-to-high so
+ *  the checkboxes read the same direction as the hierarchy itself. */
+const HIERARCHY_ROLES = [...JOINABLE_ROLES].sort((a, b) => roleRank(a.value) - roleRank(b.value));
 
 /** The three directory-visibility tiers, in descending reach. Mirrors the backend's
  *  `visibility` VARCHAR values (app/modules/clubs/schemas.py::_VISIBILITY_VALUES). */
@@ -85,6 +98,8 @@ function SettingsForm({
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { currentRole, userId } = useClub();
+  const isPresident = currentRole === "president";
 
   const [form, setForm] = useState({
     name: club.name,
@@ -92,6 +107,7 @@ function SettingsForm({
     institution: club.institution ?? "",
     visibility: club.visibility,
     accepting_requests: club.accepting_requests,
+    enabled_roles: club.enabled_roles ?? [],
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -108,8 +124,10 @@ function SettingsForm({
         institution: form.institution.trim() === "" ? null : form.institution.trim(),
         visibility: form.visibility,
         accepting_requests: form.accepting_requests,
+        enabled_roles: form.enabled_roles,
       });
       queryClient.invalidateQueries({ queryKey: ["club", clubId, "detail"] });
+      queryClient.invalidateQueries({ queryKey: ["club", clubId, "members"] });
       queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
       onSaved();
     } catch (err: unknown) {
@@ -119,6 +137,15 @@ function SettingsForm({
     }
   };
 
+  const toggleHierarchyRole = (role: string) => {
+    setForm((prev) => ({
+      ...prev,
+      enabled_roles: prev.enabled_roles.includes(role)
+        ? prev.enabled_roles.filter((r) => r !== role)
+        : [...prev.enabled_roles, role],
+    }));
+  };
+
   const copyCode = async () => {
     try {
       await navigator.clipboard.writeText(club.code);
@@ -126,6 +153,78 @@ function SettingsForm({
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* clipboard unavailable */
+    }
+  };
+
+  // ── Regenerate invite code ──────────────────────────────────────────────
+  const [regenerateModalOpen, setRegenerateModalOpen] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenerateError, setRegenerateError] = useState("");
+
+  const handleRegenerateCode = async () => {
+    setRegenerateError("");
+    setRegenerating(true);
+    try {
+      await regenerateClubCode(clubId);
+      queryClient.invalidateQueries({ queryKey: ["club", clubId, "detail"] });
+      queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+      setRegenerateModalOpen(false);
+    } catch (err: unknown) {
+      setRegenerateError(err instanceof Error ? err.message : "Failed to regenerate code.");
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  // ── Transfer presidency (President only) ────────────────────────────────
+  const { data: membersData = [] } = useQuery({
+    queryKey: ["club", clubId, "members"],
+    queryFn: () => listMembers(clubId),
+    enabled: isPresident,
+  });
+  const transferCandidates = membersData
+    .filter((m) => m.user_id !== userId)
+    .sort((a, b) => roleRank(b.role) - roleRank(a.role));
+
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferTargetId, setTransferTargetId] = useState<number | null>(null);
+  const [transferring, setTransferring] = useState(false);
+  const [transferError, setTransferError] = useState("");
+
+  const handleTransfer = async () => {
+    if (!transferTargetId) return;
+    setTransferError("");
+    setTransferring(true);
+    try {
+      await transferPresidency(clubId, transferTargetId);
+      queryClient.invalidateQueries({ queryKey: ["club", clubId, "detail"] });
+      queryClient.invalidateQueries({ queryKey: ["club", clubId, "members"] });
+      queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+      setTransferModalOpen(false);
+      setTransferTargetId(null);
+    } catch (err: unknown) {
+      setTransferError(err instanceof Error ? err.message : "Failed to transfer presidency.");
+    } finally {
+      setTransferring(false);
+    }
+  };
+
+  // ── Delete club (President only) ────────────────────────────────────────
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleDelete = async () => {
+    setDeleteError("");
+    setDeleting(true);
+    try {
+      await deleteClub(clubId);
+      queryClient.invalidateQueries({ queryKey: ["my-clubs"] });
+      router.push("/portal");
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete club.");
+      setDeleting(false);
     }
   };
 
@@ -148,12 +247,21 @@ function SettingsForm({
           </div>
           <div className="font-display text-4xl font-bold tracking-tight">{club.code}</div>
         </div>
-        <button
-          onClick={copyCode}
-          className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
-        >
-          {copied ? "Copied!" : "Copy Code"}
-        </button>
+        <div className="flex gap-3 shrink-0">
+          <button
+            onClick={copyCode}
+            className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
+          >
+            {copied ? "Copied!" : "Copy Code"}
+          </button>
+          <button
+            onClick={() => setRegenerateModalOpen(true)}
+            className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
+            title="Invalidate this code and issue a new one"
+          >
+            Regenerate
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -277,6 +385,46 @@ function SettingsForm({
           </div>
         </label>
 
+        {/* Hierarchy — which ranks this club actually uses. Unchecking a rank that
+            current members still hold auto-demotes them to the next enabled rank
+            below (floored at Member) the moment this form saves — not deferred, not
+            blocked. 'President' isn't listed: it's never a toggle, always exactly
+            one, assigned by creation or Transfer Presidency below. */}
+        <div className="pt-2 border-t-2 border-black">
+          <fieldset className="flex flex-col gap-3">
+            <legend className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-3">
+              Hierarchy
+            </legend>
+            <p className="font-ui text-13 text-[#757575] -mt-2 mb-1">
+              Which ranks this club uses, beyond President. Unchecking a rank that
+              members currently hold demotes them to the next rank still enabled.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {HIERARCHY_ROLES.map((opt) => {
+                const checked = form.enabled_roles.includes(opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    className={`flex items-center gap-3 border-2 p-3 cursor-pointer transition-colors ${
+                      checked
+                        ? "border-[#057DBC] bg-[#f0f8ff]"
+                        : "border-black hover:bg-[#f0ede4]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleHierarchyRole(opt.value)}
+                      className="w-5 h-5 accent-[#057DBC] shrink-0"
+                    />
+                    <span className="font-ui text-15 font-bold uppercase">{opt.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        </div>
+
         <div className="flex gap-4 pt-4 border-t-2 border-black">
           <button
             type="submit"
@@ -294,6 +442,187 @@ function SettingsForm({
           </button>
         </div>
       </form>
+
+      {isPresident && (
+        <div className="mt-10 pt-6 border-t-2 border-black">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-4">
+            Presidency
+          </p>
+          <div className="border-2 border-black p-6 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="font-ui text-16 font-bold uppercase">Transfer Presidency</div>
+              <div className="font-ui text-13 text-[#757575]">
+                Hand the President rank to another current member — e.g. for a
+                graduating president. You step down to Vice President.
+              </div>
+            </div>
+            <button
+              onClick={() => setTransferModalOpen(true)}
+              className="font-ui text-12 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors shrink-0"
+            >
+              Transfer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isPresident && (
+        <div className="mt-10 pt-6 border-t-2 border-red-600">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-red-600 mb-4">
+            Danger Zone
+          </p>
+          <div className="border-2 border-red-600 bg-red-50 p-6 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="font-ui text-16 font-bold uppercase text-red-600">
+                Delete This Club
+              </div>
+              <div className="font-ui text-13 text-[#757575]">
+                Permanently deletes the club and everything in it — members, domains,
+                tasks, announcements, events. This cannot be undone.
+              </div>
+            </div>
+            <button
+              onClick={() => setDeleteModalOpen(true)}
+              className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-paper px-6 py-2 uppercase hover:bg-paper hover:text-red-600 transition-colors shrink-0"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate invite code confirm */}
+      <AnimatePresence>
+        {regenerateModalOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-sm flex flex-col">
+              <div className="bg-black px-4 py-3">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Regenerate Invite Code</h2>
+              </div>
+              <div className="p-6 flex flex-col gap-4">
+                <p className="font-body text-15 text-[#4c4546]">
+                  The current code <strong>{club.code}</strong> will stop working immediately.
+                  Anyone holding it — including in an old message or link — will need the new one.
+                </p>
+                {regenerateError && (
+                  <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">{regenerateError}</p>
+                )}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => { setRegenerateModalOpen(false); setRegenerateError(""); }}
+                    className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRegenerateCode}
+                    disabled={regenerating}
+                    className="font-ui text-12 font-bold border-2 border-black bg-black text-paper px-4 py-2 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40"
+                  >
+                    {regenerating ? "Regenerating..." : "Regenerate"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Transfer presidency */}
+      <AnimatePresence>
+        {transferModalOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-black w-full max-w-sm flex flex-col">
+              <div className="bg-black px-4 py-3">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Transfer Presidency</h2>
+              </div>
+              <div className="p-6 flex flex-col gap-4">
+                <p className="font-body text-15 text-[#4c4546]">
+                  Pick who becomes President. You&apos;ll step down to Vice President immediately.
+                </p>
+                {transferCandidates.length > 0 ? (
+                  <select
+                    value={transferTargetId ?? ""}
+                    onChange={(e) => setTransferTargetId(e.target.value ? Number(e.target.value) : null)}
+                    className="border-2 border-black p-3 font-ui text-15 bg-paper outline-none focus:border-[#057DBC]"
+                  >
+                    <option value="">Select a member…</option>
+                    {transferCandidates.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.name} — {m.role.replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="font-mono text-12 text-[#757575] uppercase">No other members to transfer to.</p>
+                )}
+                {transferError && (
+                  <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">{transferError}</p>
+                )}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => { setTransferModalOpen(false); setTransferError(""); setTransferTargetId(null); }}
+                    className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleTransfer}
+                    disabled={transferring || !transferTargetId}
+                    className="font-ui text-12 font-bold border-2 border-black bg-black text-paper px-4 py-2 uppercase hover:bg-paper hover:text-black transition-colors disabled:opacity-40"
+                  >
+                    {transferring ? "Transferring..." : "Transfer"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete club — type-to-confirm */}
+      <AnimatePresence>
+        {deleteModalOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }} className="bg-paper border-2 border-red-600 w-full max-w-sm flex flex-col">
+              <div className="bg-red-600 px-4 py-3">
+                <h2 className="text-paper font-mono text-12 uppercase tracking-widest">Delete Club</h2>
+              </div>
+              <div className="p-6 flex flex-col gap-4">
+                <p className="font-body text-15 text-[#4c4546]">
+                  This permanently deletes <strong>{club.name}</strong> and everything in
+                  it. There is no undo. Type the club name to confirm.
+                </p>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder={club.name}
+                  className="border-2 border-black bg-paper text-black p-3 font-ui text-[15px] focus:outline-none focus:border-red-600"
+                />
+                {deleteError && (
+                  <p className="font-mono text-[11px] text-red-600 uppercase tracking-widest">{deleteError}</p>
+                )}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => { setDeleteModalOpen(false); setDeleteError(""); setDeleteConfirmText(""); }}
+                    className="font-ui text-12 font-bold border-2 border-black px-4 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting || deleteConfirmText.trim() !== club.name}
+                    className="font-ui text-12 font-bold border-2 border-red-600 bg-red-600 text-paper px-4 py-2 uppercase hover:bg-paper hover:text-red-600 transition-colors disabled:opacity-40"
+                  >
+                    {deleting ? "Deleting..." : "Delete Forever"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

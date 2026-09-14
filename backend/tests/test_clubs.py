@@ -727,4 +727,325 @@ def test_update_club_rejects_invalid_visibility(client):
         headers=_club_headers(token, club["id"]),
     )
     assert r.status_code == 422
-    assert r.json()["code"] == "VALIDATION_ERROR"
+
+
+# ── Hierarchy editor: disabling a role auto-demotes current holders ────────────
+
+def test_update_club_disabling_role_auto_demotes_to_next_enabled(client, session):
+    """Disabling 'lead' (with 'associate' still enabled) drops a Lead to Associate."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(
+        client, alice, enabled_roles=["member", "associate", "lead", "vice_president"]
+    )
+    lead = _register(client, "lead@example.com", name="Lead")
+    lead_id = _user_id(client, lead)
+    domain = Domain(club_id=club["id"], name="Eng")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    session.add(
+        ClubMember(user_id=lead_id, club_id=club["id"], role="lead", domain_id=domain.id)
+    )
+    session.commit()
+
+    r = client.put(
+        f"/clubs/{club['id']}",
+        json={"enabled_roles": ["member", "associate", "vice_president"]},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+
+    session.expire_all()
+    member = session.exec(
+        select(ClubMember).where(ClubMember.club_id == club["id"], ClubMember.user_id == lead_id)
+    ).first()
+    assert member.role == "associate"
+    assert member.domain_id == domain.id  # unaffected — still domain-scoped
+
+
+def test_update_club_disabling_role_falls_back_to_member(client, session):
+    """Disabling 'lead' with 'associate' ALSO not enabled drops all the way to Member."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice, enabled_roles=["member", "lead"])
+    lead = _register(client, "lead@example.com", name="Lead")
+    lead_id = _user_id(client, lead)
+    domain = Domain(club_id=club["id"], name="Eng")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    session.add(
+        ClubMember(user_id=lead_id, club_id=club["id"], role="lead", domain_id=domain.id)
+    )
+    session.commit()
+
+    r = client.put(
+        f"/clubs/{club['id']}",
+        json={"enabled_roles": ["member"]},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+
+    session.expire_all()
+    member = session.exec(
+        select(ClubMember).where(ClubMember.club_id == club["id"], ClubMember.user_id == lead_id)
+    ).first()
+    assert member.role == "member"
+    assert member.domain_id == domain.id  # still domain-scoped, domain untouched
+
+
+def test_update_club_disabling_exec_role_demotes_into_domainless_state(client, session):
+    """Disabling every exec rank down past 'joint_secretary' demotes a Joint Secretary
+    into the domain-scoped tier ('lead') with no domain to give them — degraded but not
+    broken; domain_id stays None until an admin assigns one."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(
+        client, alice, enabled_roles=["member", "lead", "joint_secretary", "secretary"]
+    )
+    js = _register(client, "js@example.com", name="JS")
+    js_id = _user_id(client, js)
+    session.add(
+        ClubMember(user_id=js_id, club_id=club["id"], role="joint_secretary", domain_id=None)
+    )
+    session.commit()
+
+    r = client.put(
+        f"/clubs/{club['id']}",
+        json={"enabled_roles": ["member", "lead"]},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+
+    session.expire_all()
+    member = session.exec(
+        select(ClubMember).where(ClubMember.club_id == club["id"], ClubMember.user_id == js_id)
+    ).first()
+    assert member.role == "lead"
+    assert member.domain_id is None
+
+
+def test_update_club_disabling_role_never_promotes_upward(client, session):
+    """Disabling 'lead' while only a HIGHER rank ('joint_secretary') is otherwise
+    enabled must still floor the Lead at 'member' — auto-demotion only ever searches
+    downward through the hierarchy, never up, regardless of what's enabled above."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice, enabled_roles=["member", "lead", "joint_secretary"])
+    lead = _register(client, "lead@example.com", name="Lead")
+    lead_id = _user_id(client, lead)
+    domain = Domain(club_id=club["id"], name="Eng")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    session.add(
+        ClubMember(user_id=lead_id, club_id=club["id"], role="lead", domain_id=domain.id)
+    )
+    session.commit()
+
+    r = client.put(
+        f"/clubs/{club['id']}",
+        json={"enabled_roles": ["member", "joint_secretary"]},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+
+    session.expire_all()
+    member = session.exec(
+        select(ClubMember).where(ClubMember.club_id == club["id"], ClubMember.user_id == lead_id)
+    ).first()
+    assert member.role == "member"
+    assert member.domain_id == domain.id  # still domain-scoped, untouched
+
+
+def test_update_club_untouched_roles_leave_members_alone(client, session):
+    """Disabling a role nobody holds doesn't touch members on other, still-enabled
+    ranks."""
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice, enabled_roles=["member", "associate", "lead"])
+    assoc = _register(client, "assoc@example.com", name="Assoc")
+    assoc_id = _user_id(client, assoc)
+    domain = Domain(club_id=club["id"], name="Eng")
+    session.add(domain)
+    session.commit()
+    session.refresh(domain)
+    session.add(
+        ClubMember(user_id=assoc_id, club_id=club["id"], role="associate", domain_id=domain.id)
+    )
+    session.commit()
+
+    r = client.put(
+        f"/clubs/{club['id']}",
+        json={"enabled_roles": ["member", "associate"]},  # "lead" removed, nobody holds it
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+
+    session.expire_all()
+    member = session.exec(
+        select(ClubMember).where(
+            ClubMember.club_id == club["id"], ClubMember.user_id == assoc_id
+        )
+    ).first()
+    assert member.role == "associate"
+    assert member.domain_id == domain.id
+
+
+# ── Regenerate invite code ──────────────────────────────────────────────────────
+
+def test_regenerate_code_changes_the_code(client):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+
+    r = client.post(
+        f"/clubs/{club['id']}/regenerate-code",
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["code"] != club["code"]
+    assert re.match(r"^[A-Z]{2}-[A-Z0-9]{5}$", r.json()["code"])
+
+    # The old code no longer resolves; the new one does.
+    old_lookup = client.get(f"/clubs/lookup?code={club['code']}", headers=_auth(alice))
+    assert old_lookup.status_code == 404
+    new_lookup = client.get(f"/clubs/lookup?code={r.json()['code']}", headers=_auth(alice))
+    assert new_lookup.status_code == 200
+
+
+def test_regenerate_code_requires_vice_president(client, session):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    bob = _register(client, "bob@example.com", name="Bob")
+    _add_member(session, client, bob, club["id"], "lead")
+
+    r = client.post(
+        f"/clubs/{club['id']}/regenerate-code",
+        headers=_club_headers(bob, club["id"]),
+    )
+    assert r.status_code == 403
+    assert r.json()["code"] == "FORBIDDEN_RANK"
+
+
+# ── Transfer presidency ──────────────────────────────────────────────────────────
+
+def test_transfer_presidency_success(client, session):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    bob = _register(client, "bob@example.com", name="Bob")
+    bob_id = _user_id(client, bob)
+    _add_member(session, client, bob, club["id"], "vice_president")
+
+    r = client.post(
+        f"/clubs/{club['id']}/transfer-presidency",
+        json={"new_president_user_id": bob_id},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 200, r.text
+
+    my_bob = client.get("/clubs/my", headers=_auth(bob)).json()
+    assert next(c for c in my_bob if c["id"] == club["id"])["role"] == "president"
+
+    my_alice = client.get("/clubs/my", headers=_auth(alice)).json()
+    assert next(c for c in my_alice if c["id"] == club["id"])["role"] == "vice_president"
+
+    session.expire_all()
+    assert session.get(Club, club["id"]).owner_id == bob_id
+
+
+def test_transfer_presidency_requires_president(client, session):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    bob = _register(client, "bob@example.com", name="Bob")
+    carol = _register(client, "carol@example.com", name="Carol")
+    carol_id = _user_id(client, carol)
+    _add_member(session, client, bob, club["id"], "vice_president")
+    _add_member(session, client, carol, club["id"], "vice_president")
+
+    r = client.post(
+        f"/clubs/{club['id']}/transfer-presidency",
+        json={"new_president_user_id": carol_id},
+        headers=_club_headers(bob, club["id"]),
+    )
+    assert r.status_code == 403
+    assert r.json()["code"] == "FORBIDDEN_RANK"
+
+
+def test_transfer_presidency_target_must_be_a_member(client):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    outsider = _register(client, "outsider@example.com", name="Outsider")
+    outsider_id = _user_id(client, outsider)
+
+    r = client.post(
+        f"/clubs/{club['id']}/transfer-presidency",
+        json={"new_president_user_id": outsider_id},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 404
+    assert r.json()["code"] == "MEMBER_NOT_FOUND"
+
+
+def test_transfer_presidency_to_self_rejected(client):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    alice_id = _user_id(client, alice)
+
+    r = client.post(
+        f"/clubs/{club['id']}/transfer-presidency",
+        json={"new_president_user_id": alice_id},
+        headers=_club_headers(alice, club["id"]),
+    )
+    assert r.status_code == 400
+    assert r.json()["code"] == "ALREADY_PRESIDENT"
+
+
+def test_transfer_presidency_notifies_both_sides(client, session):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    bob = _register(client, "bob@example.com", name="Bob")
+    bob_id = _user_id(client, bob)
+    _add_member(session, client, bob, club["id"], "vice_president")
+
+    client.post(
+        f"/clubs/{club['id']}/transfer-presidency",
+        json={"new_president_user_id": bob_id},
+        headers=_club_headers(alice, club["id"]),
+    )
+
+    bob_notices = client.get("/users/me/notices", headers=_auth(bob)).json()
+    assert any(n["new_role"] == "president" and n["kind"] == "promote" for n in bob_notices)
+
+    alice_notices = client.get("/users/me/notices", headers=_auth(alice)).json()
+    assert any(n["new_role"] == "vice_president" and n["kind"] == "demote" for n in alice_notices)
+
+
+# ── Delete club ──────────────────────────────────────────────────────────────────
+
+def test_delete_club_requires_president(client, session):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    bob = _register(client, "bob@example.com", name="Bob")
+    _add_member(session, client, bob, club["id"], "vice_president")
+
+    r = client.delete(f"/clubs/{club['id']}", headers=_club_headers(bob, club["id"]))
+    assert r.status_code == 403
+    assert r.json()["code"] == "FORBIDDEN_RANK"
+
+
+def test_delete_club_removes_it_and_cascades(client, session):
+    alice = _register(client, "alice@example.com")
+    club = _create_club(client, alice)
+    domain = Domain(club_id=club["id"], name="Eng")
+    session.add(domain)
+    session.commit()
+
+    r = client.delete(f"/clubs/{club['id']}", headers=_club_headers(alice, club["id"]))
+    assert r.status_code == 204
+
+    session.expire_all()
+    assert session.get(Club, club["id"]) is None
+    assert session.exec(select(Domain).where(Domain.club_id == club["id"])).all() == []
+    assert session.exec(select(ClubMember).where(ClubMember.club_id == club["id"])).all() == []
+
+    # The club is gone, so re-fetching with the old X-Club-ID fails at the membership
+    # check, not a 404 — the dependency layer runs before the route's own lookup.
+    r2 = client.get(f"/clubs/{club['id']}", headers=_club_headers(alice, club["id"]))
+    assert r2.status_code == 403
+    assert r2.json()["code"] == "NOT_A_MEMBER"

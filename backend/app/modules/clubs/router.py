@@ -23,6 +23,7 @@ from app.modules.clubs.schemas import (
     LookupOut,
     MyClubItem,
     PendingItem,
+    TransferPresidencyIn,
     UpdateClubIn,
 )
 
@@ -143,3 +144,31 @@ def update_club(
         body.accepting_requests,
         body.enabled_roles,
     )
+
+
+@router.post("/{club_id}/regenerate-code", response_model=ClubDetailOut)
+def regenerate_code(
+    club_id: int,
+    ctx: ClubContext = Depends(verify_club_path("vice_president")),
+    session: Session = Depends(get_session),
+):
+    return service.regenerate_code(session, club_id)
+
+
+@router.post("/{club_id}/transfer-presidency", response_model=ClubDetailOut)
+def transfer_presidency(
+    club_id: int,
+    body: TransferPresidencyIn,
+    ctx: ClubContext = Depends(verify_club_path("president")),
+    session: Session = Depends(get_session),
+):
+    return service.transfer_presidency(session, club_id, ctx.user_id, body.new_president_user_id)
+
+
+@router.delete("/{club_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_club(
+    club_id: int,
+    ctx: ClubContext = Depends(verify_club_path("president")),
+    session: Session = Depends(get_session),
+) -> None:
+    service.delete_club(session, club_id)

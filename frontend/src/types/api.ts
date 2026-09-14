@@ -67,6 +67,7 @@ export type MyClub = {
   code: string | null;
   role: string;
   domain_id: number | null;
+  enabled_roles: string[] | null;
 };
 
 export type ClubDetail = {
@@ -170,10 +171,13 @@ export type Task = {
   domain_id: number;
   domain_name: string;
   title: string;
-  description: string;
+  description: string | null;
   status: TaskStatus;
+  points: number;
   due_date: string | null;
+  creator_id: number;
   created_at: string;
+  completed_at: string | null;
   assignees: { id: number; name: string }[];
 };
 

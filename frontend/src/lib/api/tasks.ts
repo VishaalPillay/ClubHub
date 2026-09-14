@@ -12,6 +12,7 @@ export async function createTask(
     domain_id: number;
     title: string;
     description: string | null;
+    points?: number;
     due_date: string | null;
     assignee_ids: number[];
   }
@@ -29,6 +30,7 @@ export async function updateTask(
     title: string;
     description: string | null;
     due_date: string | null;
+    points: number;
     status: TaskStatus;
   }>
 ): Promise<Task> {
@@ -50,6 +52,15 @@ export async function assignTask(
   const res = await api.post<Task>(
     `/clubs/${clubId}/tasks/${taskId}/assign`,
     { assignee_ids: assigneeIds },
+    { headers: clubHeaders(clubId) }
+  );
+  return res.data;
+}
+
+export async function acceptTask(clubId: number, taskId: number): Promise<Task> {
+  const res = await api.post<Task>(
+    `/clubs/${clubId}/tasks/${taskId}/accept`,
+    {},
     { headers: clubHeaders(clubId) }
   );
   return res.data;

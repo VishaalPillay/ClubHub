@@ -51,7 +51,12 @@ export default function FeaturedProfilesCarousel() {
             key={profile.user_id}
             name={profile.name}
             avatarUrl={profile.avatar_url}
-            className="text-6xl grayscale group-hover:grayscale-0 transition-all duration-300"
+            variant="outline"
+            // The grayscale->color reveal only means something with an actual photo; a plain
+            // initial has no color to reveal, which is why hovering used to look like nothing
+            // happened. Its own reveal instead inverts the fill — black-on-paper to paper-on-black
+            // — the same "something happens on hover" cue, just recast for flat color.
+            className="text-6xl grayscale group-hover:grayscale-0 group-hover:bg-black group-hover:text-paper transition-all duration-300"
           />
           {/* Domain Tag */}
           <div className="absolute top-2 left-2 bg-black text-paper font-mono text-[11px] px-2 py-0.5 uppercase tracking-widest">

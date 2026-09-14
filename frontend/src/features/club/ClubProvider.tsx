@@ -21,6 +21,12 @@ type ClubContextType = {
   currentRole: string;
   domainId: number | null;
   userId: number;
+  /** The roles this club actually uses (chosen at creation, editable in Settings) —
+   *  gates which ranks promote/demote may hand out, mirroring the backend's own
+   *  ROLE_NOT_ENABLED check. The column is nullable in the DB, but every club created
+   *  through the app always sends a real (possibly empty) array; treat null the same
+   *  as [] rather than "unrestricted", matching that backend check exactly. */
+  enabledRoles: string[] | null;
 };
 
 const ClubContext = createContext<ClubContextType | null>(null);
@@ -59,6 +65,7 @@ export function ClubProvider({
         currentRole: club.role,
         domainId: club.domain_id,
         userId: user.id,
+        enabledRoles: club.enabled_roles,
       }}
     >
       {children}

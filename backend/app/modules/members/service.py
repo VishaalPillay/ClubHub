@@ -124,6 +124,18 @@ def change_role(
             "FORBIDDEN_GRANT",
         )
 
+    club = session.get(Club, ctx.club_id)
+    # Mirrors the join-request check in clubs/service.py: a club's enabled_roles is its
+    # actual hierarchy, so promote/demote can't hand out a rank the club never turned on
+    # (e.g. "associate" left unchecked at creation) even though rank alone would allow it.
+    enabled = (club.enabled_roles if club else None) or []
+    if new_role not in enabled:
+        raise AppError(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Role '{new_role}' is not enabled for this club.",
+            "ROLE_NOT_ENABLED",
+        )
+
     previous_rank = role_rank(member.role)
     member.domain_id = _resolve_domain(session, ctx, new_role, new_domain_id, member.domain_id)
     member.role = new_role
@@ -135,7 +147,6 @@ def change_role(
     # rank, e.g. switching domains) stays quiet on the receiving end.
     new_rank = role_rank(new_role)
     if new_rank != previous_rank:
-        club = session.get(Club, ctx.club_id)
         create_promotion_notice(
             session,
             member.user_id,

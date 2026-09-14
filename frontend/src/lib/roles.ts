@@ -32,6 +32,12 @@ export function canManage(actorRole: string, targetRole: string): boolean {
   return rank(actorRole) > rank(targetRole);
 }
 
+/** Roles that carry a domain assignment (exec roles above 'lead' are club-wide).
+ *  Mirrors backend `DOMAIN_SCOPED_ROLES` in app/core/permissions.py. */
+export const DOMAIN_SCOPED_ROLES: readonly Role[] = ["member", "associate", "lead"];
+export const isDomainScoped = (role: string): boolean =>
+  DOMAIN_SCOPED_ROLES.includes(role as Role);
+
 export const ROLE_LABELS: Record<string, string> = {
   president: "PRESIDENT",
   vice_president: "VICE PRESIDENT",

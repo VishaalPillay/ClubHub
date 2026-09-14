@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { collegesFor } from "@/data/collegesIndia";
 import { getColleges, requestCollege, type CollegeOut } from "@/lib/api/colleges";
+
+// The register/create-club wizards pin their step to one non-scrolling viewport
+// (FlowShell `fill`, 100dvh + overflow-hidden — see CLAUDE.md), so a menu positioned
+// `absolute` off an ancestor gets clipped at that boundary with no scroll to reach it.
+// Portaling to <body> and positioning `fixed` from the input's own measured rect escapes
+// that clipping (and any transformed ancestor from the step's slide animation) entirely.
+const MENU_MARGIN = 12;
+const MENU_MIN_HEIGHT = 160;
+const MENU_MAX_HEIGHT = 288; // matches the old max-h-72
+
+type MenuStyle = { left: number; width: number; maxHeight: number; top?: number; bottom?: number };
 
 const DEFAULT_LABEL_CLASS = "font-mono text-[11px] uppercase tracking-widest text-[#757575]";
 const DEFAULT_INPUT_CLASS =
@@ -60,6 +72,8 @@ export default function CollegeSelect({
   });
   const options = mergeOptions(curated, promoted);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const requestNameId = useId();
   const listboxId = useId();
 
@@ -67,6 +81,7 @@ export default function CollegeSelect({
   const [open, setOpen] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
   const [requestName, setRequestName] = useState("");
+  const [menuStyle, setMenuStyle] = useState<MenuStyle | null>(null);
 
   // Adjust state during render (React's recommended alternative to an effect
   // for this exact case) rather than useEffect, which would cost an extra
@@ -94,7 +109,10 @@ export default function CollegeSelect({
   useEffect(() => {
     if (!open) return;
     const onMouseDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inContainer = containerRef.current?.contains(target);
+      const inDropdown = dropdownRef.current?.contains(target);
+      if (!inContainer && !inDropdown) {
         setOpen(false);
         setShowRequest(false);
         const trimmed = query.trim();
@@ -104,6 +122,40 @@ export default function CollegeSelect({
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [open, query, value, onChange]);
+
+  // Recompute where the (portaled) menu should sit — below the input, or flipped
+  // above it when there isn't room below (e.g. a taskbar or short viewport eating
+  // the bottom of the screen) — whenever it opens, and keep it pinned on resize/scroll.
+  const updateMenuPosition = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom - MENU_MARGIN;
+    const spaceAbove = rect.top - MENU_MARGIN;
+    const openBelow = spaceBelow >= MENU_MIN_HEIGHT || spaceBelow >= spaceAbove;
+    const maxHeight = Math.max(120, Math.min(MENU_MAX_HEIGHT, openBelow ? spaceBelow : spaceAbove));
+    setMenuStyle({
+      left: rect.left,
+      width: rect.width,
+      maxHeight,
+      ...(openBelow
+        ? { top: rect.bottom + 4 }
+        : { bottom: window.innerHeight - rect.top + 4 }),
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    // No cleanup needed for the closed case: the portal render below is gated on
+    // `open` too, so a stale menuStyle just sits unused until the next open.
+    if (!open) return;
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [open, updateMenuPosition]);
 
   if (!options) {
     return (
@@ -151,6 +203,7 @@ export default function CollegeSelect({
         {label}
       </label>
       <input
+        ref={inputRef}
         id={id}
         type="text"
         role="combobox"
@@ -175,77 +228,89 @@ export default function CollegeSelect({
         className={inputClassName}
       />
 
-      {open && (
-        <div
-          id={listboxId}
-          className="absolute top-full left-0 right-0 mt-1 z-20 border-2 border-black bg-paper max-h-72 overflow-y-auto shadow-[4px_4px_0_0_rgba(0,0,0,0.15)]"
-        >
-          {showRequest ? (
-            <div className="p-4 flex flex-col gap-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
-                Tell us your college
-              </p>
-              <input
-                id={requestNameId}
-                type="text"
-                value={requestName}
-                onChange={(e) => setRequestName(e.target.value)}
-                placeholder="College name"
-                className="border-2 border-black bg-paper text-black p-2 font-ui text-[14px] rounded-none focus:outline-none focus:border-[#057DBC]"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={submitRequest}
-                  disabled={!requestName.trim()}
-                  className="flex-1 font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-3 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-40"
-                >
-                  Request &amp; use this name
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowRequest(false)}
-                  className="font-ui text-[12px] font-bold border-2 border-black px-3 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
-                >
-                  Back
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {matches.length > 0 ? (
-                <ul>
-                  {matches.map((opt) => (
-                    <li key={opt}>
-                      <button
-                        type="button"
-                        onClick={() => selectOption(opt)}
-                        className="w-full text-left px-4 py-2.5 font-ui text-[14px] hover:bg-[#ebe6db] transition-colors border-b border-[#e0d9ca]"
-                      >
-                        {opt}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="px-4 py-3 font-ui text-[13px] text-[#757575]">
-                  No matches — try a different search.
+      {open &&
+        menuStyle &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            id={listboxId}
+            style={{
+              position: "fixed",
+              left: menuStyle.left,
+              width: menuStyle.width,
+              maxHeight: menuStyle.maxHeight,
+              top: menuStyle.top,
+              bottom: menuStyle.bottom,
+            }}
+            className="z-50 border-2 border-black bg-paper overflow-y-auto shadow-[4px_4px_0_0_rgba(0,0,0,0.15)]"
+          >
+            {showRequest ? (
+              <div className="p-4 flex flex-col gap-3">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
+                  Tell us your college
                 </p>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setRequestName(query.trim());
-                  setShowRequest(true);
-                }}
-                className="w-full text-left px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-[#057DBC] hover:bg-[#f0f8ff] transition-colors"
-              >
-                Can&apos;t find your college?
-              </button>
-            </>
-          )}
-        </div>
-      )}
+                <input
+                  id={requestNameId}
+                  type="text"
+                  value={requestName}
+                  onChange={(e) => setRequestName(e.target.value)}
+                  placeholder="College name"
+                  className="border-2 border-black bg-paper text-black p-2 font-ui text-[14px] rounded-none focus:outline-none focus:border-[#057DBC]"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={submitRequest}
+                    disabled={!requestName.trim()}
+                    className="flex-1 font-ui text-[12px] font-bold border-2 border-[#057DBC] bg-[#057DBC] text-paper px-3 py-2 uppercase hover:bg-paper hover:text-[#057DBC] transition-colors disabled:opacity-40"
+                  >
+                    Request &amp; use this name
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRequest(false)}
+                    className="font-ui text-[12px] font-bold border-2 border-black px-3 py-2 uppercase hover:bg-black hover:text-paper transition-colors"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {matches.length > 0 ? (
+                  <ul>
+                    {matches.map((opt) => (
+                      <li key={opt}>
+                        <button
+                          type="button"
+                          onClick={() => selectOption(opt)}
+                          className="w-full text-left px-4 py-2.5 font-ui text-[14px] hover:bg-[#ebe6db] transition-colors border-b border-[#e0d9ca]"
+                        >
+                          {opt}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-4 py-3 font-ui text-[13px] text-[#757575]">
+                    No matches — try a different search.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRequestName(query.trim());
+                    setShowRequest(true);
+                  }}
+                  className="w-full text-left px-4 py-2.5 font-mono text-[11px] uppercase tracking-widest text-[#057DBC] hover:bg-[#f0f8ff] transition-colors"
+                >
+                  Can&apos;t find your college?
+                </button>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

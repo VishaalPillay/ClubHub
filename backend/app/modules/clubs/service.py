@@ -7,8 +7,9 @@ from sqlalchemy import and_, or_
 from sqlmodel import Session, select
 
 from app.core.exceptions import AppError
-from app.core.permissions import role_at_least
+from app.core.permissions import ROLE_HIERARCHY, role_at_least
 from app.models import Club, ClubMember, Domain, JoinRequest
+from app.modules.notices.service import create_promotion_notice
 
 # Roles that require a domain assignment on join.
 _DOMAIN_SCOPED_ROLES: frozenset[str] = frozenset({"member", "associate", "lead"})
@@ -91,6 +92,7 @@ def get_my_clubs(session: Session, user_id: int) -> list[dict]:
             "code": club.code if role_at_least(cm.role, _CODE_VISIBLE_FROM) else None,
             "role": cm.role,
             "domain_id": cm.domain_id,
+            "enabled_roles": club.enabled_roles,
         }
         for cm, club in rows
     ]
@@ -154,6 +156,23 @@ def get_club(session: Session, club_id: int) -> Club:
     return club
 
 
+def _demotion_target(removed_role: str, new_enabled: set[str]) -> str:
+    """The highest-ranked role below `removed_role` that's still enabled.
+
+    Floors at 'member' unconditionally, even if 'member' itself isn't in
+    `new_enabled` — enabled_roles governs what NEW join requests/promotions may
+    target, not what an EXISTING member's current standing must be. A club can
+    already run "president-only" with an empty enabled_roles (president is never in
+    it either); an existing Member outliving 'member' being unchecked is the same
+    pattern, not a special case.
+    """
+    idx = ROLE_HIERARCHY.index(removed_role)
+    for candidate in reversed(ROLE_HIERARCHY[:idx]):
+        if candidate in new_enabled:
+            return candidate
+    return "member"
+
+
 def update_club(
     session: Session,
     club_id: int,
@@ -176,11 +195,111 @@ def update_club(
     if accepting_requests is not None:
         club.accepting_requests = accepting_requests
     if enabled_roles is not None:
+        # Disabling a rank that current members still hold auto-demotes them to the
+        # next enabled rank below, rather than leaving them stranded on a rank the
+        # club no longer offers.
+        removed = set(club.enabled_roles or []) - set(enabled_roles)
+        if removed:
+            new_enabled = set(enabled_roles)
+            affected = session.exec(
+                select(ClubMember).where(
+                    ClubMember.club_id == club.id,
+                    ClubMember.role.in_(removed),
+                )
+            ).all()
+            for member in affected:
+                new_role = _demotion_target(member.role, new_enabled)
+                if new_role == member.role:
+                    continue
+                # No domain_id adjustment needed either way: demotion only ever moves
+                # to an equal-or-lower rank, and DOMAIN_SCOPED_ROLES is the hierarchy's
+                # bottom-most, contiguous block. So a member landing back in the
+                # domain-scoped tier just keeps whatever domain_id they already had
+                # (possibly None, if they were demoted all the way down from an exec
+                # rank — an admin can assign one from the Members page afterward), and
+                # a member landing on another exec rank was already domain-less.
+                member.role = new_role
+                session.add(member)
         club.enabled_roles = enabled_roles
     session.add(club)
     session.commit()
     session.refresh(club)
     return club
+
+
+def regenerate_code(session: Session, club_id: int) -> Club:
+    """Issue a fresh invite code, invalidating the old one — e.g. after a leak, or to
+    cut off a stale cohort from joining."""
+    club = get_club(session, club_id)
+    club.code = generate_code(session, club.name)
+    session.add(club)
+    session.commit()
+    session.refresh(club)
+    return club
+
+
+def transfer_presidency(
+    session: Session, club_id: int, current_user_id: int, new_president_user_id: int
+) -> Club:
+    """Hand the President rank (and club ownership) to another current member. The
+    outgoing president steps down to Vice President rather than being left rank-less.
+
+    Bypasses the normal enabled_roles/can_grant_role gates that govern manual
+    promotions — 'president' is never in enabled_roles to begin with, so this is a
+    structural succession, not something change_role could express.
+    """
+    if new_president_user_id == current_user_id:
+        raise AppError(
+            status.HTTP_400_BAD_REQUEST, "You are already President.", "ALREADY_PRESIDENT"
+        )
+
+    club = get_club(session, club_id)
+
+    target = session.exec(
+        select(ClubMember).where(
+            ClubMember.club_id == club_id, ClubMember.user_id == new_president_user_id
+        )
+    ).first()
+    if target is None:
+        raise AppError(
+            status.HTTP_404_NOT_FOUND,
+            "That user is not a member of this club.",
+            "MEMBER_NOT_FOUND",
+        )
+
+    # The caller reached this point via verify_club_path("president"), so their own
+    # membership row is guaranteed to exist.
+    outgoing = session.exec(
+        select(ClubMember).where(
+            ClubMember.club_id == club_id, ClubMember.user_id == current_user_id
+        )
+    ).first()
+
+    club.owner_id = new_president_user_id
+    target.role = "president"
+    target.domain_id = None
+    outgoing.role = "vice_president"
+    outgoing.domain_id = None
+
+    session.add_all([club, target, outgoing])
+    session.commit()
+    session.refresh(club)
+
+    create_promotion_notice(session, target.user_id, club.name, "president", None, kind="promote")
+    create_promotion_notice(
+        session, outgoing.user_id, club.name, "vice_president", None, kind="demote"
+    )
+
+    return club
+
+
+def delete_club(session: Session, club_id: int) -> None:
+    """Permanently delete the club. Every club-owned table FKs to clubs.id with
+    ON DELETE CASCADE (members, domains, tasks, announcements, events, join/action
+    requests, points ledger, etc.), so this single delete removes all of it."""
+    club = get_club(session, club_id)
+    session.delete(club)
+    session.commit()
 
 
 # ── Join flow ─────────────────────────────────────────────────────────────────

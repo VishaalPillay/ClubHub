@@ -78,7 +78,7 @@ type DomainCard = {
 const ITEMS_PER_PAGE = 10;
 
 export default function MembersPage() {
-  const { clubId, currentRole, domainId } = useClub();
+  const { clubId, currentRole, domainId, enabledRoles } = useClub();
   const queryClient = useQueryClient();
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -113,7 +113,11 @@ export default function MembersPage() {
   // The same options regardless of which of the three sections opened the modal —
   // scoped only to what the acting user is allowed to grant. The target's current
   // role is filtered out wherever this is used, so "promoting" someone to the rank
-  // they already hold is never offered (confusing, and a no-op).
+  // they already hold is never offered (confusing, and a no-op). Also scoped to the
+  // club's own enabled_roles — a rank left unchecked at creation (e.g. "Associate")
+  // isn't part of this club's hierarchy, even though rank alone would allow granting
+  // it; the backend enforces this too (422 ROLE_NOT_ENABLED), this just keeps the
+  // dropdown from offering something the API would then reject.
   const buildRoleOptions = (type: 'Promote' | 'Demote'): { value: string; label: string }[] => {
     const opts: { value: string; label: string }[] = [];
     if (['president', 'vice_president'].includes(currentRole)) {
@@ -124,7 +128,8 @@ export default function MembersPage() {
     if (isExecutive) opts.push({ value: 'lead', label: 'Lead' });
     opts.push({ value: 'associate', label: 'Associate' });
     if (type === 'Demote') opts.push({ value: 'member', label: 'Member' });
-    return opts;
+    const enabled = enabledRoles ?? [];
+    return opts.filter((o) => enabled.includes(o.value));
   };
 
   const { data: domainsData = [] } = useQuery({
@@ -183,7 +188,7 @@ export default function MembersPage() {
     }
   };
 
-  const [actionNewRole, setActionNewRole] = useState("associate");
+  const [actionNewRole, setActionNewRole] = useState("");
 
   /** Opens the action modal and, for Promote/Demote, seeds the role dropdown with
    * the closest option in the right direction from the member's current role — one
@@ -206,7 +211,11 @@ export default function MembersPage() {
       const directional = type === 'Promote'
         ? opts.filter((o) => roleRank(o.value) > currentRank).sort((a, b) => roleRank(a.value) - roleRank(b.value))
         : opts.filter((o) => roleRank(o.value) < currentRank).sort((a, b) => roleRank(b.value) - roleRank(a.value));
-      setActionNewRole((directional[0] ?? opts[0])?.value ?? 'associate');
+      // "" when the club's enabled_roles leaves nothing valid in this direction (e.g. a
+      // Lead promoting a Member when "Associate" was never enabled for this club) —
+      // Confirm stays disabled below rather than falling back to a hardcoded role the
+      // club might not actually use.
+      setActionNewRole((directional[0] ?? opts[0])?.value ?? "");
     }
   };
 
@@ -221,7 +230,7 @@ export default function MembersPage() {
   const resetActionForm = () => {
     setActionModal(null);
     setActionReason("");
-    setActionNewRole("associate");
+    setActionNewRole("");
     setActionPickedDomainId("");
     setFolding(false);
     setSubmitting(false);
@@ -281,7 +290,7 @@ export default function MembersPage() {
     if (!folding) return; // guard: also fires for the modal's entrance animation
     setActionModal(null);
     setActionReason("");
-    setActionNewRole("associate");
+    setActionNewRole("");
     setActionPickedDomainId("");
     setSubmitting(false);
   };
@@ -632,26 +641,35 @@ export default function MembersPage() {
                 <p className="font-ui text-16 mb-6">
                   Are you sure you want to {actionModal.type.toLowerCase()} <strong>{actionModal.memberName}</strong>?
                 </p>
-                {(actionModal.type === 'Promote' || actionModal.type === 'Demote') && (
-                  <div className="flex flex-col gap-2 mb-4">
-                    <label className="font-mono text-12 uppercase tracking-widest text-[#757575]">
-                      Select New Role
-                    </label>
-                    <select
-                      value={actionNewRole}
-                      onChange={e => setActionNewRole(e.target.value)}
-                      className="w-full border-2 border-black p-2 font-ui text-14 outline-none focus:border-[#057DBC] bg-paper"
-                    >
-                      {/* The member's current role is never offered — picking it would be a
-                          confusing no-op dressed up as a promote/demote. */}
-                      {buildRoleOptions(actionModal.type as 'Promote' | 'Demote')
-                        .filter(o => o.value !== actionModal.memberRole)
-                        .map(o => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                    </select>
-                  </div>
-                )}
+                {(actionModal.type === 'Promote' || actionModal.type === 'Demote') && (() => {
+                  // The member's current role is never offered — picking it would be a
+                  // confusing no-op dressed up as a promote/demote.
+                  const roleOptions = buildRoleOptions(actionModal.type as 'Promote' | 'Demote')
+                    .filter(o => o.value !== actionModal.memberRole);
+                  return (
+                    <div className="flex flex-col gap-2 mb-4">
+                      <label className="font-mono text-12 uppercase tracking-widest text-[#757575]">
+                        Select New Role
+                      </label>
+                      {roleOptions.length > 0 ? (
+                        <select
+                          value={actionNewRole}
+                          onChange={e => setActionNewRole(e.target.value)}
+                          className="w-full border-2 border-black p-2 font-ui text-14 outline-none focus:border-[#057DBC] bg-paper"
+                        >
+                          {roleOptions.map(o => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="font-ui text-14 text-[#757575] italic">
+                          No other role is enabled for this club in that direction — enable more
+                          roles in Settings first.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
                 {needsDomainPicker && (
                   <div className="flex flex-col gap-2 mb-4">
                     <label className="font-mono text-12 uppercase tracking-widest text-[#757575]">
@@ -684,7 +702,7 @@ export default function MembersPage() {
                 </div>
                 <div className="flex justify-end gap-4">
                   <button onClick={resetActionForm} disabled={submitting} className="font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase hover:bg-black hover:text-paper transition-colors disabled:opacity-40">Cancel</button>
-                  <button onClick={handleActionSubmit} disabled={submitting || (needsDomainPicker && !actionPickedDomainId)} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-paper transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-paper hover:text-[#057DBC]' : actionModal.type === 'Demote' ? 'bg-amber-600 border-amber-600 hover:bg-paper hover:text-amber-600' : 'bg-red-600 border-red-600 hover:bg-paper hover:text-red-600'}`}>
+                  <button onClick={handleActionSubmit} disabled={submitting || (needsDomainPicker && !actionPickedDomainId) || ((actionModal.type === 'Promote' || actionModal.type === 'Demote') && !actionNewRole)} className={`font-ui text-14 font-bold border-2 border-black px-6 py-2 uppercase text-paper transition-colors disabled:opacity-60 ${actionModal.type === 'Promote' ? 'bg-[#057DBC] border-[#057DBC] hover:bg-paper hover:text-[#057DBC]' : actionModal.type === 'Demote' ? 'bg-amber-600 border-amber-600 hover:bg-paper hover:text-amber-600' : 'bg-red-600 border-red-600 hover:bg-paper hover:text-red-600'}`}>
                     {submitting ? "Sending..." : "Confirm"}
                   </button>
                 </div>
