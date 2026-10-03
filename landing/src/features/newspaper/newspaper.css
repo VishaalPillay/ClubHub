@@ -46,13 +46,20 @@
     --np-page-w: min(46vw, 760px, calc(var(--np-page-h) / 1.38));
 
     /* — paper — */
-    --np-paper: #f5f2ec;
-    --np-paper-edge: #e6e0d3;
+    --np-paper: #f8eedf;
+    --np-paper-edge: #e8dcc6;
     --np-ink: #16150f;
     --np-ink-soft: #3c382e;
-    --np-ink-mute: #6f6a5c;
-    --np-hair: #cec7b6;
-    --np-hair-quiet: #e0d9ca;
+    --np-ink-mute: #5c5748;
+    --np-hair: #d6c5a8;
+    --np-hair-quiet: #e0d0b6;
+
+    /* — brand red — lifted from the wordmark's cut letters (#b41c14) so the page's
+       one chromatic accent is the logo's, not a borrowed UI blue. `-hot` is the
+       same hue lifted to read as type on the black boxes. */
+    --np-red: #b41c14;
+    --np-red-deep: #8f130d;
+    --np-red-hot: #ef5a4c;
 
     position: relative;
     color: var(--np-ink);
@@ -263,15 +270,16 @@
        set, so the mark occupies the same span of the sheet as the text
        nameplate it replaced — and the dateline/slugline flanking it keep the
        room they were laid out against. */
-    --np-w-nameplate: clamp(195px, 66cqw, 570px);
+    --np-w-nameplate: clamp(170px, 54cqw, 490px);
+    --np-t-hero: clamp(30px, 9.6cqw, 78px);
     --np-t-lead: clamp(26px, 7.4cqw, 60px);
     --np-t-h2: clamp(21px, 5.4cqw, 44px);
-    --np-t-h3: clamp(15px, 3.2cqw, 26px);
-    --np-t-h4: clamp(12.5px, 2.5cqw, 19px);
-    --np-t-deck: clamp(12.5px, 2.7cqw, 21px);
-    --np-t-body: clamp(10.5px, 2.05cqw, 15px);
-    --np-t-cap: clamp(8px, 1.55cqw, 11.5px);
-    --np-t-micro: clamp(6.5px, 1.28cqw, 9.5px);
+    --np-t-h3: clamp(15px, 3.4cqw, 27px);
+    --np-t-h4: clamp(13px, 2.75cqw, 20px);
+    --np-t-deck: clamp(13px, 2.95cqw, 22px);
+    --np-t-body: clamp(11.5px, 2.3cqw, 16.5px);
+    --np-t-cap: clamp(9.5px, 1.95cqw, 13.5px);
+    --np-t-micro: clamp(8px, 1.72cqw, 12px);
   }
 
   /* In paper mode the type scale is PURELY proportional — no clamp floors.
@@ -283,15 +291,16 @@
      The mobile reflow re-scales these wholesale rather than reinstating floors. */
   .np-scope[data-mode="paper"] .np-page-body,
   .np-scope[data-render="page"] .np-page-body {
-    --np-w-nameplate: 66cqw;
+    --np-w-nameplate: 54cqw;
+    --np-t-hero: 9.6cqw;
     --np-t-lead: 7.4cqw;
     --np-t-h2: 5.4cqw;
-    --np-t-h3: 3.2cqw;
-    --np-t-h4: 2.5cqw;
-    --np-t-deck: 2.7cqw;
-    --np-t-body: 2.05cqw;
-    --np-t-cap: 1.55cqw;
-    --np-t-micro: 1.28cqw;
+    --np-t-h3: 3.4cqw;
+    --np-t-h4: 2.75cqw;
+    --np-t-deck: 2.95cqw;
+    --np-t-body: 2.3cqw;
+    --np-t-cap: 1.95cqw;
+    --np-t-micro: 1.72cqw;
   }
 
   /* ══ RENDER MODE ═══════════════════════════════════════════════════════════
@@ -374,7 +383,7 @@
     text-wrap: balance;
   }
 
-  /* The nameplate is now a graphic, not type — it holds the wordmark SVG, which
+  /* The nameplate is now a graphic, not type — it holds the wordmark image, which
      sizes itself to this box. Width rather than font-size, therefore; the
      --np-t-nameplate ramp it used to read is gone with the text. */
   .np-scope .np-nameplate {
@@ -385,13 +394,11 @@
 
   /* ── Ransom-note wordmark (Wordmark.tsx) ─────────────────────────────────
    *
-   * Layout only. The mark's two colours are set inline by the component and are
-   * deliberately NOT themeable from here: when they lived in this file, a
-   * stylesheet that had not arrived yet rendered the whole logo as black slabs
-   * with no letters in them. See the component for the full account.
+   * Layout only. The mark is a full-colour image (see the component and
+   * scripts/gen-wordmark.mjs), so there is nothing here to theme.
    *
    * Width comes from the wrapper (.np-nameplate / .np-controls-mark); height
-   * follows the viewBox aspect. */
+   * follows the image aspect. */
   .np-scope .np-wordmark {
     display: block;
     width: 100%;
@@ -477,7 +484,7 @@
     font-family: var(--font-mono);
     font-size: var(--np-t-micro);
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.14em;
     color: var(--np-ink-mute);
     margin: 0;
   }
@@ -639,19 +646,19 @@
 
   .np-scope .np-box-invert {
     background: var(--color-black);
-    color: #f2efe8;
+    color: #f5eadb;
     border: 2px solid var(--color-black);
     padding: 2.4cqw 2.6cqw;
   }
 
   .np-scope .np-box-invert :is(h1, h2, h3, h4),
   .np-scope .np-box-invert .np-eyebrow {
-    color: #f7f4ee;
+    color: #faf1e4;
   }
 
   .np-scope .np-box-invert .np-body,
   .np-scope .np-box-invert .np-deck {
-    color: #cdc8bb;
+    color: #d6c6a9;
   }
 
   .np-scope .np-box-invert .np-micro {
@@ -677,7 +684,7 @@
     padding: 0.95em 1.9em;
     border: 2px solid var(--color-black);
     background: var(--color-black);
-    color: #f7f4ee;
+    color: #faf1e4;
     transition: background-color 150ms linear, color 150ms linear;
   }
 
@@ -703,22 +710,22 @@
 
   .np-scope .np-cta-ghost:hover {
     background: var(--color-black);
-    color: #f7f4ee;
+    color: #faf1e4;
   }
 
-  /* The edition's single chromatic moment — page 8's back-page advertisement.
-     DESIGN-wired reserves #057dbc for inline body links; using it once, on the
-     final CTA, is the deliberate exception the old ClosingCTA already made. */
-  .np-scope .np-cta-blue {
-    background: var(--color-link-blue);
-    border-color: var(--color-link-blue);
-    color: #ffffff;
+  /* The edition's chromatic moments — the front-page call to action and page 8's
+     closing advertisement. Red is the wordmark's own red, so the one loud thing
+     on a cream-and-black sheet is the same colour as the logo above it. */
+  .np-scope .np-cta-red {
+    background: var(--np-red);
+    border-color: var(--np-red);
+    color: #fffaf1;
   }
 
-  .np-scope .np-cta-blue:hover {
+  .np-scope .np-cta-red:hover {
     background: var(--color-black);
     border-color: var(--color-black);
-    color: #f7f4ee;
+    color: #faf1e4;
   }
 
   /* ══ PAGE LAYOUT PRIMITIVES ════════════════════════════════════════════════
@@ -777,7 +784,7 @@
 
   .np-scope .np-ruled--invert > * {
     background: var(--color-black);
-    color: #ddd8cc;
+    color: #e3d4bb;
   }
 
   @container page (min-width: 400px) {
@@ -803,39 +810,207 @@
     gap: 1.2cqw;
   }
 
+  /* The headline is its own typeface: a masthead-weight Didone, not the body serif set big.
+     The collage floats right and `shape-outside` follows its alpha channel, so the type wraps the
+     torn silhouette: it runs long across the empty top-left of the picture and narrows where the
+     building is. The figure is first in the source because a float only displaces what follows. */
+  .np-scope .np-hero {
+    display: flow-root;
+    padding-top: 2cqw;
+  }
+
+  .np-scope .np-hero-art {
+    float: right;
+    position: relative;
+    width: 62%;
+    margin: 0 -3cqw 0.5cqw 0;
+    line-height: 0;
+    shape-outside: var(--hero-shape, none);
+    shape-margin: 2.2cqw;
+  }
+
+  .np-scope .np-hero-art > img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .np-scope .np-hero-head {
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-hero);
+    line-height: 0.95;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+
+  .np-scope .np-hero-red {
+    color: var(--np-red);
+    white-space: nowrap;
+  }
+
+  .np-scope .np-hero-deck {
+    margin: 2.2cqw 0 0;
+  }
+
+  /* A narrow sheet has no room to wrap around anything: headline, line, then the picture. */
+  @container page (max-width: 399px) {
+    .np-scope .np-hero {
+      display: flex;
+      flex-direction: column;
+      gap: 2cqw;
+    }
+    .np-scope .np-hero-art {
+      float: none;
+      order: 3;
+      width: auto;
+      margin: 0 -3cqw 0 0;
+      shape-outside: none;
+    }
+    .np-scope .np-hero-deck {
+      margin: 0;
+    }
+  }
+
   .np-scope .np-spacer {
     flex: 1;
   }
 
   /* ══ MASTHEAD ══════════════════════════════════════════════════════════════
-     Page 1's nameplate band, following the reference broadsheet: dateline left,
-     nameplate centre, standing tagline right. */
-  .np-scope .np-masthead-row {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    gap: 2cqw;
-    padding: 2.4cqw 0 1.6cqw;
-  }
-
-  .np-scope .np-masthead-side {
-    max-width: 26ch;
-    line-height: 1.6;
-    letter-spacing: 0.1em;
-  }
-
-  .np-scope .np-masthead-side--right {
-    text-align: right;
-    margin-left: auto;
-  }
-
-  .np-scope .np-masthead-credits {
+     Page 1's nameplate band: a thin furniture strip, then the wordmark on its own. */
+  .np-scope .np-topstrip {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 2cqw;
-    padding-bottom: 1.5cqw;
+    border-top: 2px solid var(--color-black);
+    border-bottom: 1px solid var(--color-black);
+    padding: 1cqw 0.6cqw;
   }
 
+  .np-scope .np-topstrip .np-micro {
+    color: var(--np-ink);
+    letter-spacing: 0.3em;
+  }
+
+  .np-scope .np-masthead-row {
+    display: flex;
+    justify-content: center;
+    padding: 1.8cqw 0 1.6cqw;
+  }
+
+  /* ══ "AVAILABLE AT" STRIP ══════════════════════════════════════════════════
+     A label, a hairline, and a ticker. The window is a fixed height so the band
+     is the same whether or not a given college has a logo; the track is the
+     college list twice, slid left by exactly half its own width. */
+  .np-scope .np-colleges {
+    display: flex;
+    align-items: center;
+    gap: 2.2cqw;
+    padding: 0.8cqw 0;
+  }
+
+  .np-scope .np-colleges-label {
+    flex: none;
+    margin: 0;
+    padding-right: 2.2cqw;
+    border-right: 1px solid var(--np-hair);
+    font-family: var(--font-mono);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--np-ink);
+    white-space: nowrap;
+  }
+
+  .np-scope .np-colleges-window {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 4.6cqw;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 6%, #000 94%, transparent 100%);
+  }
+
+  .np-scope .np-colleges-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    animation: np-college-slide 80s linear infinite;
+  }
+
+  .np-scope .np-college {
+    flex: none;
+    display: flex;
+    align-items: center;
+    position: relative;
+    gap: 0.6em;
+    padding-right: 2.4em;
+    font-family: var(--font-ui);
+    font-size: var(--np-t-cap);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--np-ink);
+    white-space: nowrap;
+  }
+
+  /* A wordmark logo already says the name. The text stays in the DOM for screen readers (and for
+     the fallback if the image fails) but is not drawn, so the name is not printed twice. */
+  .np-scope .np-college-name--sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* A chip with no logo: a small red square marks the gap, like a newspaper's ticker bullet. */
+  .np-scope .np-college--bare::before {
+    content: "";
+    flex: none;
+    width: 0.5em;
+    height: 0.5em;
+    background: var(--np-red);
+  }
+
+  /* The box is 3.4cqw tall and up to 16cqw wide; the mark is contained and centred inside it,
+     so a very wide wordmark is scaled down, never stretched. scene/collegeStrip.ts copies this. */
+  .np-scope .np-college-logo {
+    display: block;
+    height: 3.4cqw;
+    width: auto;
+    max-width: 16cqw;
+    object-fit: contain;
+  }
+
+  @keyframes np-college-slide {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* The page texture is a still photograph: freeze the ticker for it (offset a little so the
+     first name clears the edge fade), and for anyone who asked for less motion. */
+  .np-scope[data-render="page"] .np-colleges-track {
+    animation: none;
+    transform: translateX(1.1em);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .np-scope .np-colleges-track {
+      animation: none;
+    }
+  }
 
   /* Running head on pages 2–8. */
   .np-scope .np-runhead {
@@ -850,13 +1025,16 @@
     text-align: right;
   }
 
-  /* Front-page teaser row — table of contents and navigation at once. */
+  /* Front-page teaser row — table of contents and navigation at once: four cards, each a
+     numeral, a title, one collage illustration and a line. */
   .np-scope .np-teasers {
     display: grid;
     gap: 1px;
     background: var(--np-hair);
     grid-template-columns: 1fr;
-    margin-top: 1px;
+    margin-top: 1.8cqw;
+    border-top: 2px solid var(--color-black);
+    border-bottom: 2px solid var(--color-black);
   }
 
   @container page (min-width: 415px) {
@@ -875,10 +1053,10 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.45em;
+    gap: 0.4em;
     background: var(--np-paper);
     border: 0;
-    padding: 1.6cqw 1.5cqw 1.4cqw;
+    padding: 1.3cqw 1.5cqw 1.4cqw;
     text-align: left;
     cursor: pointer;
     font: inherit;
@@ -887,21 +1065,42 @@
   }
 
   .np-scope .np-teaser:hover {
-    background: #ebe6db;
+    background: #f3e8d6;
+  }
+
+  .np-scope .np-teaser-no {
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-h4);
+    line-height: 1;
+    color: var(--np-red);
+  }
+
+  .np-scope .np-teaser-title {
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-h3);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-teaser-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    object-fit: contain;
+    margin: 0.1em 0;
+    /* Single-column (phone) cards would otherwise stretch each picture to the full sheet. */
+    max-width: 260px;
   }
 
   .np-scope .np-teaser-body {
     font-family: var(--font-body);
     font-size: var(--np-t-cap);
-    line-height: 1.45;
+    line-height: 1.4;
     color: var(--np-ink-soft);
-  }
-
-  .np-scope .np-teaser-arrow {
-    font-family: var(--font-mono);
-    font-size: var(--np-t-cap);
-    color: var(--np-ink-mute);
-    margin-top: auto;
   }
 
   /* The section rule — real navigation, set as newspaper furniture. */
@@ -958,7 +1157,7 @@
   .np-scope .np-quote {
     font-family: var(--font-body);
     font-style: italic;
-    font-size: var(--np-t-deck);
+    font-size: var(--np-t-h3);
     line-height: 1.32;
     color: var(--np-ink);
     margin: 0 0 0.7em;
@@ -1117,11 +1316,11 @@
   }
 
   .np-scope .np-rung--top .np-rung-title {
-    color: #f7f4ee;
+    color: #faf1e4;
   }
 
   .np-scope .np-rung--top .np-rung-body {
-    color: #cdc8bb;
+    color: #d6c6a9;
   }
 
   /* ══ LISTINGS (page 5) ═════════════════════════════════════════════════════ */
@@ -1180,7 +1379,7 @@
   }
 
   .np-scope .np-table tbody tr:first-child td {
-    background: #ece7db;
+    background: #ecdfca;
     color: var(--np-ink);
   }
 
@@ -1196,7 +1395,7 @@
      whether the sheet is 430px or 720px wide. */
   .np-scope .np-plate {
     border: 2px solid var(--color-black);
-    background: #fdfcf9;
+    background: #fffaf1;
     font-family: var(--font-ui);
   }
 
@@ -1242,7 +1441,7 @@
   }
 
   .np-scope .np-plate-cell {
-    background: #fdfcf9;
+    background: #fffaf1;
     padding: 0.9em 0.85em;
   }
 
@@ -1264,7 +1463,7 @@
 
   .np-scope .np-pill--on {
     background: var(--color-black);
-    color: #f7f4ee;
+    color: #faf1e4;
   }
 
   /* initials avatar */
@@ -1284,7 +1483,7 @@
 
   .np-scope .np-avatar--on {
     background: var(--color-black);
-    color: #f7f4ee;
+    color: #faf1e4;
   }
 
   /* task checkbox */
@@ -1316,7 +1515,7 @@
   .np-scope .np-bar {
     position: relative;
     height: 0.9em;
-    background: #e8e4da;
+    background: #ead9c2;
   }
 
   .np-scope .np-bar-fill {
@@ -1360,7 +1559,7 @@
     text-transform: uppercase;
     letter-spacing: 0.16em;
     background: var(--color-black);
-    color: #f7f4ee;
+    color: #faf1e4;
     padding: 0.25em 0.6em;
   }
 
@@ -1428,10 +1627,12 @@
     align-items: center;
     gap: 20px;
     padding: 10px 20px;
-    background: rgb(18 14 10 / 0.9);
-    backdrop-filter: blur(8px);
-    border-top: 1px solid rgb(255 255 255 / 0.14);
-    color: #efe9dd;
+    /* Translucent so the room shows through; the blur is what keeps the labels
+       legible over the bright window and floor now that the tint is thin. */
+    background: rgb(18 14 10 / 0.42);
+    backdrop-filter: blur(14px) saturate(1.1);
+    border-top: 1px solid rgb(255 255 255 / 0.1);
+    color: #f8eedf;
   }
 
   .np-scope[data-mode="plain"] .np-controls {
@@ -1440,12 +1641,12 @@
     backdrop-filter: none;
   }
 
-  /* Holds the wordmark SVG on the dark blotter strip — a width, not a type
-     size, and the mark itself carries --invert for the reversed palette. */
+  /* Holds the wordmark image on the dark blotter strip — a width, not a type
+     size. The letters carry their own cream border, so no reversed palette. */
   .np-scope .np-controls-mark {
     display: block;
     grid-column: 1;
-    width: 132px;
+    width: 150px;
     justify-self: start;
     line-height: 0;
   }
@@ -1473,7 +1674,7 @@
   .np-scope .np-sections--compact .np-section-link {
     font-size: 10px;
     letter-spacing: 0.18em;
-    color: #cfc7b8;
+    color: #d6c6ab;
   }
 
   .np-scope .np-sections--compact .np-section-link::before {

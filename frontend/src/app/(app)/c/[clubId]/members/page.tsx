@@ -376,7 +376,7 @@ export default function MembersPage() {
           </h1>
         </div>
         <div className="border-2 border-black bg-paper">
-          <div className="grid grid-cols-12 bg-[#e8e4da] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
+          <div className="grid grid-cols-12 bg-[#ead9c2] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
             <div className="col-span-4">Name</div>
             <div className="col-span-3">Domain</div>
             <div className="col-span-2 text-center">Socials</div>
@@ -386,7 +386,7 @@ export default function MembersPage() {
             {heads.map((member, index) => (
               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === heads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                 <div className="col-span-4 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#ead9c2] shrink-0">
                     <Avatar name={member.name} avatarUrl={member.avatar_url} />
                   </div>
                   <div className="font-ui text-16 font-bold truncate flex flex-col">
@@ -477,7 +477,7 @@ export default function MembersPage() {
                   </motion.p>
                 )}
                 {isExecutive && (
-                  <div className="mt-auto pt-4 border-t border-[#e0d9ca] flex justify-between items-center">
+                  <div className="mt-auto pt-4 border-t border-[#e0d0b6] flex justify-between items-center">
                     <div className="bg-[#057DBC] text-paper font-mono text-[12px] tracking-[1.1px] px-2 py-1 uppercase">
                       TOTAL MEMBERS: {domain.membersCount}
                     </div>
@@ -508,7 +508,7 @@ export default function MembersPage() {
                           <div className="bg-black text-paper font-mono text-12 uppercase tracking-widest px-3 py-2 flex items-center">
                             Leads
                           </div>
-                          <div className="grid grid-cols-12 bg-[#e8e4da] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
+                          <div className="grid grid-cols-12 bg-[#ead9c2] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
                             <div className="col-span-7">Name</div>
                             <div className="col-span-2 text-center">Socials</div>
                             <div className="col-span-3 text-right">Actions</div>
@@ -517,7 +517,7 @@ export default function MembersPage() {
                             {leads.map((member, index) => (
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === leads.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-7 flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#ead9c2] shrink-0">
                                     <Avatar name={member.name} avatarUrl={member.avatar_url} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate flex flex-col">
@@ -543,7 +543,7 @@ export default function MembersPage() {
                           <div className="bg-black text-paper font-mono text-12 uppercase tracking-widest px-3 py-2 flex items-center">
                             Members
                           </div>
-                          <div className="grid grid-cols-12 bg-[#e8e4da] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
+                          <div className="grid grid-cols-12 bg-[#ead9c2] text-black font-mono text-xs uppercase tracking-widest p-3 border-b-2 border-black">
                             <div className="col-span-1 text-center">Rank</div>
                             <div className="col-span-4">Name</div>
                             <div className="col-span-2 text-right">Points</div>
@@ -555,7 +555,7 @@ export default function MembersPage() {
                               <div key={member.user_id} className={`grid grid-cols-12 items-center p-3 border-b-2 ${index === currentMembers.length - 1 ? 'border-b-0' : 'border-b-black'} hover:bg-hairline-tint transition-colors`}>
                                 <div className="col-span-1 text-center font-display text-xl font-bold text-caption-gray">#{member.rank}</div>
                                 <div className="col-span-4 flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                                  <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#ead9c2] shrink-0">
                                     <Avatar name={member.name} avatarUrl={member.avatar_url} />
                                   </div>
                                   <div className="font-ui text-16 font-bold truncate">{member.name}</div>
@@ -572,7 +572,7 @@ export default function MembersPage() {
                           </div>
 
                           {totalPages > 1 && (
-                            <div className="flex justify-between items-center border-t-2 border-black p-4 bg-[#e8e4da]">
+                            <div className="flex justify-between items-center border-t-2 border-black p-4 bg-[#ead9c2]">
                               <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}

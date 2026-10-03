@@ -236,7 +236,7 @@ export default function TaskBoardPage() {
       isDomainScoped(currentRole);
 
     return (
-      <article key={task.id} className={`${task.status === 'completed' ? 'bg-[#ebe6db] opacity-60' : 'bg-paper'} border-2 border-black p-3 ${task.status === 'in_progress' ? 'border-l-4 border-l-[#057DBC]' : ''} relative group/task`}>
+      <article key={task.id} className={`${task.status === 'completed' ? 'bg-[#eee0cb] opacity-60' : 'bg-paper'} border-2 border-black p-3 ${task.status === 'in_progress' ? 'border-l-4 border-l-[#057DBC]' : ''} relative group/task`}>
 
         {canManageThisTask && (
           <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/task:opacity-100 transition-opacity z-10 bg-paper/90 rounded px-1">
@@ -308,7 +308,7 @@ export default function TaskBoardPage() {
                 </span>
                 <div className="flex -space-x-2">
                   {task.assignees.map(a => (
-                    <div key={a.id} className="w-6 h-6 rounded-full bg-[#e8e4da] border-2 border-black flex items-center justify-center relative z-10 hover:z-20 hover:bg-black hover:text-paper transition-colors" title={a.name}>
+                    <div key={a.id} className="w-6 h-6 rounded-full bg-[#ead9c2] border-2 border-black flex items-center justify-center relative z-10 hover:z-20 hover:bg-black hover:text-paper transition-colors" title={a.name}>
                       <span className="font-mono text-[9px] uppercase tracking-tighter">{a.name.substring(0, 2).toUpperCase()}</span>
                     </div>
                   ))}
@@ -425,7 +425,7 @@ export default function TaskBoardPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[#e8e4da] border-2 border-black flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-[#ead9c2] border-2 border-black flex items-center justify-center">
                           <span className="font-mono text-[10px] uppercase tracking-tighter">{member.initials}</span>
                         </div>
                         <span className="font-ui text-14 font-bold">{member.name}</span>

@@ -8,7 +8,7 @@ import "@/features/flow/collage.css";
 /**
  * The small-screen notice.
  *
- * Club-Hub is a laptop application for now, so below the breakpoint the app is
+ * ClubHub is a laptop application for now, so below the breakpoint the app is
  * hidden entirely and this stands in its place — a torn sheet with a late-edition
  * notice on it, rather than a broken layout the visitor has to fight.
  *
@@ -40,7 +40,7 @@ export default function MobileGate() {
             </h1>
             <div className="w-full h-px bg-hairline-tint mb-4" />
             <p className="font-body text-[15px] leading-[1.5] text-caption-gray">
-              Club-Hub is built for a laptop screen while we lay out the small-screen
+              ClubHub is built for a laptop screen while we lay out the small-screen
               edition. Come back on something wider and everything will be waiting.
             </p>
           </div>

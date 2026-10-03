@@ -27,7 +27,7 @@ export default function DashboardPlate() {
     <div className="np-plate" aria-hidden="true">
       <div className="np-plate-bar">
         <span>
-          <strong>CLUB-HUB</strong> / Robotics Society
+          <strong>CLUBHUB</strong> / Robotics Society
         </span>
         <span>Dashboard</span>
       </div>

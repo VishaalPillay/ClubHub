@@ -62,18 +62,18 @@
   --color-ink: #1a1a1a;
   --color-ink-dim: #9c968a;      /* newspaper.css .np-box-invert .np-micro */
 
-  --color-paper: #f5f2ec;        /* newspaper.css --np-paper */
-  --color-paper-quiet: #f0ede4;  /* 30% along np-paper → np-paper-edge */
-  --color-paper-hover: #ebe6db;  /* newspaper.css .np-teaser:hover */
-  --color-paper-track: #e8e4da;  /* newspaper.css .np-bar */
-  --color-paper-edge: #e6e0d3;   /* newspaper.css --np-paper-edge */
-  --color-hairline-tint: #e0d9ca; /* newspaper.css --np-hair-quiet */
+  --color-paper: #f8eedf;        /* newspaper.css --np-paper */
+  --color-paper-quiet: #f3e8d6;  /* 30% along np-paper → np-paper-edge */
+  --color-paper-hover: #eee0cb;  /* newspaper.css .np-teaser:hover */
+  --color-paper-track: #ead9c2;  /* newspaper.css .np-bar */
+  --color-paper-edge: #e8dcc6;   /* newspaper.css --np-paper-edge */
+  --color-hairline-tint: #e0d0b6; /* newspaper.css --np-hair-quiet */
 
   /* Deprecated alias. Every `bg-white`/`text-white` in src/ was migrated to
    * `-paper`; this exists so a usage that slipped through — or one typed from
    * muscle memory — still lands on the sheet instead of punching a white hole
    * through it. Do not reach for it in new code. */
-  --color-white: #f5f2ec;
+  --color-white: #f8eedf;
 
   --color-caption-gray: #757575;
   --color-disabled-gray: #999999;
@@ -158,7 +158,7 @@
   }
 
   body {
-    background-color: #f5f2ec;
+    background-color: #f8eedf;
     color: #1a1a1a;
     font-family: var(--font-ui);
     min-height: 100vh;
@@ -221,7 +221,7 @@
   /* Editorial ribbon — full-bleed black section header */
   .wired-ribbon {
     background-color: #000000;
-    color: #f5f2ec;
+    color: #f8eedf;
     font-family: var(--font-mono);
     font-size: 12px;
     font-weight: 700;
@@ -238,7 +238,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background-color: #f5f2ec;
+    background-color: #f8eedf;
     color: #000000;
     font-family: var(--font-ui);
     font-size: 16px;
@@ -256,7 +256,7 @@
 
   .wired-btn-primary:hover:not(:disabled) {
     background-color: #000000;
-    color: #f5f2ec;
+    color: #f8eedf;
   }
 
   .wired-btn-primary:disabled {
@@ -270,12 +270,12 @@
     align-items: center;
     justify-content: center;
     background-color: #000000;
-    color: #f5f2ec;
+    color: #f8eedf;
     font-family: var(--font-ui);
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 0.3px;
-    border: 2px solid #f5f2ec;
+    border: 2px solid #f8eedf;
     border-radius: 0;
     padding: 12px 24px;
     cursor: pointer;
@@ -285,7 +285,7 @@
   }
 
   .wired-btn-secondary:hover:not(:disabled) {
-    background-color: #f5f2ec;
+    background-color: #f8eedf;
     color: #000000;
   }
 
@@ -297,7 +297,7 @@
   /* Input — 2px solid black, 0 radius, no glow on focus */
   .wired-input {
     width: 100%;
-    background-color: #f5f2ec;
+    background-color: #f8eedf;
     color: #1a1a1a;
     font-family: var(--font-ui);
     font-size: 16px;
@@ -354,7 +354,7 @@
 
   .wired-rule-quiet {
     border: none;
-    border-top: 1px solid #e0d9ca;
+    border-top: 1px solid #e0d0b6;
     width: 100%;
     margin: 0;
   }
@@ -362,7 +362,7 @@
   /* Utility nav — full-bleed black top strip */
   .wired-utility-nav {
     background-color: #000000;
-    color: #f5f2ec;
+    color: #f8eedf;
     font-family: var(--font-mono);
     font-size: 12px;
     letter-spacing: 1px;
@@ -380,7 +380,7 @@
     width: 8px;
     height: 8px;
     border-radius: 0;
-    background-color: #e0d9ca;
+    background-color: #e0d0b6;
     transition: background-color 150ms linear;
     flex-shrink: 0;
   }
@@ -396,7 +396,7 @@
   /* Progress connector line */
   .wired-progress-line {
     height: 2px;
-    background-color: #e0d9ca;
+    background-color: #e0d0b6;
     flex: 1;
     transition: background-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -407,7 +407,7 @@
 
   .wired-select {
     width: 100%;
-    background-color: #f5f2ec;
+    background-color: #f8eedf;
     color: #1a1a1a;
     font-family: var(--font-ui);
     font-size: 16px;
@@ -426,13 +426,11 @@
 
   /* ── Ransom-note wordmark (components/ui/Wordmark.tsx) ──────────────────
    *
-   * Layout only. The mark's two colours are set inline by the component and are
-   * deliberately NOT themeable from here: when they lived in this file, a
-   * stylesheet that had not arrived yet rendered the whole logo as black slabs
-   * with no letters in them. See the component for the full account.
+   * Layout only. The mark is a full-colour image (see the component and
+   * scripts/gen-wordmark.mjs), so there is nothing here to theme.
    *
    * Width comes from the caller (`w-[190px]`, `text-…` has no effect — this is
-   * a graphic, not type); height follows the viewBox aspect automatically. */
+   * a graphic, not type); height follows the image aspect automatically. */
   .wired-wordmark {
     display: block;
     width: 100%;

@@ -68,7 +68,7 @@ export default function AvatarCropModal({
           />
         </div>
 
-        <div className="px-6 py-4 flex items-center gap-4 border-b border-[#e0d9ca]">
+        <div className="px-6 py-4 flex items-center gap-4 border-b border-[#e0d0b6]">
           <span className="font-mono text-[10px] uppercase tracking-widest text-[#757575]">
             Zoom
           </span>

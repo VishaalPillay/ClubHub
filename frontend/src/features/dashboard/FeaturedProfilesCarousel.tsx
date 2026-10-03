@@ -46,7 +46,7 @@ export default function FeaturedProfilesCarousel() {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <div className="aspect-[4/3] border-2 border-black overflow-hidden mb-1 bg-[#e8e4da] relative">
+        <div className="aspect-[4/3] border-2 border-black overflow-hidden mb-1 bg-[#ead9c2] relative">
           <Avatar
             key={profile.user_id}
             name={profile.name}

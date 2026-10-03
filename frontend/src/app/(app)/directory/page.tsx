@@ -102,7 +102,7 @@ export default function DirectoryPage() {
             Loading directory...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="border-2 border-dashed border-[#e0d9ca] p-16 flex flex-col items-center justify-center text-center">
+          <div className="border-2 border-dashed border-[#e0d0b6] p-16 flex flex-col items-center justify-center text-center">
             <span className="material-symbols-outlined text-[48px] text-[#757575] mb-4">
               search_off
             </span>
@@ -131,7 +131,7 @@ export default function DirectoryPage() {
                   transition={{ delay: Math.min(idx * 0.04, 0.4) }}
                   onClick={() => joinable && router.push(`/onboarding/join-flow?clubId=${club.id}`)}
                   className={`border-2 border-black bg-paper flex flex-col group transition-colors ${
-                    joinable ? "cursor-pointer hover:bg-[#ebe6db]" : ""
+                    joinable ? "cursor-pointer hover:bg-[#eee0cb]" : ""
                   }`}
                 >
                   <div className="h-1 bg-black w-full" />
@@ -144,7 +144,7 @@ export default function DirectoryPage() {
                         {club.institution}
                       </p>
                     )}
-                    <div className="mt-auto pt-4 border-t border-[#e0d9ca] flex items-center justify-between">
+                    <div className="mt-auto pt-4 border-t border-[#e0d0b6] flex items-center justify-between">
                       {isMember ? (
                         <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 bg-black text-paper">
                           You&apos;re a member

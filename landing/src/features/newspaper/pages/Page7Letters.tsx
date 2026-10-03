@@ -1,10 +1,13 @@
 import PageHead from "../PageHead";
 
 /**
- * PAGE 7 — LETTERS & HOW TO FILE.
- * Testimonials become Letters to the Editor; the stats band becomes a boxed
- * "By the numbers" figure; HowItWorks becomes the "How to file" sidebar.
- * Copy ported from features/marketing/Testimonials.tsx and HowItWorks.tsx.
+ * PAGE 7 — WHO IT'S FOR & HOW TO FILE.
+ * The stats band, a three-line answer to "is this for me?", and the "How to file"
+ * sidebar (the four steps from sign-up to a scored task).
+ *
+ * This page used to carry two "letters to the editor" with named presidents. They
+ * were invented — fine as set dressing in a mock-up, not on a live page that asks a
+ * student to trust it. Real quotes go back in the day there are real ones.
  */
 const STATS: [string, string][] = [
   ["7", "Role tiers, explicit powers"],
@@ -13,16 +16,18 @@ const STATS: [string, string][] = [
   ["0", "Spreadsheets required"],
 ];
 
-const LETTERS: [string, string, string][] = [
+const AUDIENCES: [string, string][] = [
   [
-    "We replaced four WhatsApp groups and a dying spreadsheet in one afternoon. The leaderboard did more for attendance than a year of reminders.",
-    "Aarav Sharma",
-    "President, Robotics Society",
+    "If you run a club",
+    "Stop being the human database. Roles, a join queue and a record that survives the handover.",
   ],
   [
-    "For the first time the quiet people who do the actual work have a number next to their name. That changed who we promoted.",
-    "Meera Krishnan",
-    "Vice-President, Design Collective",
+    "If you lead a team",
+    "Hand out weighted tasks, post to your own domain, and see who actually ships.",
+  ],
+  [
+    "If you are a member",
+    "Find clubs, RSVP in one tap, and have your work counted — publicly, and for good.",
   ],
 ];
 
@@ -52,7 +57,7 @@ const STEPS: [string, string, string][] = [
 export default function Page7Letters() {
   return (
     <>
-      <PageHead folio="Page 7" section="Campus" rubric="Letters to the editor" />
+      <PageHead folio="Page 7" section="Campus" rubric="Who it’s for" />
 
       <div className="np-flow" style={{ paddingTop: "2.2cqw" }}>
         <div className="np-ruled np-ruled-4">
@@ -70,15 +75,15 @@ export default function Page7Letters() {
 
         <div className="np-split-75">
           <section className="np-flow">
-            <p className="np-eyebrow">Letters to the editor</p>
-            <hr className="np-rule" />
-            {LETTERS.map(([quote, who, role]) => (
+            <p className="np-eyebrow">Who it&apos;s for</p>
+            {AUDIENCES.map(([who, line]) => (
               <figure key={who} className="np-letter">
-                <blockquote className="np-quote">“{quote}”</blockquote>
-                <figcaption className="np-flow-tight">
-                  <span className="np-byline">{who}</span>
-                  <span className="np-micro">{role}</span>
+                <figcaption className="np-byline" style={{ lineHeight: 1.4 }}>
+                  {who}
                 </figcaption>
+                <p className="np-quote" style={{ marginTop: "0.3em", marginBottom: 0 }}>
+                  {line}
+                </p>
               </figure>
             ))}
           </section>

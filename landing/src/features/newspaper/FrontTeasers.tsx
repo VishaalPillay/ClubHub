@@ -1,18 +1,21 @@
 "use client";
 
 import { useNewspaper } from "./NewspaperContext";
+import { FRONT_ART, type FrontArtKey } from "./frontArt";
 
 /**
- * The front page's bottom teaser row — `02 DISCOVER · 03 CONNECT · 04 ENGAGE ·
- * 05 LEAD`, straight from the reference broadsheet. The numbers are the page
- * numbers they jump to, so the row is both a table of contents and navigation.
+ * The front page's bottom teaser row — `01 DISCOVER · 02 CONNECT · 03 ENGAGE · 04 LEAD`.
+ * Table of contents and navigation in one: each card jumps to the page that tells that
+ * story (in plain mode — in the 3D view the page is a texture and cannot be pressed), and
+ * carries one of the supplied collage illustrations. The numbers are the order
+ * here, NOT page numbers — Discover lives on page 6 (the directory).
  */
-/** [page index, label, blurb] — sequential 02…05, as on the reference broadsheet. */
-const TEASERS: [number, string, string][] = [
-  [1, "Discover", "Browse every club on campus, or start your own in sixty seconds."],
-  [2, "Connect", "Seven ranks, sub-teams, and a join queue that runs itself."],
-  [3, "Engage", "Weighted tasks pay points. The leaderboard settles the argument."],
-  [4, "Lead", "Events, bulletins, and the desks they are meant to reach."],
+/** [page index, label, blurb, art] */
+const TEASERS: [number, string, string, FrontArtKey][] = [
+  [5, "Discover", "Browse clubs across interests, or join with a code.", "discover"],
+  [2, "Connect", "Meet members, join sub-teams and be part of a larger community.", "connect"],
+  [3, "Engage", "Attend events, take up tasks and earn points on the leaderboard.", "engage"],
+  [4, "Lead", "Create events, post announcements and grow your club.", "lead"],
 ];
 
 export default function FrontTeasers() {
@@ -20,16 +23,25 @@ export default function FrontTeasers() {
 
   return (
     <div className="np-teasers">
-      {TEASERS.map(([page, title, body]) => (
-        <button key={title} type="button" className="np-teaser" onClick={() => goTo(page)}>
-          <span className="np-micro">{String(page + 1).padStart(2, "0")}</span>
-          <span className="np-minihead">{title}</span>
-          <span className="np-teaser-body">{body}</span>
-          <span className="np-teaser-arrow" aria-hidden="true">
-            →
-          </span>
-        </button>
-      ))}
+      {TEASERS.map(([page, title, body, art], i) => {
+        const a = FRONT_ART[art];
+        return (
+          <button key={title} type="button" className="np-teaser" onClick={() => goTo(page)}>
+            <span className="np-teaser-no">{String(i + 1).padStart(2, "0")}</span>
+            <span className="np-teaser-title">{title}</span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- static export, art pre-sized by gen-front-art */}
+            <img
+              className="np-teaser-art"
+              src={a.src}
+              width={a.w}
+              height={a.h}
+              alt=""
+              draggable={false}
+            />
+            <span className="np-teaser-body">{body}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

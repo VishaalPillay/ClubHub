@@ -23,7 +23,7 @@ export default function PageControls() {
   return (
     <div className="np-controls">
       <span className="np-controls-mark">
-        <Wordmark invert />
+        <Wordmark sizes="150px" />
       </span>
 
       <div className="np-controls-sections">

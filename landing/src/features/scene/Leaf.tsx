@@ -1,10 +1,11 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useLoader } from "@react-three/fiber";
 import * as THREE from "three";
 import { PAGE_H, PAGE_W } from "./sceneConfig";
 import type { RoomLight } from "./roomLight";
+import { createCollegeStrip, resolveUiFont, type CollegeStrip } from "./collegeStrip";
 
 /**
  * One leaf — a physical sheet with a page printed on each side.
@@ -106,6 +107,9 @@ const fragment = /* glsl */ `
   precision highp float;
   uniform sampler2D uFront;
   uniform sampler2D uBack;
+  uniform sampler2D uStrip;   // live "Available at" ticker (page 1 only)
+  uniform vec4 uStripRect;    // its patch of the front texture: u0, v0, du, dv
+  uniform float uStripOn;
   uniform vec3 uLightDir;
   uniform vec3 uTint;
   uniform float uGoboK;
@@ -126,6 +130,15 @@ const fragment = /* glsl */ `
     // parallel to world Z), so v is the same on both faces.
     vec2 uvB = vec2(1.0 - vUv.x, vUv.y);
     vec4 page = gl_FrontFacing ? texture2D(uFront, vUv) : texture2D(uBack, uvB);
+
+    // The page texture is a photograph, so the ticker on it is a still. Where a live
+    // patch exists it replaces that rectangle of the recto, nothing else.
+    if (gl_FrontFacing && uStripOn > 0.5) {
+      vec2 q = (vUv - uStripRect.xy) / uStripRect.zw;
+      if (q.x >= 0.0 && q.x <= 1.0 && q.y >= 0.0 && q.y <= 1.0) {
+        page = texture2D(uStrip, q);
+      }
+    }
 
     vec3 n = normalize(vNormalW) * (gl_FrontFacing ? 1.0 : -1.0);
     float lambert = max(dot(n, normalize(uLightDir)), 0.0);
@@ -168,8 +181,50 @@ export interface LeafProps {
   light: RoomLight;
 }
 
+/** A 1x1 stand-in so the shader's sampler is always bound, whether or not a strip exists. */
+const BLANK = new THREE.DataTexture(new Uint8Array([248, 238, 223, 255]), 1, 1);
+BLANK.needsUpdate = true;
+
+/**
+ * Starts the live ticker for the leaf that carries page 1. Fails quietly: if the metadata,
+ * the font or the canvas is unavailable the baked (still) ticker simply stays on the page.
+ */
+function useCollegeStrip(enabled: boolean): CollegeStrip | null {
+  const [strip, setStrip] = useState<CollegeStrip | null>(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    let made: CollegeStrip | null = null;
+
+    (async () => {
+      try {
+        const res = await fetch("/pages/meta.json");
+        if (!res.ok) return;
+        const rect = (await res.json())?.colleges;
+        if (!rect) return;
+        const family = resolveUiFont();
+        await document.fonts.load(`700 24px ${family}`);
+        if (cancelled) return;
+        made = createCollegeStrip(rect, family);
+        setStrip(made);
+      } catch {
+        /* keep the baked frame */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      made?.dispose();
+    };
+  }, [enabled]);
+
+  return strip;
+}
+
 export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: LeafProps) {
   const [front, back] = useLoader(THREE.TextureLoader, [frontUrl, backUrl]);
+  const strip = useCollegeStrip(index === 0);
 
   /* Texture setup is a mutation, so it belongs in an effect rather than a memo.
      Anisotropy matters more than usual here: the pages are read at a steep angle
@@ -189,6 +244,9 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
       uCurve: { value: CURVATURE },
       uFront: { value: front },
       uBack: { value: back },
+      uStrip: { value: BLANK as THREE.Texture },
+      uStripRect: { value: new THREE.Vector4() },
+      uStripOn: { value: 0 },
       uLightDir: { value: new THREE.Vector3(...light.dir).normalize() },
       uTint: { value: new THREE.Color(light.paperTint) },
       uGoboK: { value: light.goboPaper },
@@ -200,7 +258,21 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
   const group = useRef<THREE.Group>(null);
   const material = useRef<THREE.ShaderMaterial>(null);
 
-  useFrame(() => {
+  // Bind the live ticker once it exists. Uniforms are mutated rather than rebuilt so the
+  // material is not recompiled for a patch of one page.
+  useEffect(() => {
+    const m = material.current;
+    if (!m || !strip) return;
+    m.uniforms.uStrip.value = strip.texture;
+    m.uniforms.uStripRect.value.copy(strip.uvRect);
+    m.uniforms.uStripOn.value = 1;
+    return () => {
+      m.uniforms.uStripOn.value = 0;
+      m.uniforms.uStrip.value = BLANK;
+    };
+  }, [strip]);
+
+  useFrame((state) => {
     const m = material.current;
     const g = group.current;
     if (!m || !g) return;
@@ -210,6 +282,9 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
        render, and kept in step. */
     const t = THREE.MathUtils.clamp((posRef.current ?? 0) - lead - index, 0, 1);
     m.uniforms.uTurn.value = t;
+
+    // The ticker is only on the recto, so only repaint while that face is up.
+    if (strip && t < 0.6) strip.update(state.clock.elapsedTime);
 
     // Unturned leaves stack on the right in reading order; turned ones pile on
     // the left in the order they were turned. Lerping between the two keeps a

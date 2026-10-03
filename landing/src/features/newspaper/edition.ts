@@ -42,7 +42,7 @@ export const PAGES: readonly EditionPage[] = [
     section: "collaboration",
   },
   { id: "masthead", slug: "the-masthead-box", title: "The Masthead Box", section: "campus" },
-  { id: "letters", slug: "letters", title: "Letters & How To File", section: "campus" },
+  { id: "letters", slug: "who-its-for", title: "Who It’s For & How To File", section: "campus" },
   { id: "colophon", slug: "the-back-page", title: "The Back Page", section: "campus" },
 ] as const;
 
@@ -95,17 +95,13 @@ export function rectoForSpread(spread: number) {
  * real navigation rather than decoration.
  */
 export const SECTIONS: readonly { key: SectionKey; label: string; page: number }[] = [
-  { key: "culture", label: "Culture", page: 1 },
+  { key: "culture", label: "Culture", page: 0 },
   { key: "connections", label: "Connections", page: 2 },
   { key: "collaboration", label: "Collaboration", page: 3 },
   { key: "campus", label: "Campus", page: 5 },
 ] as const;
 
 /**
- * Standing masthead copy, carried over from the old utility strip.
- * The hyphens are U+2011 (non-breaking) — a plain "-" lets the browser break
- * "Multi-tenant" across lines in the narrow masthead gutter.
+ * Standing masthead copy — the furniture strip on page 1.
  */
-export const DATELINE = "Est. 2026 · The Club Operations Paper";
-export const SLUGLINE = "Student‑run · Multi‑tenant · Open for enrolment";
-export const EDITION_LINE = "Vol. II · Edition 01 · Authored by Vishaal Pillay";
+export const MASTHEAD_STRIP = ["Est. 2026", "The Club Operations Paper", "Edition 01"] as const;

@@ -143,7 +143,7 @@ function PortalContent() {
           </div>
 
           {clubs.length === 0 ? (
-            <div className="border-2 border-dashed border-[#e0d9ca] p-16 flex flex-col items-center justify-center text-center">
+            <div className="border-2 border-dashed border-[#e0d0b6] p-16 flex flex-col items-center justify-center text-center">
               <span className="material-symbols-outlined text-[48px] text-[#757575] mb-4">
                 group
               </span>
@@ -162,7 +162,7 @@ function PortalContent() {
                     key={club.id}
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="border-2 border-black bg-paper group cursor-pointer hover:bg-[#ebe6db] transition-colors flex flex-col"
+                    className="border-2 border-black bg-paper group cursor-pointer hover:bg-[#eee0cb] transition-colors flex flex-col"
                     onClick={() => enterClub(club)}
                   >
                     {/* Top accent */}
@@ -188,7 +188,7 @@ function PortalContent() {
                         </p>
                       )}
 
-                      <div className="mt-auto pt-4 border-t border-[#e0d9ca] flex justify-between items-center">
+                      <div className="mt-auto pt-4 border-t border-[#e0d0b6] flex justify-between items-center">
                         {/* Invite code — the API only sends it to Joint-Secretary+, so lower
                             ranks get null and we render nothing in its place. */}
                         <span className="font-mono text-[11px] uppercase tracking-widest text-[#757575]">
@@ -231,7 +231,7 @@ function PortalContent() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="border-2 border-[#e0d9ca] bg-[#f0ede4] p-6 flex flex-col gap-4"
+                    className="border-2 border-[#e0d0b6] bg-[#f3e8d6] p-6 flex flex-col gap-4"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -251,7 +251,7 @@ function PortalContent() {
                       </span>
                     </div>
 
-                    <div className="pt-3 border-t border-[#e0d9ca] flex items-center justify-between">
+                    <div className="pt-3 border-t border-[#e0d0b6] flex items-center justify-between">
                       <span className="font-mono text-[10px] text-[#757575] uppercase">
                         {new Date(req.created_at).toLocaleDateString("en-US", {
                           month: "short", day: "numeric"

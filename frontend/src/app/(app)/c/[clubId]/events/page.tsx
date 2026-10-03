@@ -166,7 +166,7 @@ export default function EventsPage() {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       key={ev.id}
-      className={`${isPast ? "bg-[#ebe6db] opacity-80" : "bg-paper"} border-2 border-black flex flex-col group/event relative`}
+      className={`${isPast ? "bg-[#eee0cb] opacity-80" : "bg-paper"} border-2 border-black flex flex-col group/event relative`}
     >
       {canManage && (
         <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover/event:opacity-100 transition-opacity z-10 bg-paper/90 rounded px-1">

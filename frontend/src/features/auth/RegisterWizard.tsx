@@ -330,7 +330,7 @@ export default function RegisterWizard() {
                     8+ CHARACTERS
                   </span>
                 </div>
-                <div className="pt-4 border-t border-[#e0d9ca] mt-1">
+                <div className="pt-4 border-t border-[#e0d0b6] mt-1">
                   <button type="submit" disabled={loading} className={submitClass}>
                     {loading ? "Please wait..." : "Create Account"}
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -338,7 +338,7 @@ export default function RegisterWizard() {
                 </div>
               </form>
               <p className="font-mono text-[11px] text-[#757575] uppercase tracking-wider text-center mt-6">
-                Already on Club-Hub?{" "}
+                Already on ClubHub?{" "}
                 <Link href="/login" className="text-[#057DBC] underline">Sign in</Link>
               </p>
             </>
@@ -374,10 +374,10 @@ export default function RegisterWizard() {
                     type="email"
                     value={email}
                     disabled
-                    className={`${inputClass} disabled:opacity-60 disabled:bg-[#ebe6db]`}
+                    className={`${inputClass} disabled:opacity-60 disabled:bg-[#eee0cb]`}
                   />
                 </div>
-                <div className="pt-4 border-t border-[#e0d9ca] mt-1">
+                <div className="pt-4 border-t border-[#e0d0b6] mt-1">
                   <button
                     type="submit"
                     disabled={loading || !name.trim()}
@@ -412,7 +412,7 @@ export default function RegisterWizard() {
                   value={institution}
                   onChange={setInstitution}
                 />
-                <div className="pt-4 border-t border-[#e0d9ca] mt-1 flex justify-between items-center">
+                <div className="pt-4 border-t border-[#e0d0b6] mt-1 flex justify-between items-center">
                   {backButton(1)}
                   <button
                     type="submit"
@@ -440,7 +440,7 @@ export default function RegisterWizard() {
                 avatarUrl={avatarUrl}
                 onUploaded={setAvatarUrl}
               />
-              <div className="pt-6 border-t border-[#e0d9ca] mt-6 flex justify-between items-center">
+              <div className="pt-6 border-t border-[#e0d0b6] mt-6 flex justify-between items-center">
                 {backButton(2)}
                 <button
                   type="button"
@@ -479,7 +479,7 @@ export default function RegisterWizard() {
                       ? "border-red-600 focus:border-red-600"
                       : isValid
                         ? "border-[#057DBC] focus:border-[#057DBC]"
-                        : "border-[#e0d9ca] focus:border-[#057DBC]";
+                        : "border-[#e0d0b6] focus:border-[#057DBC]";
                     return (
                       <div key={label} className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-3">
@@ -509,7 +509,7 @@ export default function RegisterWizard() {
                     );
                   })}
                 </div>
-                <div className="pt-4 border-t border-[#e0d9ca] mt-1 flex justify-between items-center">
+                <div className="pt-4 border-t border-[#e0d0b6] mt-1 flex justify-between items-center">
                   {backButton(3)}
                   <button
                     type="submit"

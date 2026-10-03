@@ -11,7 +11,7 @@ import PageHead from "../PageHead";
  */
 const FAQ_ITEMS: [string, string][] = [
   [
-    "Is Club-Hub free?",
+    "Is ClubHub free?",
     "Yes. Creating clubs, joining clubs, tasks, events, announcements, and the leaderboard are free for students. No credit card at any point.",
   ],
   [
@@ -31,15 +31,19 @@ const FAQ_ITEMS: [string, string][] = [
     "Sub-teams — Technical, Management, Creative, anything you define. Tasks, announcements, and leaderboard filters can all be scoped to a domain, and leads run theirs.",
   ],
   [
+    "Does it work on my phone?",
+    "Not yet. ClubHub is built for a laptop screen for now, and the small-screen layout is still being drawn. Everything here is for the browser on a laptop or desktop.",
+  ],
+  [
     "Do points ever expire or get taken back?",
     "No. The points ledger is append-only: once earned, always yours. Reopening a task never claws points back — the record stands, by design.",
   ],
 ];
 
 const PRESS_NOTES: [string, string][] = [
-  ["Tenancy", "The active club rides in a request header, never the URL alone. A forged path cannot route a write into another club."],
-  ["Authority", "Seven ranks with a strict hierarchy — you can never grant a rank at or above your own."],
-  ["Sessions", "Short-lived access tokens held in memory; rotating refresh cookies. Reusing a revoked token kills every session you have."],
+  ["Tenancy", "Every request names its club, so a forged path cannot write into another one."],
+  ["Authority", "You can never grant a rank at or above your own."],
+  ["Sessions", "Short-lived tokens. Reuse a revoked one and every session you have ends."],
 ];
 
 export default function Page8Colophon() {
@@ -73,9 +77,8 @@ export default function Page8Colophon() {
                 Free
               </div>
               <p className="np-body" style={{ textAlign: "left", textIndent: 0 }}>
-                While in beta. Every feature in this edition — clubs, roles, domains, tasks,
-                points, events and announcements — at no cost to students. No credit card at any
-                point.
+                While in beta, every feature in this edition is free for students. No credit card
+                at any point.
               </p>
             </aside>
 
@@ -101,7 +104,7 @@ export default function Page8Colophon() {
           <h2 className="np-lead-head" style={{ fontSize: "var(--np-t-h2)" }}>
             Your club deserves a front page.
           </h2>
-          <a href={REGISTER_URL} className="np-cta np-cta-blue">
+          <a href={REGISTER_URL} className="np-cta np-cta-red">
             Join the network
           </a>
         </section>
@@ -109,7 +112,7 @@ export default function Page8Colophon() {
         <hr className="np-rule-double" />
 
         <footer className="np-colophon">
-          <span className="np-micro">© 2026 Club-Hub Editorial. All rights reserved.</span>
+          <span className="np-micro">© 2026 ClubHub Editorial · Authored by Vishaal Pillay</span>
           <nav className="np-colophon-nav" aria-label="Footer">
             <a href={LOGIN_URL} className="np-micro">
               Sign in
@@ -119,6 +122,10 @@ export default function Page8Colophon() {
             </a>
           </nav>
         </footer>
+        <p className="np-micro" style={{ marginTop: "0.8cqw" }}>
+          College names and marks belong to their institutions and are shown only to say where
+          students can sign up.
+        </p>
       </div>
     </>
   );

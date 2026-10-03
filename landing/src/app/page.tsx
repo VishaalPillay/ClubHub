@@ -31,11 +31,11 @@ const BODIES = [
 const JSON_LD = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "Club-Hub",
+  name: "ClubHub",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "The operating system for student clubs — memberships, seven-tier roles, sub-teams, weighted tasks, a public points economy, events, and announcements.",
+    "The free home for student clubs: members, seven-tier roles, tasks, events, announcements and a public points leaderboard.",
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 };
 

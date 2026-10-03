@@ -77,7 +77,7 @@ export default function JoinRequestsPage() {
                     {req.requested_role}
                   </span>
                   {req.requested_domain_id && (
-                    <span className="font-mono text-[10px] uppercase bg-[#ebe6db] border border-black text-black px-2 py-0.5 tracking-widest">
+                    <span className="font-mono text-[10px] uppercase bg-[#eee0cb] border border-black text-black px-2 py-0.5 tracking-widest">
                       {req.requested_domain_name || `Domain ${req.requested_domain_id}`}
                     </span>
                   )}

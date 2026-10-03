@@ -463,7 +463,7 @@ export default function NewspaperShell({
             aria-roledescription={mode === "paper" ? "newspaper" : undefined}
             aria-label={
               mode === "paper"
-                ? `Club-Hub, the club operations paper — ${pages.length} pages`
+                ? `ClubHub, the club operations paper — ${pages.length} pages`
                 : undefined
             }
           >

@@ -39,10 +39,16 @@ const DEST_DIR = resolve("public/pages");
  *  leaves are built to. Changing this changes PAGE_ASPECT in sceneConfig.ts. */
 const VIEWPORT = { width: 1440, height: 900 };
 
-/** 2x, so the pages hold up when the camera is close. */
-const SCALE = 2;
+/** 3x. The sheet is read at 650-760 CSS px wide on a laptop and on a 2x display that is
+ *  1300-1500 device pixels; a 2x texture (1148px) is magnified there, and the small type is
+ *  the first thing to go soft. 3x (1722px) is the smallest size that stays at or above
+ *  1:1 on those screens. Cost: ~1.75x the texture memory, which is why this stays at 3
+ *  and not 4. */
+const SCALE = 3;
 
-const AVIF = { quality: 62, effort: 6 };
+/* Flat type on paper compresses very well in AVIF, so the extra pixels cost far less
+   than the 2.25x they add; quality is held up because text edges are what ring first. */
+const AVIF = { quality: 64, effort: 6 };
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -144,6 +150,33 @@ async function main() {
     process.exit(1);
   }
 
+  /* The 3D scene animates the "Available at" ticker on page 1 live (a canvas laid over the
+     baked texture), so it has to know where on the sheet that window is. Recorded as
+     fractions of the page — resolution-independent, so it survives a change of SCALE or of
+     the sheet's CSS size. */
+  const strip = await faces[0].evaluate((face) => {
+    const el = face.querySelector("[data-college-window]");
+    if (!el) return null;
+    const f = face.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return {
+      x: (r.left - f.left) / f.width,
+      y: (r.top - f.top) / f.height,
+      w: r.width / f.width,
+      h: r.height / f.height,
+    };
+  });
+  await writeFile(join(DEST_DIR, "meta.json"), JSON.stringify({ colleges: strip }, null, 2) + "\n");
+
+  /* A page is a fixed-height sheet with `overflow: hidden`, so content past the
+     bottom is not scrolled, it is photographed away. Measure before shooting and
+     fail the run: a clipped texture ships silently otherwise. */
+  const overflows = [];
+  for (let i = 0; i < faces.length; i++) {
+    const over = await faces[i].evaluate((el) => el.scrollHeight - el.clientHeight);
+    if (over > 1) overflows.push(`${String(i + 1).padStart(2, "0")} (+${over}px)`);
+  }
+
   for (let i = 0; i < faces.length; i++) {
     const png = await faces[i].screenshot({ type: "png" });
     const name = String(i + 1).padStart(2, "0");
@@ -157,10 +190,15 @@ async function main() {
   await browser.close();
   server.close();
 
-  const files = await readdir(DEST_DIR);
+  const files = (await readdir(DEST_DIR)).filter((f) => f.endsWith(".avif"));
   let total = 0;
   for (const f of files) total += (await stat(join(DEST_DIR, f))).size;
   console.log(`\n  ${files.length} textures, ${(total / 1024 / 1024).toFixed(2)} MB total`);
+  if (overflows.length) {
+    console.error(`
+  OVERFLOW — content is clipped on page(s): ${overflows.join(", ")}`);
+    process.exit(1);
+  }
   console.log("  This is the payload figure the plan flagged as the one to watch.");
 }
 

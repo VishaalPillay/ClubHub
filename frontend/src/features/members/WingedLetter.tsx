@@ -78,7 +78,7 @@ function Wing({ tone }: { tone: Tone }) {
         <path
           key={i}
           d="M0 0 Q34 -7 66 -2 Q36 7 0 6 Z"
-          fill="#f5f2ec"
+          fill="#f8eedf"
           stroke="#1a1a1a"
           strokeWidth="2"
           strokeLinejoin="round"
@@ -99,7 +99,7 @@ function Envelope({ tone }: { tone: Tone }) {
         y="2"
         width="128"
         height="82"
-        fill="#f5f2ec"
+        fill="#f8eedf"
         stroke="#1a1a1a"
         strokeWidth="3"
       />
@@ -111,7 +111,7 @@ function Envelope({ tone }: { tone: Tone }) {
       <circle cx="66" cy="56" r="13" fill={seal} stroke="#1a1a1a" strokeWidth="2.5" />
       <path
         d={tone === "angel" ? "M66 62 L66 50 M61 55 L66 50 L71 55" : "M66 50 L66 62 M61 57 L66 62 L71 57"}
-        stroke="#f5f2ec"
+        stroke="#f8eedf"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"

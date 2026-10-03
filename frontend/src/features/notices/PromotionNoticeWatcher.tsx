@@ -112,7 +112,7 @@ export default function PromotionNoticeWatcher() {
                   <strong>{active.club_name}</strong>.
                 </p>
                 {active.message && (
-                  <p className="font-ui text-14 text-caption-gray border-t border-[#e0d9ca] pt-4 w-full italic">
+                  <p className="font-ui text-14 text-caption-gray border-t border-[#e0d0b6] pt-4 w-full italic">
                     &ldquo;{active.message}&rdquo;
                   </p>
                 )}

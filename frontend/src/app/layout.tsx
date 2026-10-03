@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Newsreader, Inter, Space_Grotesk } from "next/font/google";
 import { QueryProvider } from "@/lib/queryClient";
 import { DeckleDefs } from "@/features/flow/FlowSheet";
@@ -30,23 +30,31 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-// No display face is loaded here for the wordmark. It is not set as text at all:
-// it is supplied artwork, traced to outlines once (scripts/gen-wordmark.mjs →
-// components/ui/wordmarkPaths.ts), so the logo costs zero font and zero image
-// requests and cannot flash while anything downloads.
+// No display face is loaded here for the wordmark. It is not set as text at all: it is
+// supplied artwork, rendered to WebP once (scripts/gen-wordmark.mjs → public/brand/), so
+// the logo costs no font and nothing flashes while one downloads.
 
 export const metadata: Metadata = {
   title: {
-    default: "Club-Hub — Manage Your Club, Effortlessly",
-    template: "%s | Club-Hub",
+    default: "ClubHub",
+    template: "%s | ClubHub",
   },
   description:
-    "Club-Hub is the all-in-one editorial platform for student clubs. Manage tasks, events, domains, and members — with clarity and authority.",
+    "ClubHub is the all-in-one editorial platform for student clubs. Manage tasks, events, domains, and members — with clarity and authority.",
   keywords: ["club management", "student hub", "task board", "events", "domains"],
   // This is the signed-in application, not the marketing site. Keeping app.<domain>/login
   // out of the index means the landing page at the apex is the only thing that ranks —
   // otherwise the two compete for the same brand query and the login form usually wins.
   robots: { index: false, follow: false },
+  // iOS ignores the manifest's display mode and reads these instead: without `capable`
+  // a home-screen launch opens in Safari chrome, and without `title` the icon is labelled
+  // with the page <title>.
+  appleWebApp: { capable: true, title: "ClubHub", statusBarStyle: "default" },
+};
+
+// Tints the browser toolbar / installed-window title bar to the newsprint canvas.
+export const viewport: Viewport = {
+  themeColor: "#f8eedf",
 };
 
 export default function RootLayout({
@@ -70,7 +78,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://accounts.google.com" />
         <link rel="dns-prefetch" href="https://accounts.google.com" />
       </head>
-      <body style={{ backgroundColor: "#f5f2ec", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
+      <body style={{ backgroundColor: "#f8eedf", color: "#1a1a1a", fontFamily: "var(--font-ui)" }}>
         {/* Hidden wholesale below the laptop breakpoint — see MobileGate. */}
         <div className="app-shell">
           <QueryProvider>{children}</QueryProvider>

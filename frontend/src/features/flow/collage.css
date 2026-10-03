@@ -23,7 +23,7 @@
 
 /* ── The small-screen gate ────────────────────────────────────────────────────
  *
- * Club-Hub is a laptop application for now. Below the breakpoint the whole app
+ * ClubHub is a laptop application for now. Below the breakpoint the whole app
  * is hidden and `MobileGate` stands in its place.
  *
  * This is a media query rather than a width check in React on purpose: JS cannot
@@ -129,7 +129,7 @@
 
      The shadow is not decoration — it is what makes a scrap an object sitting on
      the desk rather than a texture printed into it. It also rescues the pale
-     pieces: a white note on #f5f2ec has almost no tonal separation from the
+     pieces: a white note on #f8eedf has almost no tonal separation from the
      ground, and read as a smudge until it cast something. drop-shadow follows
      the torn alpha edge; box-shadow would draw a rectangle. */
   filter: saturate(var(--sat, 1)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.18));

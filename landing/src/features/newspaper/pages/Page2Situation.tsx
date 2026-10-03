@@ -58,28 +58,27 @@ export default function Page2Situation() {
           <div className="np-flow-tight">
             <p className="np-eyebrow">The verdict</p>
             <p className="np-body np-dropcap">
-              None of this is a people problem. Student committees turn over every twelve months,
-              carry no institutional memory, and inherit whatever tooling the last president
-              happened to like. The spreadsheet is not the disease; it is the symptom of having
-              no system at all. What a club actually needs is the boring infrastructure a company
-              takes for granted — a membership roll, an org chart with real permissions, a work
-              queue, and a record of who did what.
+              None of this is a people problem. Student committees turn over every twelve months
+              and inherit whatever tooling the last president happened to like. The spreadsheet is
+              not the disease; it is the symptom of having no system at all. What a club needs is
+              the boring infrastructure a company takes for granted — a membership roll, an org
+              chart with real permissions, a work queue, and a record of who did what.
             </p>
             <p className="np-body">
-              That is the whole of Club-Hub. It is not a social network for clubs, and it is not
+              That is the whole of ClubHub. It is not a social network for clubs, and it is not
               another chat app. It is the ledger, the roster, and the rulebook — the parts nobody
               volunteers to maintain by hand.
             </p>
           </div>
 
           <aside className="np-box-invert np-flow-tight">
-            <p className="np-eyebrow">By the numbers</p>
+            <p className="np-eyebrow">A familiar committee</p>
             <hr className="np-rule-thin" style={{ borderColor: "#4a463c" }} />
             <div>
               <div className="np-metric-n" style={{ fontSize: "var(--np-t-h2)" }}>
                 4
               </div>
-              <p className="np-micro">Group chats the average committee runs in parallel</p>
+              <p className="np-micro">Group chats running in parallel</p>
             </div>
             <div>
               <div className="np-metric-n" style={{ fontSize: "var(--np-t-h2)" }}>
@@ -91,7 +90,7 @@ export default function Page2Situation() {
               <div className="np-metric-n" style={{ fontSize: "var(--np-t-h2)" }}>
                 0
               </div>
-              <p className="np-micro">Records that survive the handover in June</p>
+              <p className="np-micro">Records that survive the June handover</p>
             </div>
           </aside>
         </div>

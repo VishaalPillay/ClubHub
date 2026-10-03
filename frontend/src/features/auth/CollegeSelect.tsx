@@ -284,7 +284,7 @@ export default function CollegeSelect({
                         <button
                           type="button"
                           onClick={() => selectOption(opt)}
-                          className="w-full text-left px-4 py-2.5 font-ui text-[14px] hover:bg-[#ebe6db] transition-colors border-b border-[#e0d9ca]"
+                          className="w-full text-left px-4 py-2.5 font-ui text-[14px] hover:bg-[#eee0cb] transition-colors border-b border-[#e0d0b6]"
                         >
                           {opt}
                         </button>

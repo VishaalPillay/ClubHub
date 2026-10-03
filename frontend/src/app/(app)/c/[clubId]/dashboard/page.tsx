@@ -152,7 +152,7 @@ export default function OverviewPage() {
             onClick={() => router.push(`/c/${clubId}/members`)}
             className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-paper transition-0"
           >
-            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#ddd8cc] transition-0">Total Members</div>
+            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#e3d4bb] transition-0">Total Members</div>
             <div className="font-display text-5xl font-bold group-hover:text-paper">{members.length}</div>
             <span className="material-symbols-outlined absolute top-3 right-3 text-[32px] opacity-20 group-hover:opacity-100">group</span>
           </div>
@@ -160,7 +160,7 @@ export default function OverviewPage() {
             onClick={() => router.push(`/c/${clubId}/tasks`)}
             className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-paper transition-0"
           >
-            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#ddd8cc] transition-0">Active Tasks</div>
+            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#e3d4bb] transition-0">Active Tasks</div>
             <div className="font-display text-5xl font-bold group-hover:text-paper">{activeTasksCount}</div>
             <span className="material-symbols-outlined absolute top-3 right-3 text-[32px] opacity-20 group-hover:opacity-100">format_list_bulleted</span>
           </div>
@@ -168,7 +168,7 @@ export default function OverviewPage() {
             onClick={() => router.push(`/c/${clubId}/events`)}
             className="border-2 border-black p-3 relative group cursor-pointer hover:bg-black hover:text-paper transition-0"
           >
-            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#ddd8cc] transition-0">Upcoming Events</div>
+            <div className="font-mono text-sm uppercase text-caption-gray mb-0.5 group-hover:text-[#e3d4bb] transition-0">Upcoming Events</div>
             <div className="font-display text-5xl font-bold group-hover:text-paper">{upcomingEventsCount}</div>
             <span className="material-symbols-outlined absolute top-3 right-3 text-[32px] opacity-20 group-hover:opacity-100">calendar_today</span>
           </div>
@@ -215,7 +215,7 @@ export default function OverviewPage() {
                         {announcement.type}
                       </span>
                       {announcement.scope === 'domain' && (
-                        <span className="inline-block font-mono text-[10px] uppercase bg-[#ebe6db] text-black px-2 py-0.5 border border-black">
+                        <span className="inline-block font-mono text-[10px] uppercase bg-[#eee0cb] text-black px-2 py-0.5 border border-black">
                           {announcement.domain_name ? `${announcement.domain_name} Only` : 'Domain Only'}
                         </span>
                       )}
@@ -258,7 +258,7 @@ export default function OverviewPage() {
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
-                          <div className="border-2 border-black border-t-0 p-4 bg-[#ebe6db] flex flex-col gap-4">
+                          <div className="border-2 border-black border-t-0 p-4 bg-[#eee0cb] flex flex-col gap-4">
 
                             <div className="flex gap-2">
                               <button onClick={() => setDraftData({...draftData, type: 'urgent'})} className={`font-mono text-[10px] uppercase text-paper px-3 py-1 rounded-[1920px] transition-colors ${draftData.type === 'urgent' ? 'bg-red-600 ring-2 ring-black ring-offset-1' : 'bg-red-600/50 hover:bg-red-600'}`}>URGENT</button>

@@ -30,6 +30,7 @@
     --font-body: var(--font-newsreader), Georgia, serif;
     --font-ui: var(--font-inter), "Helvetica Neue", sans-serif;
     --font-mono: var(--font-space-grotesk), "Space Mono", monospace;
+    --font-hero: var(--font-playfair), "Playfair Display", Georgia, serif;
   }
 }
 

@@ -240,7 +240,7 @@ function SettingsForm({
       </div>
 
       {/* Invite code */}
-      <div className="border-2 border-black p-6 mb-8 flex items-center justify-between bg-[#f0ede4]">
+      <div className="border-2 border-black p-6 mb-8 flex items-center justify-between bg-[#f3e8d6]">
         <div>
           <div className="font-mono text-[11px] uppercase tracking-widest text-[#757575] mb-1">
             Invite Code
@@ -330,10 +330,10 @@ function SettingsForm({
                   key={opt.value}
                   className={`flex items-start gap-4 border-2 p-4 transition-colors ${
                     disabled
-                      ? "border-[#e0d9ca] opacity-50 cursor-not-allowed"
+                      ? "border-[#e0d0b6] opacity-50 cursor-not-allowed"
                       : selected
                         ? "border-[#057DBC] bg-[#f0f8ff] cursor-pointer"
-                        : "border-black cursor-pointer hover:bg-[#f0ede4]"
+                        : "border-black cursor-pointer hover:bg-[#f3e8d6]"
                   }`}
                 >
                   <input
@@ -363,8 +363,8 @@ function SettingsForm({
         <label
           className={`flex items-start gap-4 border-2 p-4 cursor-pointer transition-colors ${
             form.accepting_requests
-              ? "border-black hover:bg-[#f0ede4]"
-              : "border-[#757575] bg-[#f0ede4]"
+              ? "border-black hover:bg-[#f3e8d6]"
+              : "border-[#757575] bg-[#f3e8d6]"
           }`}
         >
           <input
@@ -408,7 +408,7 @@ function SettingsForm({
                     className={`flex items-center gap-3 border-2 p-3 cursor-pointer transition-colors ${
                       checked
                         ? "border-[#057DBC] bg-[#f0f8ff]"
-                        : "border-black hover:bg-[#f0ede4]"
+                        : "border-black hover:bg-[#f3e8d6]"
                     }`}
                   >
                     <input

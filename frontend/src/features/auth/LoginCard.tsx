@@ -84,7 +84,7 @@ export default function LoginCard() {
             className={inputClass}
           />
         </div>
-        <div className="pt-4 border-t border-[#e0d9ca] mt-2">
+        <div className="pt-4 border-t border-[#e0d0b6] mt-2">
           <button
             type="submit"
             disabled={loading}
@@ -97,7 +97,7 @@ export default function LoginCard() {
       </form>
 
       <p className="font-mono text-[11px] text-[#757575] uppercase tracking-wider text-center mt-6">
-        New to Club-Hub?{" "}
+        New to ClubHub?{" "}
         <Link href="/register" className="text-[#057DBC] underline">Register</Link>
       </p>
     </FlowSheet>

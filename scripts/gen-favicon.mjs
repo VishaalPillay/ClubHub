@@ -1,46 +1,59 @@
 /**
- * Builds the browser icons for BOTH apps from one master image.
+ * Builds every icon the product ships — browser, iOS and installable-PWA — for
+ * BOTH apps from one master image.
  *
  *   node scripts/gen-favicon.mjs                 # rebuild from the committed master
- *   node scripts/gen-favicon.mjs path/to/new.svg # re-master first, then rebuild
+ *   node scripts/gen-favicon.mjs path/to/new.png # re-master first, then rebuild
  *
- * Writes into `frontend/src/app/` and `landing/src/app/`, where Next's metadata
- * file convention picks them up and emits the <link> tags itself — there is no
- * icon markup to keep in step in either layout.
+ * Next's metadata file convention picks up the first three and emits the <link>
+ * tags itself; the PWA set is referenced by `frontend/src/app/manifest.ts`.
  *
- *   favicon.ico       16 + 20 + 24 + 32 + 48 + 64, the tab icon
- *   icon.png          192, bookmarks and Android
- *   apple-icon.png    180, iOS home screen
+ *   {frontend,landing}/src/app/
+ *     favicon.ico        16 + 20 + 24 + 32 + 48 + 64, the tab icon
+ *     icon.png           192, bookmarks and Android
+ *     apple-icon.png     180, iOS home screen (opaque, full bleed)
+ *   frontend/public/icons/
+ *     icon-192.png       manifest, purpose "any"
+ *     icon-512.png       manifest, purpose "any"
+ *     maskable-192.png   manifest, purpose "maskable"
+ *     maskable-512.png   manifest, purpose "maskable"
  *
- * ── Why six entries and not three ────────────────────────────────────────────
- * A tab favicon is 16 CSS px, and Windows almost never renders it at 16 device
- * px: at 125% display scaling Chrome wants 20, at 150% it wants 24, at 200% it
- * wants 32. With only 16/32/48 in the file the two commonest Windows setups get
- * a rescale of a bitmap that is already at the edge of legibility, which looks
- * exactly like a slightly soft, slightly grey icon. Each of these is cut from
- * the 1024 master at its own size, so nothing is ever scaled twice.
+ * ── The master ───────────────────────────────────────────────────────────────
+ * The artwork is a torn-paper collage already cut to a rounded square, with
+ * transparent corners. Re-mastering trims it to the squircle's own bounds (the
+ * file arrives with a wide transparent margin, and a drop-shadow-sized one is
+ * the difference between an icon that fills its tile and one that floats in it)
+ * and pads the few pixels of non-squareness with transparency rather than
+ * stretching. It is kept at native resolution, ~920 px: the biggest output is
+ * 512, so nothing here is ever upscaled.
  *
- * ── Why a raster master and not the SVG ──────────────────────────────────────
- * The artwork arrived as a 5 MB SVG: a 12,030-path autotrace of a collage, with
- * 57 fills, most of them torn-paper texture. That is a photograph wearing a
- * vector's clothes — nothing in it is resolution-independent in any way a 16px
- * tab benefits from, and shipping it as an `icon.svg` would put five megabytes
- * on the LCP path of a page that spends 160 KB on its entire backdrop video. So
- * it is rasterised once, at 1024², into `scripts/assets/favicon-master.png`
- * (370 KB), and every output is cut from that. Keep the SVG wherever the design
- * lives; this repo does not need it.
+ * ── Four shapes, because four platforms disagree about corners ───────────────
+ *   tab / Android "any"  the squircle itself, transparent corners. The shape is
+ *                        part of the design, so it is kept rather than cut to a
+ *                        disc as the previous artwork needed.
+ *   apple-icon           opaque full-bleed square. iOS composites transparency
+ *                        onto BLACK and then applies its own mask, so shipping
+ *                        the transparent corners would put black slivers where
+ *                        the two curves disagree. The corners are filled with
+ *                        the art's own nearest colours instead (see `bleed`).
+ *   maskable             the OS cuts an arbitrary shape (circle, squircle,
+ *                        teardrop) out of an opaque square, and promises only
+ *                        that the central 80%-diameter circle survives. The
+ *                        sparks beside the C sit ~0.45 of the width from the
+ *                        centre — outside that circle — so the art is shrunk to
+ *                        89% and the margin it opens up is filled by `bleed`.
  *
- * ── Why the small sizes are cropped in ───────────────────────────────────────
- * The mark is a ransom-note CH on a torn sheet, and the sheet is surrounded by
- * collage — handwriting, a butterfly, a plaster bust. At 512 that is the point
- * of it. At 16 it is grey noise around two letters four pixels tall, and the
- * letters are the only part that has to survive. So the smaller the output, the
- * tighter the crop: the collage is spent first, because it is the part that
- * stops being legible first. Sizes at 64 and up get the full square.
+ * ── Why the small ico entries are not all cut the same ───────────────────────
+ * Windows renders a 16 CSS px favicon at 20 device px at 125% display scaling,
+ * 24 at 150% and 32 at 200%. With only 16/32/48 in the file those setups rescale
+ * a bitmap already at the edge of legibility, which is what a slightly soft,
+ * slightly grey icon looks like. Each entry is cut from the master at its own
+ * size, so nothing is scaled twice, and the smallest get a contrast lift because
+ * a ~50x downscale averages the black C and the cream sheet toward each other.
  */
 
 import { createRequire } from "node:module";
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -54,97 +67,247 @@ const sharp = require("sharp");
 
 const MASTER = resolve(ROOT, "scripts/assets/favicon-master.png");
 
-/** Where the CH block sits inside the square, measured off the master. */
-const MARK_CENTRE = { x: 0.511, y: 0.515 };
+/** The sheet's own cream (`--color-paper`), for anything that has to be opaque. */
+const PAPER = "#f8eedf";
+
+/** Share of the canvas the art keeps inside a maskable icon: the sparks sit 0.446
+    of the width from the centre, the guaranteed-safe circle is 0.40. */
+const MASKABLE_SCALE = 0.89;
 
 /**
- * Output sizes, how much of the square each keeps, and whether it gets a
- * contrast lift.
- *
- * The framing tightens as the icon shrinks, and the disc is why it has to. A
- * circle cannot hold the CH block at the same relative size a square can: the
- * block is 0.50 wide by 0.42 tall, so its diagonal is 0.66 of the frame, and
- * fitting that inside an inscribed circle with any margin at all means cropping
- * no tighter than ~0.75 — which at 16px leaves the letters about nine pixels
- * across and merges the H into a grey bar. Tested; it is not close.
- *
- * So the small entries let the CH run to the edge of the disc and read as a
- * badge, while 48 and up pull back far enough to show the torn sheet inside the
- * circle. `punch` goes with the small ones: a 60x downscale averages the blacks
- * and the cream toward each other, and without pulling them back apart the
- * letterforms go soft. Every number here was picked by looking at the tiles at
- * true size on a tab-strip background, not by taste. Different framings across
- * sizes is normal — a browser picks exactly one and never sees the others.
+ * Tab-icon sizes and how much of the squircle each keeps. 1 is the whole shape.
+ * The C is large and bold, so even 16 px survives the full square; the smallest
+ * entries trim the squircle's rounded margin (a few px at this size) so the
+ * letter gets the room instead.
  */
 const ICO_SIZES = [
-  { px: 16, crop: 0.56, punch: true },
-  { px: 20, crop: 0.6, punch: true },
-  { px: 24, crop: 0.64, punch: true },
-  { px: 32, crop: 0.66 },
-  { px: 48, crop: 0.72 },
-  { px: 64, crop: 0.76 },
+  { px: 16, crop: 0.92, punch: true },
+  { px: 20, crop: 0.94, punch: true },
+  { px: 24, crop: 0.96, punch: true },
+  { px: 32, crop: 1 },
+  { px: 48, crop: 1 },
+  { px: 64, crop: 1 },
 ];
 
-/** The apps that get a copy. Both, because they are one product wearing one mark. */
+/** The apps that get the browser/iOS trio. Both: one product, one mark. */
 const APPS = [resolve(ROOT, "frontend/src/app"), resolve(ROOT, "landing/src/app")];
 
-/** An antialiased disc, for masking the square art down to a round icon. */
-const disc = (px) =>
-  Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}">` +
-      `<circle cx="${px / 2}" cy="${px / 2}" r="${px / 2}" fill="#fff"/></svg>`,
-  );
+/** Only the app is installable; the landing site is a static page. */
+const PWA_DIR = resolve(ROOT, "frontend/public/icons");
+
+const png = { compressionLevel: 9, effort: 10 };
+
+async function rgba(input) {
+  const { data, info } = await sharp(input)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  return { data, w: info.width, h: info.height };
+}
+
+/** Pixels at or above this alpha count as "the art" when measuring and filling. */
+const SOLID = 200;
+
+/** Bounding box of the artwork's solid pixels. */
+function bounds({ data, w, h }) {
+  let x0 = w, x1 = -1, y0 = h, y1 = -1;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] >= SOLID) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+  }
+  return { left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+}
+
+/** Trim to the squircle and pad to square — never stretch. Written as the master. */
+async function remaster(src) {
+  const raw = await rgba(src);
+  const b = bounds(raw);
+  const side = Math.max(b.width, b.height);
+  const padX = side - b.width;
+  const padY = side - b.height;
+  await sharp(src)
+    .ensureAlpha()
+    .extract(b)
+    .extend({
+      left: Math.floor(padX / 2),
+      right: Math.ceil(padX / 2),
+      top: Math.floor(padY / 2),
+      bottom: Math.ceil(padY / 2),
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png(png)
+    .toFile(MASTER);
+  console.log(`  master  <- ${src}  (${side}x${side})`);
+}
 
 /**
- * One square of the master, resampled and — unless told otherwise — cut to a
- * circle.
- *
- * Round is the right shape here for a reason beyond taste: the artwork is a
- * torn sheet with collage crowding all four corners, and the corners are both
- * the least legible part at tab size and the part that makes the icon read as a
- * rectangle competing with the tab's own edges. The disc throws away exactly the
- * pixels that were doing the least work.
- *
- * Sharpened below 64px and not above: downscaling a collage by 20x is a heavy
- * low-pass, and the serifs on the C come back soft without it. At 180 and 192
- * the same filter just crawls the paper texture.
+ * Un-solids every pixel within `r` steps of a non-solid one. The squircle's rim
+ * carries a baked-in edge shading (a few px of darker colour); smeared outward
+ * it would draw a faint curved line inside every filled corner, so the rim is
+ * dropped before anything is spread from it.
  */
-async function render(master, { px, crop = 1, punch = false, round = true }) {
+function erode({ data, w, h }, r) {
+  const out = Buffer.from(data);
+  const n = w * h;
+  const dist = new Int16Array(n).fill(-1);
+  const queue = new Int32Array(n);
+  let head = 0;
+  let tail = 0;
+  for (let i = 0; i < n; i++) {
+    if (data[i * 4 + 3] < SOLID) {
+      dist[i] = 0;
+      queue[tail++] = i;
+    }
+  }
+  while (head < tail) {
+    const i = queue[head++];
+    if (dist[i] >= r) continue;
+    const x = i % w;
+    const y = (i - x) / w;
+    for (const j of [
+      x > 0 ? i - 1 : -1,
+      x < w - 1 ? i + 1 : -1,
+      y > 0 ? i - w : -1,
+      y < h - 1 ? i + w : -1,
+    ]) {
+      if (j < 0 || dist[j] >= 0) continue;
+      dist[j] = dist[i] + 1;
+      out[j * 4 + 3] = 0;
+      queue[tail++] = j;
+    }
+  }
+  return out;
+}
+
+/**
+ * Fills every non-solid pixel with the colour of the nearest solid one, by a
+ * multi-source flood from the artwork outward. The result is the art with its
+ * rounded corners (and any margin around it) smeared outward — streaky, which
+ * is why callers blur it and only ever show it where an OS mask or the art
+ * itself covers the rest.
+ */
+function bleed({ data, w, h }) {
+  const out = Buffer.from(data);
+  const n = w * h;
+  const seen = new Uint8Array(n);
+  const queue = new Int32Array(n);
+  let head = 0;
+  let tail = 0;
+  for (let i = 0; i < n; i++) {
+    if (data[i * 4 + 3] >= SOLID) {
+      seen[i] = 1;
+      queue[tail++] = i;
+    }
+  }
+  while (head < tail) {
+    const i = queue[head++];
+    const x = i % w;
+    const y = (i - x) / w;
+    for (const j of [
+      x > 0 ? i - 1 : -1,
+      x < w - 1 ? i + 1 : -1,
+      y > 0 ? i - w : -1,
+      y < h - 1 ? i + w : -1,
+    ]) {
+      if (j < 0 || seen[j]) continue;
+      seen[j] = 1;
+      out[j * 4] = out[i * 4];
+      out[j * 4 + 1] = out[i * 4 + 1];
+      out[j * 4 + 2] = out[i * 4 + 2];
+      queue[tail++] = j;
+    }
+  }
+  for (let i = 0; i < n; i++) out[i * 4 + 3] = 255;
+  return out;
+}
+
+/**
+ * The art on an opaque canvas, `scale` of it wide, everything outside the
+ * squircle filled from the squircle's own edge colours.
+ *
+ * Three layers, so the fill never reads as a fill: the smear is blurred hard
+ * into a soft field of the art's dominant colours (newsprint, cream, red, kraft)
+ * rather than left as streaks; the crisp art is laid over it; and the seam
+ * between them is feathered by blurring the art's own mask, so texture dissolves
+ * into the field instead of stopping at a ruler-straight edge.
+ */
+async function opaqueSquare(master, size, scale = 1) {
+  const art = Math.round(size * scale);
+  const off = Math.round((size - art) / 2);
+  const artBuf = await sharp(master)
+    .resize(art, art, { kernel: "lanczos3" })
+    .png()
+    .toBuffer();
+
+  const placed = await sharp({
+    create: { width: size, height: size, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([{ input: artBuf, left: off, top: off }])
+    .raw()
+    .toBuffer();
+
+  const eroded = erode({ data: placed, w: size, h: size }, Math.max(2, Math.round(size * 0.008)));
+  const filled = bleed({ data: eroded, w: size, h: size });
+  const raw = { raw: { width: size, height: size, channels: 4 } };
+
+  const mask = Buffer.alloc(size * size);
+  for (let i = 0; i < mask.length; i++) mask[i] = eroded[i * 4 + 3] >= SOLID ? 255 : 0;
+  const feather = await sharp(mask, { raw: { width: size, height: size, channels: 1 } })
+    .blur(Math.max(1, size / 70))
+    .raw()
+    .toBuffer();
+
+  const under = await sharp(filled, raw)
+    .blur(Math.max(2, size / 14))
+    .png()
+    .toBuffer();
+  const crisp = await sharp(filled, raw)
+    .removeAlpha()
+    .joinChannel(feather, { raw: { width: size, height: size, channels: 1 } })
+    .png()
+    .toBuffer();
+
+  return sharp(under)
+    .composite([{ input: crisp }])
+    .flatten({ background: PAPER })
+    .ensureAlpha()
+    .png(png)
+    .toBuffer();
+}
+
+/**
+ * One tab-icon tile: the squircle (or the middle `crop` of it), resampled with
+ * its transparency intact.
+ *
+ * Sharpened below 64px and not above: a 20x downscale of a collage is a heavy
+ * low-pass and the C's serifs come back soft without it. At 180 and 192 the
+ * same filter just crawls the paper texture.
+ *
+ * `ensureAlpha` is not optional even where it looks redundant: an .ico entry
+ * must be RGBA. Next decodes the file at build time to write the `sizes`
+ * attribute and fails the build on a three-channel payload — "The PNG is not in
+ * RGBA format!", naming no file.
+ */
+async function tile(master, { px, crop = 1, punch = false }) {
   const { width: D } = await sharp(master).metadata();
-  const side = Math.min(D, Math.round(D * crop));
-  const clamp = (v) => Math.max(0, Math.min(D - side, Math.round(v)));
+  const side = Math.round(D * crop);
+  const at = Math.round((D - side) / 2);
 
   let img = sharp(master)
-    .extract({
-      left: clamp(D * MARK_CENTRE.x - side / 2),
-      top: clamp(D * MARK_CENTRE.y - side / 2),
-      width: side,
-      height: side,
-    })
+    .extract({ left: at, top: at, width: side, height: side })
     .resize(px, px, { kernel: "lanczos3" });
 
-  if (punch) img = img.linear(1.22, -28);
+  /* Per-channel so alpha is left alone: lifting it would fatten the rim. */
+  if (punch) img = img.linear([1.22, 1.22, 1.22, 1], [-28, -28, -28, 0]);
   if (px < 64) img = img.sharpen({ sigma: 0.6, m1: 0.5, m2: 1.2 });
 
-  /* Flattened onto the sheet's own cream first, so the disc's antialiased rim
-     fades to paper rather than to whatever the master's own edge pixels are.
-
-     `ensureAlpha` puts the channel back and it is not optional even where the
-     result is opaque: an .ico entry must be RGBA. Next decodes the file at build
-     time to write the `sizes` attribute and fails the build outright on a
-     three-channel payload — "The PNG is not in RGBA format!", naming no file. */
-  const square = await img
-    .flatten({ background: "#efece5" })
-    .ensureAlpha()
-    .png({ compressionLevel: 9 })
-    .toBuffer();
-
-  if (!round) return square;
-
-  return sharp(square)
-    .composite([{ input: disc(px), blend: "dest-in" }])
-    .png({ compressionLevel: 9 })
-    .toBuffer();
+  return img.ensureAlpha().png(png).toBuffer();
 }
 
 /**
@@ -179,35 +342,21 @@ function ico(images) {
   return Buffer.concat([header, ...entries, ...images.map((i) => i.data)]);
 }
 
+const kb = (b) => `${(b.length / 1024).toFixed(1)} KB`;
+
 async function main() {
   const from = process.argv[2];
   if (from) {
-    const src = resolve(process.cwd(), from);
     await mkdir(dirname(MASTER), { recursive: true });
-    /* Re-mastering accepts anything sharp can read, including the original SVG.
-       1024 is four times the largest output and the point past which a 16px tile
-       stops caring. */
-    if (src.toLowerCase().endsWith(".png") && src === MASTER) {
-      await copyFile(src, MASTER);
-    } else {
-      await sharp(src, { density: 384 })
-        .resize(1024, 1024, { fit: "contain", kernel: "lanczos3" })
-        .png({ compressionLevel: 9 })
-        .toFile(MASTER);
-    }
-    console.log(`  master  <- ${from}`);
+    await remaster(resolve(process.cwd(), from));
   }
 
   const icoImages = await Promise.all(
-    ICO_SIZES.map(async (s) => ({ px: s.px, data: await render(MASTER, s) })),
+    ICO_SIZES.map(async (s) => ({ px: s.px, data: await tile(MASTER, s) })),
   );
   const favicon = ico(icoImages);
-  const icon = await render(MASTER, { px: 192, crop: 0.82 });
-  /* The one square left, and deliberately. iOS composites a transparent
-     apple-touch-icon onto BLACK, so a disc here would ship a circle in a black
-     tile to every home screen; it then applies its own squircle mask, which is
-     the rounding the platform actually wants. Full bleed, no crop, no disc. */
-  const apple = await render(MASTER, { px: 180, round: false });
+  const icon = await tile(MASTER, { px: 192 });
+  const apple = await opaqueSquare(MASTER, 180);
 
   for (const app of APPS) {
     await writeFile(resolve(app, "favicon.ico"), favicon);
@@ -215,9 +364,18 @@ async function main() {
     await writeFile(resolve(app, "apple-icon.png"), apple);
     const rel = app.slice(ROOT.length + 1).replace(/\\/g, "/");
     console.log(
-      `  ${rel}  favicon.ico ${(favicon.length / 1024).toFixed(1)} KB` +
-        `  icon.png ${(icon.length / 1024).toFixed(1)} KB` +
-        `  apple-icon.png ${(apple.length / 1024).toFixed(1)} KB`,
+      `  ${rel}  favicon.ico ${kb(favicon)}  icon.png ${kb(icon)}  apple-icon.png ${kb(apple)}`,
+    );
+  }
+
+  await mkdir(PWA_DIR, { recursive: true });
+  for (const px of [192, 512]) {
+    const any = await tile(MASTER, { px });
+    const maskable = await opaqueSquare(MASTER, px, MASKABLE_SCALE);
+    await writeFile(resolve(PWA_DIR, `icon-${px}.png`), any);
+    await writeFile(resolve(PWA_DIR, `maskable-${px}.png`), maskable);
+    console.log(
+      `  frontend/public/icons  icon-${px}.png ${kb(any)}  maskable-${px}.png ${kb(maskable)}`,
     );
   }
 }

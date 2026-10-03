@@ -43,7 +43,7 @@ project carries no Tailwind, PostCSS, or config for it.
 ### `--color-white` is the one token that deliberately does NOT match the app
 
 The app took its canvas from this project: `frontend/`'s `--color-paper` is this file's
-`--np-paper` (`#f5f2ec`), and every white surface in the application is now that beige. As part of
+`--np-paper` (`#f8eedf`), and every white surface in the application is now that beige. As part of
 that, `frontend/`'s `--color-white` was retired to a deprecated alias pointing at the same beige.
 
 **Here it stays `#ffffff`, and it must.** Its sole consumer is `.np-scope { background }` — the
@@ -79,56 +79,92 @@ separate on purpose, and Cloudflare Pages builds only this directory.
 
 ### The wordmark is a third hand-synced pair — but a generated one
 
-`src/features/newspaper/wordmarkPaths.ts` and
-`frontend/src/components/ui/wordmarkPaths.ts` are **byte-identical generated files**, and
-`Wordmark.tsx` exists in both projects against the same geometry (`.np-wordmark*` here,
-`.wired-wordmark*` there). Do not hand-edit either copy — regenerate both together:
+`src/features/newspaper/wordmarkAssets.ts` and `frontend/src/components/ui/wordmarkAssets.ts` are
+**byte-identical generated files**, next to three WebP renditions in each app's `public/brand/`,
+and `Wordmark.tsx` exists in both projects (`.np-wordmark` here, `.wired-wordmark` there). Do not
+hand-edit any of it — regenerate everything together:
 
 ```bash
-npm i --no-save potrace                 # one-off; deliberately not a project dependency
-node ../scripts/gen-wordmark.mjs        # from this directory — sharp resolves out of landing/
+node ../scripts/gen-wordmark.mjs                  # from this directory — sharp resolves out of landing/
+node ../scripts/gen-wordmark.mjs path/to/new.webp # re-master first
 ```
 
-The mark is **supplied artwork**, traced: `scripts/assets/wordmark-master.png` is the source of
-truth, and the letters, their angles, the scraps they are pasted on and the drop shadows under them
-all come out of it. This used to *compose* the mark instead — four display webfonts fetched from
-Google at generation time, one glyph outlined from each, tilted and dropped onto scraps by hand —
-which is why no `Alfa Slab One` / `Bevan` / `Playfair Display` / `Special Elite` appears in either
-`layout.tsx`. Nothing about that changed: outlines, not text, so the nameplate cannot reflow or
-flash mid-load, and it survives `pages:render` at print resolution where a bitmap sized for a 240px
-navbar would fall apart.
+The mark is **supplied artwork**: `scripts/assets/wordmark-master.webp` is the file as it was
+delivered (stored untouched, so re-mastering never compounds a lossy generation), and the generator
+trims it to its own alpha bounds and cuts 480/960/1600px WebPs. The component is a plain `<img>`
+with a `srcset`, and `width`/`height` from the intrinsic aspect so nothing shifts while it loads.
 
-**It traces as two layers, not one path with holes.** `WORDMARK_TILES` is every scrap as a solid
-silhouette, letters filled in; `WORDMARK_LETTERS` is drawn on top. Holes would be less path data,
-but the letters would then be whatever is behind the mark, and `invert` — which the controls bar
-and the app's ink footers both need — would have nothing to flip.
+**It is a raster because it has to be.** It was traced to two SVG paths (black scraps, pale
+letters) while the mark was two flat colours. The current artwork is full colour — red and black
+cut letters on cream scraps with torn, textured edges — and tracing that to flat fills would be a
+different logo. What the vector form bought is kept where it
+mattered: the nameplate is `priority` (`fetchPriority="high"`) because it is page one's LCP element,
+and the letters carry their own cream border, so the mark holds on the ink footers and the controls
+bar with **no `invert` variant**. If you see a call site passing `invert`, it predates this.
 
-**The two colours are set inline by the component, and that is deliberate.** They used to live in
-`newspaper.css` as `--wm-ink` / `--wm-knock`. When that stylesheet is missing or merely stale — a
-dev server that has not picked the file up yet is enough — both paths fall back to the SVG default
-of black, the letters vanish into their own scraps, and the mark renders as a row of black slabs
-with only the fragments of letter that overhang a tile still visible. A logo should not have that
-dependency. The `var()` in the component keeps `--np-ink` in charge where it resolves; the literal
-beside it is what the mark falls back to when nothing does. What is left in the stylesheet is
-`display`/`width`/`height`.
+There is **no hover animation** and no `uid` prop; the old mark's crumple filter is long gone.
 
-There is **no hover animation**, and no `uid` prop. The mark used to crumple on pointer entry — an
-SVG turbulence filter warping the paper while a CSS keyframe balled it up — which is why every call
-site had to pass a page-unique id: SVG ids are global, and two marks sharing a filter id would
-crumple together. With the filter gone there are no ids in the markup at all, so the prop went with
-it. `Wordmark` is still a server component, so its ~9KB of path data never reaches the client
-bundle.
+**The mark is taller than the original vector one** (3.6:1 against 4.5:1), so a slot sized for that
+width grows ~25% in height. The nameplate band and the controls bar (`.np-controls-mark`, 150px) were
+checked against it; anything new that holds the mark needs the same look.
 
 **After changing the wordmark, re-run `npm run build && npm run pages:render`.** The nameplate is
-baked into `public/pages/*.avif` — and `pages:render` photographs `out/`, not the dev server, so
+baked into `public/pages/01.avif` — and `pages:render` photographs `out/`, not the dev server, so
 without the build first it re-bakes the *previous* mark. Paper mode then keeps showing it, a silent
 staleness that only appears in 3D mode.
 
-One trap when regenerating, because it fails silently and looks like a bad trace rather than a bad
-parse: potrace writes runs of curves as **one `C` followed by six numbers per segment**. The
-remapper in `gen-wordmark.mjs` therefore keeps consuming coordinate groups until it sees the next
-command letter. Read one group per letter instead and every coordinate after the first run lands in
-the wrong axis — the mark renders as a shredded smear.
+### The "Available at" ticker (page 1)
+
+`CollegeStrip.tsx` renders the list twice and slides the track by half its own width (no jump);
+the second copy is `aria-hidden`. In paper mode the page is a baked photograph, so a ticker on it
+would be a still frame. Instead `scripts/render-pages.mjs` records the window's box into
+`public/pages/meta.json` (fractions of the page) and the 3D scene paints the ticker live onto that
+rectangle — `src/features/scene/collegeStrip.ts` draws a canvas and `Leaf.tsx` samples it in the
+fragment shader for leaf 0's recto only. The baked frame stays under it as the fallback, so it is
+shot with the animation frozen and offset slightly (the first name must clear the edge fade).
+
+The list is `src/features/newspaper/colleges.ts`, one entry per brand rather than per campus. Each
+entry's `names` must be copied from `frontend/src/data/collegesIndia.ts`; `node
+../scripts/gen-college-logos.mjs` fails if one is not there. "Available at" means *a student of that
+college can pick it when registering*, nothing more. Logos are optional per college. IIT and NIT carry
+IIT Madras's and NIT Trichy's marks (families have no single one — see `SOURCES.md`), and an entry with
+`wordmark: true` (SRM, Thapar) drops the text label because its logo already says the name. See
+`scripts/assets/colleges/README.md` for the workflow. Wide wordmarks are contained in a 16cqw box,
+never stretched.
+
+### The hero wraps the collage (`shape-outside`)
+
+On page 1 the collage is floated right and the headline and copy run along its silhouette. The
+silhouette is a polygon computed from the picture's alpha by `scripts/gen-front-art.mjs` (the
+leftmost opaque pixel of each of 48 horizontal bands) and exported as `HERO_SHAPE`; the figure gets it
+as the `--hero-shape` custom property so the stylesheet can still turn it off on a narrow sheet. It is
+a polygon rather than `shape-outside: url(...)` because an image-derived shape does nothing if the
+image is not loaded, same-origin and laid out first — and then the text silently runs under the picture.
+Swap the picture with `node ../scripts/gen-front-art.mjs hero new.webp`; that regenerates the polygon.
+
+### Type size and texture resolution (read before touching `--np-t-*`)
+
+Paper mode deliberately has **no `clamp()` floors** on the type ramp, so the numbers in
+`newspaper.css` are the printed sizes on a 574px sheet — which the camera then shows at ~650px.
+Anything below ~9px on the sheet is unreadable on screen. The ramp is micro 1.72cqw, cap 1.95,
+body 2.3, deck 2.95; `pages:render` photographs at 3x. The cost of larger type is height, and a
+page is a fixed-height sheet: `pages:render` exits non-zero and names the page when anything
+overflows, so a copy change that does not fit is caught instead of silently clipped.
+
+### The front-page collage art is generated too
+
+`public/art/{hero,discover,connect,engage,lead}.webp` and `src/features/newspaper/frontArt.ts` come
+from `scripts/assets/front/` via `node ../scripts/gen-front-art.mjs` (run from this directory;
+sharp resolves out of `landing/`). The masters are the supplied 1536x1024 images, stored as
+delivered and trimmed to their alpha bounds on every run. `frontArt.ts` carries each file's
+intrinsic size so the `<img>` boxes are reserved before the art arrives — do not hand-write
+`width`/`height` for them. To swap one picture: `node ../scripts/gen-front-art.mjs teaser-name new.webp`
+(`hero | discover | connect | engage | lead`), then rebuild and `pages:render`.
+
+One font exists only for this page: **Playfair Display 900** for the headline and teaser titles
+(`--font-hero`). One weight, so nothing else is downloaded. The hero is a two-column grid only above a 400px sheet; below that
+(phones, and the plain reading mode) it stacks, the masthead flanks are hidden, and the teaser art
+is capped at 260px so a single-column card does not stretch a picture to the full sheet.
 
 ### The browser icons are a generated pair as well
 
@@ -143,13 +179,14 @@ node ../scripts/gen-favicon.mjs        # from this directory; sharp is resolved 
 Next's metadata file convention finds them by filename and emits the `<link>` tags, so `layout.tsx`
 has no icon markup to keep in step.
 
-The tab icon is a **disc** — the artwork is a torn sheet with collage crowding all four corners,
-and those corners are both the least legible part at tab size and the part that makes the icon read
-as a rectangle competing with the tab's own edges. `apple-icon.png` is the one square left, on
-purpose: iOS composites a transparent apple-touch-icon onto black and then applies its own squircle
-mask. The `.ico` carries **six** entries (16/20/24/32/48/64) because Windows renders a 16 CSS px
-favicon at 20 device px at 125% scaling and 24 at 150%, and rescaling a 16 or a 32 to reach them is
-exactly what a slightly soft, slightly grey favicon looks like.
+The icon is the supplied torn-paper "C" artwork, which is already a rounded square with transparent
+corners, so the tab icon **keeps that shape** rather than being cut to a disc. `apple-icon.png` is an
+opaque full-bleed square, on purpose: iOS composites a transparent apple-touch-icon onto black and
+then applies its own squircle mask, so its corners are filled from the art's own colours. The `.ico`
+carries **six** entries (16/20/24/32/48/64) because Windows renders a 16 CSS px favicon at 20 device
+px at 125% scaling and 24 at 150%, and rescaling a 16 or a 32 to reach them is exactly what a
+slightly soft, slightly grey favicon looks like. The same run also writes the PWA install icons into
+`frontend/public/icons/` — this site is a static page and does not ship a manifest.
 
 Two traps, both of which cost a build:
 

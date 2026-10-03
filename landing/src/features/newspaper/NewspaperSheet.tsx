@@ -80,7 +80,7 @@ export default function NewspaperSheet({
             <div className="np-page-foot" aria-hidden="true">
               <hr className="np-rule-thin" />
               <div className="np-page-foot-row">
-                <span className="np-micro">Club-Hub · The Club Operations Paper</span>
+                <span className="np-micro">ClubHub · The Club Operations Paper</span>
                 <span className="np-micro">
                   {frontPage.title} · {frontNo + 1}/{count}
                 </span>
@@ -116,7 +116,7 @@ export default function NewspaperSheet({
               <div className="np-page-foot" aria-hidden="true">
                 <hr className="np-rule-thin" />
                 <div className="np-page-foot-row">
-                  <span className="np-micro">Club-Hub · The Club Operations Paper</span>
+                  <span className="np-micro">ClubHub · The Club Operations Paper</span>
                   <span className="np-micro">
                     {backPage.title} · {backNo + 1}/{count}
                   </span>

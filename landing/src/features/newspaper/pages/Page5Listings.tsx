@@ -39,7 +39,7 @@ export default function Page5Listings() {
 
         <section className="np-split-57">
           <div className="np-flow-tight">
-            <p className="np-eyebrow">This week&apos;s listings</p>
+            <p className="np-eyebrow">Sample listings</p>
             <hr className="np-rule-thin" />
             <dl className="np-listings">
               {LISTINGS.map(([type, title, when]) => (

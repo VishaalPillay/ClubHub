@@ -15,7 +15,7 @@ import { Wordmark } from "@/components/ui/Wordmark";
 export default function AppFooter() {
   return (
     <footer className="bg-ink text-paper py-5 px-8 flex items-center justify-between mt-auto">
-      <Wordmark className="w-[150px]" invert />
+      <Wordmark className="w-[150px]" />
       <a
         href="https://github.com/VishaalPillay"
         target="_blank"

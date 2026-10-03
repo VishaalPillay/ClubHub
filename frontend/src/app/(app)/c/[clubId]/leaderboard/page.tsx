@@ -64,7 +64,7 @@ export default function LeaderboardPage() {
             ))}
           </select>
         ) : (
-          <div className="border-2 border-black p-2 font-mono text-12 uppercase bg-[#e8e4da] text-[#757575] shrink-0">
+          <div className="border-2 border-black p-2 font-mono text-12 uppercase bg-[#ead9c2] text-[#757575] shrink-0">
             {myDomainName ?? "Your Domain"}
           </div>
         )}
@@ -77,7 +77,7 @@ export default function LeaderboardPage() {
             <span className="font-display text-4xl font-bold">#{myEntry.rank}</span>
             <div>
               <div className="font-ui text-16 font-bold uppercase">Your Standing</div>
-              <div className="font-mono text-[11px] uppercase tracking-widest text-[#ddd8cc]">
+              <div className="font-mono text-[11px] uppercase tracking-widest text-[#e3d4bb]">
                 {humanizeRole(myEntry.role)}{myEntry.domain_name ? ` · ${myEntry.domain_name}` : ""}
               </div>
             </div>
@@ -101,13 +101,13 @@ export default function LeaderboardPage() {
           ) : currentItems.length > 0 ? currentItems.map((item) => (
             <div
               key={item.user_id}
-              className={`grid grid-cols-12 items-center p-3 border-b-2 border-black last:border-b-0 transition-colors ${item.user_id === userId ? "bg-[#ebe6db]" : "hover:bg-hairline-tint"}`}
+              className={`grid grid-cols-12 items-center p-3 border-b-2 border-black last:border-b-0 transition-colors ${item.user_id === userId ? "bg-[#eee0cb]" : "hover:bg-hairline-tint"}`}
             >
               <div className="col-span-1 text-center font-display text-xl font-bold text-caption-gray">
                 #{item.rank}
               </div>
               <div className="col-span-5 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#e8e4da] shrink-0">
+                <div className="w-10 h-10 rounded-full border-2 border-black overflow-hidden bg-[#ead9c2] shrink-0">
                   <Avatar name={item.name} avatarUrl={item.avatar_url} />
                 </div>
                 <div className="font-ui text-16 font-bold truncate">

@@ -25,7 +25,10 @@ export default function AvatarUpload({
   const [pendingSrc, setPendingSrc] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [imgFailed, setImgFailed] = useState(false);
+  // The URL that last failed to load. Derived rather than reset in an effect: a new avatarUrl
+  // simply no longer matches it, which is the fresh chance to load the old effect existed for.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const imgFailed = failedUrl === avatarUrl;
 
   // Revoke the preview object URL whenever it's replaced or on unmount.
   useEffect(() => {
@@ -33,11 +36,6 @@ export default function AvatarUpload({
       if (pendingSrc) URL.revokeObjectURL(pendingSrc);
     };
   }, [pendingSrc]);
-
-  // A new avatarUrl deserves a fresh chance to load before falling back again.
-  useEffect(() => {
-    setImgFailed(false);
-  }, [avatarUrl]);
 
   const handleFile = (file: File | undefined) => {
     if (!file || busy) return;
@@ -91,7 +89,7 @@ export default function AvatarUpload({
           handleFile(e.dataTransfer.files?.[0]);
         }}
         className={`border-2 border-dashed p-5 flex items-center gap-5 cursor-pointer transition-colors focus:outline-none focus:border-[#057DBC] ${
-          dragOver ? "border-[#057DBC] bg-[#ebe6db]" : "border-black hover:bg-[#ebe6db]"
+          dragOver ? "border-[#057DBC] bg-[#eee0cb]" : "border-black hover:bg-[#eee0cb]"
         }`}
       >
         {avatarUrl && !imgFailed ? (
@@ -99,7 +97,7 @@ export default function AvatarUpload({
           <img
             src={avatarUrl}
             alt="Your profile picture"
-            onError={() => setImgFailed(true)}
+            onError={() => setFailedUrl(avatarUrl)}
             className="w-16 h-16 rounded-full object-cover border-2 border-black flex-none"
           />
         ) : (

@@ -44,8 +44,8 @@ export default function Page4League() {
         <section className="np-flow-tight">
           <div className="np-runhead" style={{ padding: 0 }}>
             <span className="np-eyebrow">Standings</span>
-            <span className="np-micro">Robotics Society</span>
-            <span className="np-micro np-runhead-right">Michaelmas term</span>
+            <span className="np-micro">Sample club</span>
+            <span className="np-micro np-runhead-right">Sample data</span>
           </div>
 
           <table className="np-table">

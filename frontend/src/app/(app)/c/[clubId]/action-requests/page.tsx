@@ -86,7 +86,7 @@ export default function ActionRequestsPage() {
                   Requested by <span className="text-black font-bold">{req.requester_name}</span> on {new Date(req.created_at).toLocaleDateString()}
                 </div>
                 {req.reason && (
-                  <div className="mt-2 font-ui text-sm text-[#4c4546] border-l-2 border-[#e0d9ca] pl-3 py-1">
+                  <div className="mt-2 font-ui text-sm text-[#4c4546] border-l-2 border-[#e0d0b6] pl-3 py-1">
                     &quot;{req.reason}&quot;
                   </div>
                 )}

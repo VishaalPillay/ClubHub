@@ -1,34 +1,34 @@
-import SectionRule from "./SectionRule";
+import CollegeStrip from "./CollegeStrip";
 import Wordmark from "./Wordmark";
-import { DATELINE, EDITION_LINE, SLUGLINE } from "./edition";
+import { MASTHEAD_STRIP } from "./edition";
 
 /**
- * The nameplate band — page 1 only. Follows the reference broadsheet exactly:
- * thick rule, dateline left / nameplate centre / standing tagline right, a
- * second rule, then the section rule.
+ * The nameplate band — page 1 only: a thin furniture strip (founding year, paper name,
+ * edition), the wordmark on its own, then the "Available at"
+ * ticker of institutions between two rules. (The section links that used to sit there
+ * are still one scroll away in the fixed bar along the bottom of the screen.)
  *
- * Server component; only the section rule below it is interactive.
+ * Server component.
  */
 export default function Masthead() {
   return (
     <header className="np-masthead">
-      <hr className="np-rule" />
+      <div className="np-topstrip">
+        {MASTHEAD_STRIP.map((t) => (
+          <span key={t} className="np-micro">
+            {t}
+          </span>
+        ))}
+      </div>
 
       <div className="np-masthead-row">
-        <p className="np-micro np-masthead-side">{DATELINE}</p>
         <h1 className="np-nameplate">
-          <Wordmark />
+          <Wordmark sizes="570px" priority />
         </h1>
-        <p className="np-micro np-masthead-side np-masthead-side--right">{SLUGLINE}</p>
-      </div>
-
-      <div className="np-masthead-credits">
-        <span className="np-micro">Edition 01</span>
-        <span className="np-micro">{EDITION_LINE}</span>
       </div>
 
       <hr className="np-rule" />
-      <SectionRule />
+      <CollegeStrip />
       <hr className="np-rule" />
     </header>
   );

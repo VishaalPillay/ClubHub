@@ -217,7 +217,7 @@ export default function ProfileMenu() {
               <div className="flex flex-col gap-2">
                 <label className="font-ui text-16 font-bold text-black uppercase">Email</label>
                 <input
-                  className="border-2 border-[#757575] bg-[#ebe6db] text-[#757575] p-3 font-ui text-16 rounded-none cursor-not-allowed"
+                  className="border-2 border-[#757575] bg-[#eee0cb] text-[#757575] p-3 font-ui text-16 rounded-none cursor-not-allowed"
                   value={user.email}
                   type="email"
                   disabled
