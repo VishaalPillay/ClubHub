@@ -188,6 +188,7 @@ function FloatingEdition({
         fragmentShader: `
           precision highp float;
           uniform float uStrength;
+          uniform vec3 uColor;
           uniform float uSpread;
           uniform vec2 uOffset;
           uniform float uPenumbra;
@@ -214,12 +215,28 @@ function FloatingEdition({
             // The penumbra widens as the caster lifts away, as a real one does.
             float pen = uPenumbra * mix(1.0, 7.0, uSpread);
             float a = (1.0 - smoothstep(1.0, 1.0 + pen, box)) * uStrength;
+
+            /* Plus a faint halo that is NOT displaced: the sky fills a shadow from
+               every side, so there is a soft darkening hugging the paper on the
+               lit edge too. It is the difference between a shadow that is a
+               rectangle cut out of the light and one that is the paper sitting
+               on something. */
+            float ring = max(abs((vUv.x - 0.5) * 2.0), abs((vUv.y - 0.5) * 2.0)) / CORE;
+            float halo = (1.0 - smoothstep(0.985, 1.0 + 0.1 * mix(1.0, 3.0, uSpread), ring)) * uStrength * 0.62;
+            /* And a very tight, very dark line hugging the edge itself: the few
+               millimetres where paper meets table are the darkest place on the
+               whole shadow, and a shadow without that line has nothing to say the
+               paper is touching anything. */
+            float seam = (1.0 - smoothstep(0.995, 1.0 + 0.028, ring)) * uStrength * 0.55 * (1.0 - uSpread);
+            a = max(a, max(halo, seam));
+
             if (a < 0.004) discard;
-            gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+            gl_FragColor = vec4(uColor, a);
           }
         `,
         uniforms: {
           uStrength: { value: light.shadowStrength },
+          uColor: { value: new THREE.Color(light.shadowTint) },
           uSpread: { value: 0 },
           uOffset: { value: new THREE.Vector2() },
           uPenumbra: { value: light.shadowPenumbra },
@@ -227,7 +244,7 @@ function FloatingEdition({
         transparent: true,
         depthWrite: false,
       }),
-    [light.shadowStrength, light.shadowPenumbra],
+    [light.shadowStrength, light.shadowPenumbra, light.shadowTint],
   );
 
   useLayoutEffect(() => () => shadowMaterial.dispose(), [shadowMaterial]);
@@ -267,13 +284,31 @@ function FloatingEdition({
     const spread = THREE.MathUtils.clamp(pos - lead, 0, 1);
     const readScale = THREE.MathUtils.lerp(clip.readScaleClosed, clip.readScaleOpen, spread);
 
+    const tilt = THREE.MathUtils.degToRad(clip.readTiltDeg) * open;
+    const scale = THREE.MathUtils.lerp(clip.restScale, readScale, open);
+    let y = THREE.MathUtils.lerp(clip.rest[1], clip.read[1], open);
+
+    /* The sheet tilts about its CENTRE, so as it starts to lift its near edge swings
+       DOWN — by half its height times sin(tilt), which for the first stretch of the
+       lift is more than the centre has risen. The edge went through the table: a
+       paper digging into the desk it is supposed to be leaving, and (before the
+       draw-order fix) the cause of the grey band. Here the sheet is held up just far
+       enough that the near edge clears the surface, for as long as the contact
+       shadow exists, and the correction is faded out before it matters — the reading
+       pose, which was solved against the lens, is untouched. The margin ramps in from
+       zero so a sheet at rest still lies ON the table. */
+    const nearDrop = (PAGE_H / 2) * scale * Math.sin(tilt);
+    const margin = 0.012 * THREE.MathUtils.smoothstep(open, 0, 0.05);
+    const peel = Math.max(0, nearDrop + margin - y) * (1 - THREE.MathUtils.smoothstep(open, 0.12, 0.42));
+    y += peel;
+
     g.position.set(
       THREE.MathUtils.lerp(clip.rest[0], clip.read[0], open),
-      THREE.MathUtils.lerp(clip.rest[1], clip.read[1], open),
+      y,
       THREE.MathUtils.lerp(clip.rest[2], clip.read[2], open),
     );
-    g.rotation.x = THREE.MathUtils.degToRad(clip.readTiltDeg) * open;
-    g.scale.setScalar(THREE.MathUtils.lerp(clip.restScale, readScale, open));
+    g.rotation.x = tilt;
+    g.scale.setScalar(scale);
 
     /**
      * The shadow's whole life happens in the first part of the lift.
@@ -304,10 +339,11 @@ function FloatingEdition({
     sh.scale.setScalar(grow);
     sh.visible = gone < 1;
 
-    /* A small constant offset even at rest: paper has thickness, and the sliver
-       of shadow it throws on its shaded edge is exactly the cue that says it is
-       sitting ON something rather than printed onto it. */
-    const throwLen = (0.05 + lift * shadowAxis.perHeight) / grow;
+    /* A constant offset even at rest: paper has thickness, and the sliver of
+       shadow it throws on its shaded edge is exactly the cue that says it is
+       sitting ON something rather than printed onto it. At golden hour that
+       sliver is long — the sun is 24 degrees up — so it comes from the rig. */
+    const throwLen = (light.shadowRest + lift * shadowAxis.perHeight) / grow;
     const m = sh.material as THREE.ShaderMaterial;
     m.uniforms.uOffset.value.set(
       (shadowAxis.u * throwLen) / halfW,

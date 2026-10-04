@@ -23,24 +23,35 @@
  */
 import * as THREE from "three";
 
-const W = 1280, H = 720;
+/** The clip's frame, in pixels — the measurements below are in these units. */
+const W = 1920, H = 1080;
 
 /**
- * Measured tabletop corners, per clip: far-left, far-right, near-right,
+ * Measured corners of the table, per clip: far-left, far-right, near-right,
  * near-left, in source pixels.
  *
- * A retired night clip filmed the SAME physical table from a lower, tighter
- * framing, and the 0.58 aspect assumed below fitted it too — within 3.9px,
- * against 0.6px here. That agreement across two framings is the only
- * independent check this method has ever had; a clip of a different table would
- * need its own aspect.
+ * "The table" is the GREEN DESK MAT in the golden-hour room, not the wooden top it
+ * sits on. The paper rests on the mat, the mat is the one clean rectangle in
+ * frame, and its edges are a stitched border, which the wood's grain is not.
+ *
+ * How they were measured: an estimate was drawn on the frame and each corner
+ * zoomed to 6x and corrected by eye. Colour thresholding does not work — the
+ * sunlit stripes across the mat are orange, the same as the wood, and only the
+ * shadowed stripes are green. The two far corners are rounded; the figure is the
+ * intersection of the straight edges either side, not the rounding. Good to about
+ * 3px at this size.
+ *
+ * The previous entry was for a 1280x720 clip of a different room and is gone with
+ * that clip. Its assumed aspect of 0.58 was a cross-check on THAT table; nothing
+ * carries over to this one, which is why the sweep below is the answer and not a
+ * default.
  */
 const TARGETS = {
   morning: [
-    [412, 329],
-    [860, 329],
-    [893, 470],
-    [378, 470],
+    [485, 657],
+    [1507, 656],
+    [1737, 948],
+    [290, 948],
   ],
 };
 

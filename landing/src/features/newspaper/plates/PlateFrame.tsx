@@ -1,6 +1,6 @@
 /**
- * Shared chrome for the product-UI plates — ported from the `FragFrame` /
- * `RolePill` helpers that lived inside features/marketing/FeatureStories.tsx.
+ * Shared chrome for the product-UI plates — ported from the `FragFrame` helper
+ * that lived inside features/marketing/FeatureStories.tsx.
  *
  * Server components. Every plate on every page ships as zero-JS HTML.
  */
@@ -23,8 +23,4 @@ export function PlateFrame({
       {children}
     </div>
   );
-}
-
-export function RolePill({ inverted, children }: { inverted?: boolean; children: string }) {
-  return <span className={`np-pill${inverted ? " np-pill--on" : ""}`}>{children}</span>;
 }

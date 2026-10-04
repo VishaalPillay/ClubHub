@@ -5,8 +5,8 @@ import NewspaperSheet from "@/features/newspaper/NewspaperSheet";
 import { PAGES, PAGES_PER_SHEET, SHEET_COUNT } from "@/features/newspaper/edition";
 
 import Page1Front from "@/features/newspaper/pages/Page1Front";
-import Page2Situation from "@/features/newspaper/pages/Page2Situation";
-import Page3Governance from "@/features/newspaper/pages/Page3Governance";
+import Page2Community from "@/features/newspaper/pages/Page2Community";
+import Page3Happening from "@/features/newspaper/pages/Page3Happening";
 import Page4League from "@/features/newspaper/pages/Page4League";
 import Page5Listings from "@/features/newspaper/pages/Page5Listings";
 import Page6Masthead from "@/features/newspaper/pages/Page6Masthead";
@@ -19,8 +19,8 @@ import Page8Colophon from "@/features/newspaper/pages/Page8Colophon";
 /** The eight page bodies, in edition order. All Server Components. */
 const BODIES = [
   Page1Front,
-  Page2Situation,
-  Page3Governance,
+  Page2Community,
+  Page3Happening,
   Page4League,
   Page5Listings,
   Page6Masthead,

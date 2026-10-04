@@ -53,6 +53,7 @@ const OUT = resolve(ROOT, "landing/public/colleges");
 const MODULE = resolve(ROOT, "landing/src/features/newspaper/collegeLogos.ts");
 const COLLEGES_TS = resolve(ROOT, "landing/src/features/newspaper/colleges.ts");
 const PICKER_TS = resolve(ROOT, "frontend/src/data/collegesIndia.ts");
+const STATS_MODULE = resolve(ROOT, "landing/src/features/newspaper/pickerStats.ts");
 
 const HEIGHT = 128;
 const MAX_WIDTH = 384;
@@ -118,7 +119,35 @@ async function checkNames() {
   return [...colleges.matchAll(/\bid:\s*"([a-z0-9-]+)"/g)].map((m) => m[1]);
 }
 
+/**
+ * How many colleges and states/UTs the sign-up picker really offers. Page 2 prints these, and a
+ * number on a landing page has to be one the product can back up — so it is counted from the
+ * picker itself each run, never typed.
+ */
+async function writePickerStats() {
+  const picker = await readFile(PICKER_TS, "utf8");
+  const start = picker.indexOf("export const COLLEGES_INDIA");
+  const body = picker.slice(start, picker.indexOf("\n};", start));
+  // State keys are quoted only when they contain a space ("Tamil Nadu" vs Kerala).
+  const regions = [...body.matchAll(/^\s{2}(?:"[^"]+"|\w+):\s*\[\s*$/gm)].length;
+  const colleges = [...body.matchAll(/^\s{4}"[^"]+",?\s*$/gm)].length;
+  await writeFile(
+    STATS_MODULE,
+    `/**
+ * GENERATED — do not edit. Run \`node scripts/gen-college-logos.mjs\` instead.
+ *
+ * Counted from frontend/src/data/collegesIndia.ts (the sign-up picker) on the last run.
+ */
+
+export const PICKER_COLLEGES = ${colleges};
+export const PICKER_REGIONS = ${regions};
+`,
+  );
+  console.log(`  picker: ${colleges} colleges, ${regions} states and UTs`);
+}
+
 async function main() {
+  await writePickerStats();
   await mkdir(SRC, { recursive: true });
   await mkdir(OUT, { recursive: true });
 

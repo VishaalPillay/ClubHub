@@ -151,6 +151,26 @@ body 2.3, deck 2.95; `pages:render` photographs at 3x. The cost of larger type i
 page is a fixed-height sheet: `pages:render` exits non-zero and names the page when anything
 overflows, so a copy change that does not fit is caught instead of silently clipped.
 
+### Pages 2 and 3: the showcase spread
+
+Page 2 (`Page2Community`: hero, figures, featured clubs) and page 3 (`Page3Happening`: events, student
+voices, closing line) are one set; `Showcase.tsx` holds what they share (the furniture strip, `Art`,
+`Tags`, `Kicker`, `Icon` and the stacked `Row`). They replaced "The Situation" and "Governance &
+Structure", whose content was removed on request (the seven ranks are still on page 6).
+
+Rows are stacked — pitch across the top, cards across the full width — so the cards can be large, and
+the height a page does not need is **shared out between its sections** rather than left as a blank band:
+`.np-page-inner:has(> .np-p2-row)` is a flex column and `.np-p2-grow` / `.np-p2-row` each take an equal
+share and centre their content. If you add a section, give it `np-p2-grow`; if a page overflows,
+`pages:render` fails and names it.
+
+The art comes from `scripts/gen-front-art.mjs`: `campus` and `plane` are single pictures, and `clubs`,
+`events` and `voices` are strips it cuts into one image per card. The cut follows each picture's own
+connected piece of pixels rather than a column, because the illustrations overlap; it errors if two
+fuse. `voices` is cropped to the people and the quote is live text on a CSS note. The stat band's numbers
+come from the sign-up picker (`pickerStats.ts`, written by `gen-college-logos.mjs`), never typed: re-run
+it when the picker's list changes. The clubs, events and quotes are samples and are labelled so.
+
 ### The front-page collage art is generated too
 
 `public/art/{hero,discover,connect,engage,lead}.webp` and `src/features/newspaper/frontArt.ts` come
@@ -231,7 +251,7 @@ including the stack pan below. A headless or backgrounded tab will report `trans
 front and page `2k+1` on the back, so eight pages bind into four leaves. Turning a leaf reveals its
 own other side — which is what a newspaper does, and why the verso is real copy rather than the
 faked show-through it used to hold. `edition.ts` owns the pagination and its helpers
-(`sheetForPage`, `spreadForPage`, `rectoForSpread`).
+(`spreadForPage`, `rectoForSpread`).
 
 An unturned leaf rests **centred**, with the binding at its own left edge (`transform-origin: 0
 50%`), so a turned leaf swings across and lands flush against it. The open pair straddles that
@@ -326,6 +346,16 @@ was deleted once it became unreachable — `clipTable` is a required field on th
 light rig, which is deliberate: the fit is the one thing a new clip genuinely
 requires.
 
+**The room is now a golden-hour study, and the scene is solved against ITS desk.** The notes below
+describe the pipeline in terms of the previous clip (a daylit room, a 1280x720 Gemini source); the
+mechanism is unchanged, the numbers are not. For the golden-hour clip: the source is 1920x1080 and is
+encoded at that size; there is no watermark to remove; the temporal denoise runs before the loop is
+cut; the loop dissolve is 18 frames because the clip barely moves; the camera was re-fitted to the
+green desk mat (pitch 16.8 degrees, fov 31.3); and the light was re-measured (sun 32 degrees off the
+far axis, toward +x, 24 degrees up). See `roomLight.ts` for each number and where it came from. On top
+of the footage the scene adds warm sun on the paper, drifting window bars and leaf dapple, a warm
+shadow with a halo, and CSS dust motes in the beam (`RoomBackdrop.tsx`).
+
 **There is exactly one room, and it plays at every hour.** The site used to pick
 between a morning clip and a night one off the visitor's clock, with an
 `evening` rig written but unreachable. All of that is gone — the `Phase` type,
@@ -411,7 +441,11 @@ sides — it is what `ROOM_VIDEO` asks for. Sources are gitignored; outputs are
 committed, because Cloudflare Pages has no ffmpeg. The binaries come from
 `ffmpeg-static`, so no system install is needed.
 
-The chain is **delogo → loop-fold → scale → blur → grade**, and the order is not
+(For the golden-hour clip the chain is **denoise → cut to the loop → dissolve → sharpen → grade**, with
+no delogo and no scale — the source is already 1080p. The notes that follow explain why each step sits
+where it does and still apply, including the new rule that the temporal denoise goes before the cut.)
+
+The chain was **delogo → loop-fold → scale → blur → grade**, and the order is not
 arbitrary:
 
 - **delogo runs first, at full resolution.** It rebuilds the covered box by
@@ -497,7 +531,13 @@ wide, which made the newspaper twice as deep as the table it was lying on. The
 extra constraint has to come from outside the image: assume a plausible table
 aspect, and take the branch where a real page actually fits.
 
-The 0.58 aspect that fixed it was checked against a **second framing of the same
+(The golden-hour clip's fit has no such cross-check: it is one framing of a different table.
+Every aspect from 0.30 to 0.72 fits its corners to ~1px, so 0.58 was chosen because a desk mat
+that size is plausible and because it reproduces the camera pitch (~16 degrees) implied by the
+reference composite. That is a judgement, not a measurement — if the paper ever looks too steep or
+too flat on the mat, change the aspect and the fit moves with it.)
+
+The 0.58 aspect that fixed it for the **previous** clip was checked against a **second framing of the same
 physical table** — the since-retired night clip, which it fitted at 3.9px against
 morning's 0.6px. That agreement across two cameras is the only independent check
 this method has ever had, and it is why the number is trusted; a clip of a

@@ -1,7 +1,7 @@
-import { PlateFrame, RolePill } from "./PlateFrame";
+import { PlateFrame } from "./PlateFrame";
 
 /**
- * The six product-UI plates, ported from features/marketing/FeatureStories.tsx.
+ * The four product-UI plates, ported from features/marketing/FeatureStories.tsx.
  * Structure and data are unchanged; the hard-coded px type sizes now come from
  * the page's cqw scale (see the PLATES block in newspaper.css) so a plate stays
  * legible at any sheet width.
@@ -9,48 +9,6 @@ import { PlateFrame, RolePill } from "./PlateFrame";
  * All server components, all `aria-hidden` via PlateFrame — these are pictures
  * of software, not software.
  */
-
-export function MembersPlate() {
-  const rows: [string, string, string, boolean][] = [
-    ["AS", "Aarav Sharma", "President", true],
-    ["MK", "Meera Krishnan", "Vice-President", false],
-    ["DP", "Dev Patel", "Lead — Technical", false],
-    ["SR", "Sana Rao", "Member", false],
-  ];
-  return (
-    <PlateFrame head="Members — Robotics Society" meta="128 total">
-      {rows.map(([init, name, role, prez]) => (
-        <div key={name} className="np-plate-row">
-          <span className={`np-avatar${prez ? " np-avatar--on" : ""}`}>{init}</span>
-          <span className="np-plate-name">{name}</span>
-          <RolePill inverted={prez}>{role}</RolePill>
-        </div>
-      ))}
-    </PlateFrame>
-  );
-}
-
-export function DomainsPlate() {
-  const cells: [string, string][] = [
-    ["Technical", "41 members · 18 tasks"],
-    ["Management", "32 members · 9 tasks"],
-    ["Creative", "27 members · 7 tasks"],
-  ];
-  return (
-    <PlateFrame head="Domains" meta="3 active">
-      <div className="np-plate-grid" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-        {cells.map(([name, meta]) => (
-          <div key={name} className="np-plate-cell">
-            <div className="np-minihead">{name}</div>
-            <div className="np-micro" style={{ marginTop: "0.5em" }}>
-              {meta}
-            </div>
-          </div>
-        ))}
-      </div>
-    </PlateFrame>
-  );
-}
 
 export function EventPlate() {
   return (

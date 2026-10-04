@@ -7,6 +7,9 @@
  * plus a matching `.avif` poster. The source file is NOT committed; the outputs
  * are, because Cloudflare Pages builds from the repo and has no ffmpeg.
  *
+ * The room is the golden-hour study (a 1920x1080, five-second Firefly clip). The
+ * file is still called `morning` — see roomLight.ts for why the name stayed.
+ *
  * ── One clip ─────────────────────────────────────────────────────────────────
  * This used to loop over three named times of day and pick an encode profile per
  * clip — a blurred one for clips that were only a room, a sharp one for clips
@@ -46,36 +49,43 @@ const VIDEO_EXT = [".mp4", ".mov", ".webm", ".m4v", ".mkv"];
  * backdrop and there is no way around it — the defocus happens at runtime
  * instead, in RoomBackdrop, once the paper has taken over the frame.
  *
- * It renders ABOVE its source resolution, which sounds wrong and is not. The
- * source is 1280x720 and no upscale invents detail — but the browser is going to
- * scale this to a viewport that is usually wider than 1280 anyway, and its own
- * upscaler is bilinear and mushy. Doing it here with lanczos and then
- * re-sharpening beats letting the browser do it.
+ * ── 1920x1080, because the source is ────────────────────────────────────────
+ * The previous clip was 1280x720 and was upscaled to 1440x810 with lanczos; the
+ * note then was that no upscale invents detail. This one arrives at 1080p, so it
+ * is encoded at its own size: nothing is resampled, and a 1080p laptop or a 2x
+ * display shows the file's actual pixels rather than the browser's guess at them.
  *
- * 1440x810 specifically, because that is the width most desktop viewports
- * actually are — the browser then scales roughly 1:1 and does nothing at all.
- * 1600x900 was tried and cost 40% more bytes for detail the source never had.
+ * ── Denoise before sharpen ───────────────────────────────────────────────────
+ * Generated footage shimmers: the grain differs frame to frame, which is what
+ * the eye reads as a cheap, buzzing image, and which also costs x264 a great
+ * many bits to reproduce. `hqdn3d` with a strong TEMPORAL term (the last two
+ * numbers) averages that away without softening edges, and the unsharp after it
+ * restores the edge contrast the denoise took a little of. The order matters:
+ * sharpen first and you sharpen the noise.
  *
  * CRF is low because this clip is on screen sharp before anyone scrolls, so it
  * is the one frame quality is actually visible in.
  */
 const PROFILE = {
-  width: 1440,
-  height: 810,
-  crf: 24,
-  sharpen: "unsharp=5:5:0.55:5:5:0.0",
-  grade: "eq=brightness=-0.02:saturation=1.04:contrast=1.04",
+  width: 1920,
+  height: 1080,
+  crf: 19,
+  denoise: "hqdn3d=1.2:1.2:5:5",
+  sharpen: "unsharp=5:5:0.5:5:5:0.0",
+  // Warm and lively without clipping the sun: the grade is light on purpose.
+  grade: "eq=saturation=1.06:contrast=1.03",
 };
 
 /**
- * The generator's watermark, as fractions of the frame.
+ * The generator's watermark, as fractions of the frame — or null for none.
  *
- * Fractions rather than pixels so the box survives a source at a different
- * resolution. This is Gemini's four-point sparkle, which sits bottom-right and
- * does not move; padded generously on all sides because delogo's reconstruction
- * is only as good as its margin.
+ * The previous source (a Gemini clip) carried its four-point sparkle bottom
+ * right, and this was its box. The current source (Firefly) is clean in all four
+ * corners, so there is nothing to remove, and `delogo` on a clean frame only
+ * smears a patch of real picture. If a watermarked clip is ever swapped back in,
+ * restore a box here: { x: 0.883, y: 0.789, w: 0.05, h: 0.086 } was Gemini's.
  */
-const WATERMARK = { x: 0.883, y: 0.789, w: 0.05, h: 0.086 };
+const WATERMARK = null;
 
 /**
  * Signature of every frame: a tiny greyscale thumbnail, raw.
@@ -105,18 +115,18 @@ async function frameSignatures(src) {
 /**
  * Length of the dissolve across the wrap, in frames.
  *
- * Six, where the first attempt at this used fifteen — and the difference is not
- * timidity, it is that the two things being dissolved are now nearly identical.
- * The original crossfade blended the tail of a ten-second clip into its head:
- * two completely different moments, so anything with an edge ghosted for the
- * whole dissolve. After `findLoopPoint` the two ends already match to within a
- * couple of frame-steps, so this has almost nothing left to blend — it is
- * smoothing a small step, not disguising a large one.
+ * This is sized to the clip's MOTION, not to taste. A dissolve ghosts anything
+ * with an edge that moves during it, so for busy clips it has to be short — six
+ * frames was right for the generated room clips this replaced, where a curtain
+ * crossed the frame. This clip's only motion is leaf shadows creeping across a
+ * desk and a faint shimmer in the sun: measured, consecutive frames differ by
+ * ~0.2 grey levels. There is nothing to ghost, so the dissolve can be long, and
+ * a long one is what hides the join: the best wrap the clip offers is ~5x an
+ * ordinary step, which is a visible tick as a cut and invisible as a 0.75s blend.
  *
- * A quarter of a second. Long enough that a 2-4x frame step spreads out below
- * perception, short enough that nothing has time to visibly double.
+ * Eighteen frames at 24fps. The cost is the same eighteen frames of loop length.
  */
-const SEAM_FRAMES = 6;
+const SEAM_FRAMES = 18;
 
 /** Mean absolute difference between two frame signatures, in 0-255 units. */
 function frameDistance(a, b) {
@@ -208,28 +218,42 @@ async function probe(file) {
 }
 
 function filterGraph({ width, height, fps }, loop) {
-  const wm = [
-    `x=${Math.round(WATERMARK.x * width)}`,
-    `y=${Math.round(WATERMARK.y * height)}`,
-    `w=${Math.round(WATERMARK.w * width)}`,
-    `h=${Math.round(WATERMARK.h * height)}`,
-  ].join(":");
+  /* delogo runs FIRST, at full resolution, when there is a watermark at all — it
+     reconstructs from the neighbouring pixels, so downscaling before it would
+     smear the mark into them. With none, this is an empty prefix. */
+  const wm = WATERMARK
+    ? "delogo=" +
+      [
+        `x=${Math.round(WATERMARK.x * width)}`,
+        `y=${Math.round(WATERMARK.y * height)}`,
+        `w=${Math.round(WATERMARK.w * width)}`,
+        `h=${Math.round(WATERMARK.h * height)}`,
+      ].join(":") +
+      ","
+    : "";
+  const scale =
+    width === PROFILE.width && height === PROFILE.height
+      ? ""
+      : `scale=${PROFILE.width}:${PROFILE.height}:flags=lanczos,`;
 
   /* Graded last, and only lightly: this clip ships sharp, so there is no blur
      averaging the contrast out of it to restore. Dimming is a DOM overlay, so it
      stays tunable without re-running ffmpeg. */
-  const post =
-    `scale=${PROFILE.width}:${PROFILE.height}:flags=lanczos,` +
-    `${PROFILE.sharpen},${PROFILE.grade},format=yuv420p`;
+  /* The denoise is TEMPORAL, so it needs frames of history before it is at full
+     strength. It therefore runs on the whole source BEFORE the loop is cut, so
+     its cold start lands in the first few frames the cut throws away. Run after
+     the trim, the loop's opening frames came out noisier than its closing ones
+     and the wrap carried a small step of grain between them. */
+  const post = `${scale}${PROFILE.sharpen},${PROFILE.grade},format=yuv420p`;
 
-  if (!loop) return `[0:v]delogo=${wm},${post}[out]`;
+  if (!loop) return `[0:v]${wm}${PROFILE.denoise},${post}[out]`;
 
   /* `end_frame` is exclusive, so the cut is a..b-1 — see findLoopPoint for why
      the matching frame at b is dropped rather than kept. */
   const len = loop.b - loop.a;
-  const k = Math.min(SEAM_FRAMES, Math.floor(len / 8));
+  const k = Math.min(SEAM_FRAMES, Math.floor(len / 4));
   const cut =
-    `[0:v]delogo=${wm},trim=start_frame=${loop.a}:end_frame=${loop.b},` +
+    `[0:v]${wm}${PROFILE.denoise},trim=start_frame=${loop.a}:end_frame=${loop.b},` +
     `setpts=PTS-STARTPTS,${post}`;
 
   if (k < 2) return `${cut}[out]`;
@@ -271,6 +295,8 @@ async function processClip() {
     "-pix_fmt", "yuv420p",
     "-crf", String(PROFILE.crf),
     "-preset", "slow",
+    // Film-grain-friendly: keeps the wood and paper texture instead of smoothing it.
+    "-tune", "film",
     "-movflags", "+faststart",
     dest,
   ]);

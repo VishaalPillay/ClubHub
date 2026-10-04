@@ -54,9 +54,11 @@ const LEAVES = 4;
 const vertex = /* glsl */ `
   uniform float uTurn;      // 0 = flat on the right. 1 = flat on the left.
   uniform float uCurve;     // peak curvature
+  uniform float uBow;       // how far the free edges of resting paper rise
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vWorld;
+  varying float vLift;      // 0 where the sheet touches the table, 1 at its most raised
 
   const float PI = 3.141592653589793;
 
@@ -96,10 +98,29 @@ const vertex = /* glsl */ `
       arc = vec2((sin(phi) - sin(A)) / k, (cos(A) - cos(phi)) / k);
     }
 
-    vNormalW = normalize(mat3(modelMatrix) * vec3(-sin(phi), cos(phi), 0.0));
-    vec4 world = modelMatrix * vec4(arc.x, arc.y, depth, 1.0);
+    /* Resting paper is not flat. The free edge and the far and near edges rise a
+       little; the middle, and the spine side, stay down — so it still TOUCHES the
+       table, and lifts off it toward the edges, which is what gives the contact
+       shadow something to be under. It is added in the sheet's own frame (the group
+       carries the tilt), and fades to nothing as the leaf turns, where the arc is
+       already bending it far more than this could. */
+    float calm = 1.0 - sin(uTurn * PI);
+    float freeE = max(0.0, 2.0 * s - 1.0);
+    float halfH = ${(PAGE_H / 2).toFixed(6)};
+    float dn = depth / halfH;
+    float bowK = 0.4 * freeE * freeE + 0.6 * dn * dn;
+    vLift = bowK * calm;
+    float bowH = uBow * calm * bowK;
+    float dhds = uBow * calm * 0.4 * 4.0 * freeE;
+    float dhdd = uBow * calm * 0.6 * 2.0 * dn / halfH;
+    // Horizontal part of the upward normal of the bowed surface; flips with the leaf.
+    vec3 bowN = vec3(-dhds * cos(phi), 0.0, -dhdd) * sign(cos(phi));
+
+    vec3 local = vec3(arc.x, arc.y + bowH, depth);
+    vNormalW = normalize(mat3(modelMatrix) * (vec3(-sin(phi), cos(phi), 0.0) + bowN));
+    vec4 world = modelMatrix * vec4(local, 1.0);
     vWorld = world.xyz;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(arc.x, arc.y, depth, 1.0);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(local, 1.0);
   }
 `;
 
@@ -112,11 +133,35 @@ const fragment = /* glsl */ `
   uniform float uStripOn;
   uniform vec3 uLightDir;
   uniform vec3 uTint;
+  uniform vec3 uSun;
+  uniform sampler2D uProfile; // the clip's own window-light pattern across the desk
+  uniform vec3 uProf;         // tMin, 1/(tMax-tMin), ref
   uniform float uGoboK;
   uniform float uGoboP;
+  uniform float uTime;
+  uniform float uDapple;
+  uniform float uDappleScale;
+  uniform float uDappleSpeed;
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vWorld;
+  varying float vLift;
+
+  // Cheap value noise, three octaves. Only ever read at one soft threshold, so
+  // it does not need to be good noise — it needs to be smooth and cost nothing.
+  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+      f.y);
+  }
+  float fbm(vec2 p) {
+    return 0.55 * vnoise(p) + 0.3 * vnoise(p * 2.03 + 7.1) + 0.15 * vnoise(p * 4.1 + 3.3);
+  }
 
   void main() {
     // The recto needs no correction at all: u = 0 sits at the spine, which is a
@@ -154,11 +199,59 @@ const fragment = /* glsl */ `
        than a page pasted onto a photograph. */
     vec3 Ln = normalize(uLightDir);
     vec2 lh = normalize(vec2(Ln.x, Ln.z));
-    float bar = 0.5 + 0.5 * cos(dot(vWorld.xz, vec2(-lh.y, lh.x)) / uGoboP * 6.2831853);
-    bar = smoothstep(0.16, 0.86, bar);
+    /* The bars creep. A window's light on a desk is never perfectly still — the
+       sun moves, the glass flexes, the trees outside shift — so the phase drifts
+       a few percent of a period back and forth. Slow enough to read as the room
+       breathing rather than as an effect. */
+    float drift = 0.045 * sin(uTime * 0.21) + 0.03 * sin(uTime * 0.083 + 1.7);
+    /* The MEASURED bars (see lightProfile in roomLight.ts): where this point of the
+       paper falls across the window's shadow stripes, read off the same pattern that
+       is lying on the mat beside it. Only close to the desk — a page stood up to the
+       lens is not in the bars' plane — so it fades out over the first few tenths of
+       a unit of lift, and the open spread is lit evenly. */
+    float tc = dot(vWorld.xz, vec2(-lh.y, lh.x)) + drift * uGoboP;
+    float pf = texture2D(uProfile, vec2(clamp((tc - uProf.x) * uProf.y, 0.0, 1.0), 0.5)).r;
+    float deskward = 1.0 - smoothstep(0.0, 0.32, vWorld.y);
+    float bar = 1.0 - deskward * (1.0 - clamp(pf / uProf.z, 0.0, 1.0));
 
-    gl_FragColor = vec4(
-      page.rgb * (0.72 + 0.38 * lambert) * (1.0 - uGoboK * (1.0 - bar)) * uTint, 1.0);
+    /* Leaf-shadow dapple, drifting along the light's own bearing — the leaves are
+       between the sun and the desk, so their shadows travel the way the light
+       travels. One soft threshold: blotches, not noise. */
+    vec2 dq = vWorld.xz * uDappleScale + lh * (uTime * uDappleSpeed * 0.06)
+            + vec2(0.35 * sin(uTime * 0.17), 0.3 * cos(uTime * 0.13));
+    float leaf = smoothstep(0.40, 0.64, fbm(dq));
+    float dapple = 1.0 - uDapple * (1.0 - leaf);
+
+    /* Low orange sun: the side facing the window takes the sun's colour, the side
+       turned away stays neutral. The same lambert that shades the page drives
+       it, so the warmth bends with the paper as it curls. */
+    vec3 lit = mix(vec3(1.0), uSun, 0.55 * lambert);
+
+    /* A faint glint where the page catches the sun toward the lens. Paper is not
+       a mirror, so this is a broad, weak lobe, not a highlight — but golden hour
+       paper has a sheen, and without it the page looks matte-printed on screen. */
+    vec3 V = normalize(cameraPosition - vWorld);
+    float sheen = pow(max(dot(reflect(-normalize(uLightDir), n), V), 0.0), 7.0);
+
+    /* The floor is high (0.84) on purpose. The sun is low and BEHIND the table, so a
+       page stood up to face the lens faces away from it and the sun term is zero
+       there; paper held up in a bright room still takes bounce light off the desk
+       and the walls, and a floor of 0.70 made the open spread read as dim and
+       brown exactly when it has to be read. */
+    vec3 col = page.rgb * (0.84 + 0.28 * lambert) * lit * mix(1.0, bar, uGoboK) * dapple * uTint;
+    /* Where the sheet touches the table it is shut off from the sky — a few percent
+       darker than where its edges stand clear — and its very rim, being an edge, takes
+       a little shade. Both are small and both are the sort of thing the eye uses to
+       decide a sheet is lying on something rather than floating over it. The rim is
+       gone once the page is lifted: held up to the lens it is not in contact with
+       anything. */
+    vec2 ed = min(vUv, 1.0 - vUv);
+    float rim = smoothstep(0.0, 0.0045, min(ed.x, ed.y));
+    float rest = (1.0 - smoothstep(0.0, 0.32, vWorld.y));
+    col *= mix(1.0, mix(0.9, 1.0, rim), rest);
+    col *= mix(1.0, mix(0.93, 1.0, smoothstep(0.0, 0.7, vLift)), rest);
+    col += uSun * sheen * 0.07;
+    gl_FragColor = vec4(col, 1.0);
 
     /* The texture is decoded to LINEAR on sample (it is tagged SRGBColorSpace),
        so the result has to be encoded back on the way out. A raw ShaderMaterial
@@ -238,10 +331,24 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
     }
   }, [front, back]);
 
+  /* The profile as a 64x1 texture. One byte a sample is plenty for a gradient that
+     is only ever read through a linear filter. */
+  const profileTex = useMemo(() => {
+    const d = new Uint8Array(light.lightProfile.samples.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)));
+    const t = new THREE.DataTexture(d, d.length, 1, THREE.RedFormat, THREE.UnsignedByteType);
+    t.minFilter = THREE.LinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.wrapS = THREE.ClampToEdgeWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
+    t.needsUpdate = true;
+    return t;
+  }, [light.lightProfile]);
+
   const uniforms = useMemo(
     () => ({
       uTurn: { value: 0 },
       uCurve: { value: CURVATURE },
+      uBow: { value: light.restBow },
       uFront: { value: front },
       uBack: { value: back },
       uStrip: { value: BLANK as THREE.Texture },
@@ -249,10 +356,23 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
       uStripOn: { value: 0 },
       uLightDir: { value: new THREE.Vector3(...light.dir).normalize() },
       uTint: { value: new THREE.Color(light.paperTint) },
+      uSun: { value: new THREE.Color(light.sunColor) },
+      uProfile: { value: profileTex },
+      uProf: {
+        value: new THREE.Vector3(
+          light.lightProfile.tMin,
+          1 / (light.lightProfile.tMax - light.lightProfile.tMin),
+          light.lightProfile.ref,
+        ),
+      },
       uGoboK: { value: light.goboPaper },
       uGoboP: { value: light.goboPeriod },
+      uTime: { value: 0 },
+      uDapple: { value: light.dapple },
+      uDappleScale: { value: light.dappleScale },
+      uDappleSpeed: { value: light.dappleSpeed },
     }),
-    [front, back, light],
+    [front, back, light, profileTex],
   );
 
   const group = useRef<THREE.Group>(null);
@@ -282,6 +402,7 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
        render, and kept in step. */
     const t = THREE.MathUtils.clamp((posRef.current ?? 0) - lead - index, 0, 1);
     m.uniforms.uTurn.value = t;
+    m.uniforms.uTime.value = state.clock.elapsedTime;
 
     // The ticker is only on the recto, so only repaint while that face is up.
     if (strip && t < 0.6) strip.update(state.clock.elapsedTime);
@@ -296,14 +417,22 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
     <group ref={group}>
       {/* No position and no rotation: the spine is the world origin and the
           shader already places every vertex in world-aligned axes. */}
-      <mesh frustumCulled={false}>
+      <mesh frustumCulled={false} renderOrder={1}>
         <planeGeometry args={[PAGE_W, PAGE_H, SEGMENTS, 1]} />
+        {/* `transparent` with an alpha of exactly 1 — it blends as opaque. It is set for the
+            DRAW ORDER: three draws opaque objects first and transparent ones after,
+            and the contact shadow is transparent, so with an opaque paper the shadow
+            was drawn LAST and painted itself over any part of the paper that dipped
+            below its plane while it tilted up (a grey band across the bottom edge for
+            a few frames). Transparent, and a higher renderOrder than the shadow's -1,
+            the paper is drawn after it and always wins where they overlap. */}
         <shaderMaterial
           ref={material}
           vertexShader={vertex}
           fragmentShader={fragment}
           side={THREE.DoubleSide}
           uniforms={uniforms}
+          transparent
         />
       </mesh>
     </group>

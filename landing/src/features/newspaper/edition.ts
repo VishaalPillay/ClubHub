@@ -22,13 +22,8 @@ export type SectionKey = "culture" | "connections" | "collaboration" | "campus";
 
 export const PAGES: readonly EditionPage[] = [
   { id: "front", slug: "front-page", title: "The Front Page", section: "culture" },
-  { id: "situation", slug: "the-situation", title: "The Situation", section: "culture" },
-  {
-    id: "governance",
-    slug: "governance",
-    title: "Governance & Structure",
-    section: "connections",
-  },
+  { id: "community", slug: "more-than-clubs", title: "More Than Just Clubs", section: "culture" },
+  { id: "happening", slug: "always-something-happening", title: "Events & Voices", section: "connections" },
   {
     id: "league",
     slug: "the-league-table",
@@ -66,11 +61,6 @@ export const PAGES: readonly EditionPage[] = [
 export const PAGES_PER_SHEET = 2;
 
 export const SHEET_COUNT = Math.ceil(PAGES.length / PAGES_PER_SHEET);
-
-/** Which leaf carries a given page, and on which side. */
-export function sheetForPage(page: number) {
-  return { sheet: Math.floor(page / PAGES_PER_SHEET), back: page % PAGES_PER_SHEET === 1 };
-}
 
 /**
  * How many leaves must be turned for a page to be visible.

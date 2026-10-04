@@ -174,7 +174,7 @@
     /* Warm and dark, and it matters: this is what shows for the few hundred
        milliseconds before the poster decodes, and a white flash behind a dim
        room is the most visible frame on the whole page. */
-    background: #1a120b;
+    background: #2a1a0c;
   }
 
   .np-scope .np-room-clip {
@@ -188,6 +188,59 @@
        Chrome re-rasterises the layer on every blur change instead of animating
        the one it already has. */
     will-change: transform, filter;
+  }
+
+  /* Dust in the sunbeam. `screen`, because light on dust ADDS to what is behind it;
+     an ordinary alpha blend would put grey specks on a bright window. Each mote is
+     a soft gold disc that fades in, drifts up and right, and fades out, on its own
+     period (see RoomBackdrop). Nothing here is animated but transform and opacity. */
+  .np-scope .np-dust {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    mix-blend-mode: screen;
+  }
+
+  .np-scope .np-dust span {
+    position: absolute;
+    width: var(--s);
+    height: var(--s);
+    border-radius: 50%;
+    background: radial-gradient(
+      circle,
+      rgb(255 236 190 / 0.95) 0,
+      rgb(255 200 118 / 0.45) 40%,
+      transparent 72%
+    );
+    opacity: 0;
+    animation: np-mote var(--d) ease-in-out var(--dl) infinite;
+  }
+
+  @keyframes np-mote {
+    0% {
+      transform: translate(0, 0) scale(0.7);
+      opacity: 0;
+    }
+    18% {
+      opacity: var(--o);
+    }
+    50% {
+      transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5)) scale(1.1);
+    }
+    82% {
+      opacity: var(--o);
+    }
+    100% {
+      transform: translate(var(--dx), var(--dy)) scale(0.8);
+      opacity: 0;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .np-scope .np-dust {
+      display: none;
+    }
   }
 
   /* Knocks the room back and darkens the middle, where the paper sits. The
@@ -272,6 +325,8 @@
        room they were laid out against. */
     --np-w-nameplate: clamp(170px, 54cqw, 490px);
     --np-t-hero: clamp(30px, 9.6cqw, 78px);
+    --np-t-hero2: clamp(26px, 9.6cqw, 76px);
+    --np-t-sect: clamp(17px, 4.9cqw, 38px);
     --np-t-lead: clamp(26px, 7.4cqw, 60px);
     --np-t-h2: clamp(21px, 5.4cqw, 44px);
     --np-t-h3: clamp(15px, 3.4cqw, 27px);
@@ -293,6 +348,8 @@
   .np-scope[data-render="page"] .np-page-body {
     --np-w-nameplate: 54cqw;
     --np-t-hero: 9.6cqw;
+    --np-t-hero2: 9.6cqw;
+    --np-t-sect: 4.9cqw;
     --np-t-lead: 7.4cqw;
     --np-t-h2: 5.4cqw;
     --np-t-h3: 3.4cqw;
@@ -439,8 +496,7 @@
   /* — body copy: justified with hyphenation, like real newsprint — */
   /* Left-aligned, not justified. Real newsprint justifies, but at these narrow
      web measures the browser opens rivers of white space between words — the
-     newspaper feel here comes from the rules, mastheads and drop caps instead.
-     `.np-cols` opts back into justification where the measure is controlled. */
+     newspaper feel here comes from the rules, mastheads and drop caps instead. */
   .np-scope .np-body {
     font-family: var(--font-body);
     font-size: var(--np-t-body);
@@ -449,10 +505,6 @@
     text-align: left;
     hyphens: auto;
     margin: 0;
-  }
-
-  .np-scope .np-cols .np-body {
-    text-align: justify;
   }
 
   .np-scope .np-body + .np-body {
@@ -529,115 +581,6 @@
     margin: 0;
   }
 
-  /* — multi-column text, driven by the page's own width — */
-  .np-scope .np-cols {
-    column-count: 1;
-    column-gap: 3.4cqw;
-    column-rule: 1px solid var(--np-hair);
-  }
-
-  @container page (min-width: 400px) {
-    .np-scope .np-cols {
-      column-count: 2;
-    }
-  }
-
-  @container page (min-width: 620px) {
-    .np-scope .np-cols {
-      column-count: 3;
-    }
-  }
-
-  .np-scope .np-cols-2 {
-    column-count: 1;
-    column-gap: 3.4cqw;
-    column-rule: 1px solid var(--np-hair);
-  }
-
-  @container page (min-width: 400px) {
-    .np-scope .np-cols-2 {
-      column-count: 2;
-    }
-  }
-
-  .np-scope .np-nobreak {
-    break-inside: avoid;
-  }
-
-  /* — photographs: printed, not rendered — */
-  .np-scope .np-photo[data-crop="wide"] {
-    aspect-ratio: 16 / 10;
-  }
-
-  .np-scope .np-photo[data-crop="tall"] {
-    aspect-ratio: 4 / 5;
-  }
-
-  .np-scope .np-photo[data-crop="square"] {
-    aspect-ratio: 1;
-  }
-
-  .np-scope .np-photo {
-    position: relative;
-    overflow: hidden;
-    background: var(--np-paper-edge);
-    border: 1px solid var(--np-hair);
-  }
-
-  .np-scope .np-photo img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    filter: grayscale(1) contrast(1.28) brightness(1.04);
-  }
-
-  /* Halftone screen — synthesized, no asset required. LEAF element. */
-  .np-scope .np-photo::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    mix-blend-mode: multiply;
-    opacity: 0.42;
-    background-image: radial-gradient(circle, rgb(0 0 0 / 0.62) 0.68px, transparent 0.8px);
-    background-size: 3px 3px;
-  }
-
-  .np-scope .np-figure {
-    margin: 0;
-  }
-
-  /* "Art to come" — real newspaper furniture, not a broken image. */
-  .np-scope .np-photo-hold {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-image: repeating-linear-gradient(
-      -45deg,
-      var(--np-hair-quiet) 0 1px,
-      transparent 1px 9px
-    );
-  }
-
-  .np-scope .np-photo-hold .np-micro {
-    background: var(--np-paper);
-    padding: 0.5em 0.9em;
-    border: 1px solid var(--np-hair);
-  }
-
-  .np-scope .np-figcaption {
-    font-family: var(--font-mono);
-    font-size: var(--np-t-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.13em;
-    color: var(--np-ink-mute);
-    padding-top: 0.6em;
-    line-height: 1.5;
-  }
-
   /* — boxed sidebars — */
   .np-scope .np-box {
     border: 2px solid var(--color-black);
@@ -693,26 +636,6 @@
     color: var(--np-ink);
   }
 
-  .np-scope .np-cta-ghost {
-    display: inline-block;
-    font-family: var(--font-ui);
-    font-size: var(--np-t-cap);
-    font-weight: 700;
-    text-transform: uppercase;
-    text-decoration: none;
-    letter-spacing: 0.06em;
-    padding: 0.95em 1.9em;
-    border: 2px solid var(--color-black);
-    background: transparent;
-    color: var(--np-ink);
-    transition: background-color 150ms linear, color 150ms linear;
-  }
-
-  .np-scope .np-cta-ghost:hover {
-    background: var(--color-black);
-    color: #faf1e4;
-  }
-
   /* The edition's chromatic moments — the front-page call to action and page 8's
      closing advertisement. Red is the wordmark's own red, so the one loud thing
      on a cream-and-black sheet is the same colour as the logo above it. */
@@ -749,8 +672,7 @@
   }
 
   .np-scope .np-split-57,
-  .np-scope .np-split-75,
-  .np-scope .np-split-11 {
+  .np-scope .np-split-75 {
     display: grid;
     gap: 3.2cqw;
     align-items: start;
@@ -762,9 +684,6 @@
     }
     .np-scope .np-split-75 {
       grid-template-columns: 7fr 5fr;
-    }
-    .np-scope .np-split-11 {
-      grid-template-columns: 1fr 1fr;
     }
   }
 
@@ -782,32 +701,10 @@
     padding: 1.8cqw 1.9cqw;
   }
 
-  .np-scope .np-ruled--invert > * {
-    background: var(--color-black);
-    color: #e3d4bb;
-  }
-
   @container page (min-width: 400px) {
-    .np-scope .np-ruled-2,
-    .np-scope .np-ruled-3,
-    .np-scope .np-ruled-4 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @container page (min-width: 400px) {
-    .np-scope .np-ruled-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
     .np-scope .np-ruled-4 {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
-  }
-
-  .np-scope .np-ctas {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.2cqw;
   }
 
   /* The headline is its own typeface: a masthead-weight Didone, not the body serif set big.
@@ -870,10 +767,6 @@
     .np-scope .np-hero-deck {
       margin: 0;
     }
-  }
-
-  .np-scope .np-spacer {
-    flex: 1;
   }
 
   /* ══ MASTHEAD ══════════════════════════════════════════════════════════════
@@ -1009,6 +902,410 @@
   @media (prefers-reduced-motion: reduce) {
     .np-scope .np-colleges-track {
       animation: none;
+    }
+  }
+
+  /* ══ PAGES 2 AND 3 — THE SHOWCASE ═══════════════════════════════════════════
+     One set across a spread. Page 2: a hero that wraps the campus collage, a four-figure band and
+     the featured clubs. Page 3: events, student voices and a closing line. Everything is in cqw
+     like the rest of the paper, so it composes identically at any sheet width.
+
+     The sheet is a fixed-height flex column, and a showcase page is shorter than the sheet, so the
+     leftover height is SHARED OUT: every `.np-p2-grow` section (the hero, each row, the closing
+     line) takes an equal share and centres its content in it, with its rule at its own edge. The
+     alternative — everything packed at the top and a blank band at the foot — is what the cramped
+     one-page version avoided by squeezing, and what this one avoids by spreading. */
+  .np-scope .np-p2-red {
+    color: var(--np-red);
+  }
+
+  /* The page's own wrapper is a plain block; on a showcase page it becomes the flex column the
+     sections share out. `:has()` keeps that to these two pages (a browser without it simply shows
+     them packed at the top, which is still correct). The bottom padding is the margin the last
+     rule would otherwise lose — every other page has its running foot there. */
+  .np-scope .np-page-inner:has(> .np-p2-row) {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 3cqw;
+  }
+
+  .np-scope .np-p2-grow,
+  .np-scope .np-p2-row {
+    flex: 1 0 auto;
+  }
+
+  /* — hero — */
+  .np-scope .np-p2-hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1cqw 0;
+  }
+
+  .np-scope .np-p2-hero-in {
+    display: flow-root;
+  }
+
+  .np-scope .np-p2-art {
+    float: right;
+    position: relative;
+    width: 53%;
+    margin: 0 -2.5cqw 0 0;
+    line-height: 0;
+    shape-outside: var(--campus-shape, none);
+    shape-margin: 1.6cqw;
+  }
+
+  .np-scope .np-p2-art > img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .np-scope .np-p2-head {
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-hero2);
+    line-height: 0.96;
+    letter-spacing: -0.03em;
+    margin: 0.6cqw 0 0;
+  }
+
+  .np-scope .np-p2-head .np-p2-red {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .np-scope .np-p2-hero .np-deck {
+    margin: 2cqw 0 0;
+  }
+
+  /* — figures — */
+  .np-scope .np-p2-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 2px solid var(--color-black);
+    border-bottom: 1px solid var(--color-black);
+  }
+
+  .np-scope .np-p2-stat {
+    display: flex;
+    align-items: center;
+    gap: 1cqw;
+    padding: 1.2cqw 1.1cqw;
+  }
+
+  .np-scope .np-p2-stat + .np-p2-stat {
+    border-left: 1px solid var(--np-hair);
+  }
+
+  .np-scope .np-p2-icon {
+    flex: none;
+    width: 3.8cqw;
+    height: 3.8cqw;
+    fill: none;
+    stroke: var(--np-ink);
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .np-scope .np-p2-stat-n {
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-h2);
+    line-height: 1;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-p2-stat-l {
+    font-family: var(--font-body);
+    font-size: var(--np-t-cap);
+    line-height: 1.2;
+    color: var(--np-ink-soft);
+    margin-top: 0.25em;
+  }
+
+  /* — a row: pitch across the top, cards across the full width beneath — */
+  .np-scope .np-p2-row {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1.8cqw;
+    padding: 1.4cqw 0;
+    border-bottom: 1px solid var(--color-black);
+  }
+
+  .np-scope .np-p2-pitch {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+    column-gap: 3cqw;
+    row-gap: 0.7cqw;
+    align-items: end;
+  }
+
+  .np-scope .np-p2-kicker {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    white-space: nowrap;
+    letter-spacing: 0.1em;
+  }
+
+  .np-scope .np-p2-kicker::before {
+    content: "";
+    flex: none;
+    width: 0.8em;
+    height: 0.8em;
+    background: var(--np-red);
+  }
+
+  .np-scope .np-p2-sample {
+    margin-left: 0.4em;
+    font-family: var(--font-mono);
+    font-size: var(--np-t-micro);
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-p2-sect {
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-sect);
+    line-height: 0.98;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+
+  .np-scope .np-p2-sect--quote {
+    font-size: calc(var(--np-t-sect) * 0.78);
+    line-height: 1.04;
+  }
+
+  .np-scope .np-p2-sect--big {
+    font-size: calc(var(--np-t-sect) * 1.04);
+  }
+
+  .np-scope .np-p2-sect--big .np-p2-red {
+    display: block;
+    white-space: nowrap;
+  }
+
+  .np-scope .np-p2-pitch .np-body {
+    margin: 0;
+    text-align: left;
+    font-size: var(--np-t-deck);
+    line-height: 1.38;
+    color: var(--np-ink-soft);
+  }
+
+  .np-scope .np-p2-cards {
+    display: grid;
+    gap: 1.4cqw;
+  }
+
+  .np-scope .np-p2-cards--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .np-scope .np-p2-cards--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .np-scope .np-p2-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45em;
+    padding: 1cqw 1cqw 1.2cqw;
+    border: 1px solid var(--np-hair);
+    border-radius: 6px;
+    background: rgb(255 255 255 / 0.28);
+  }
+
+  .np-scope .np-p2-card-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+  }
+
+  .np-scope .np-p2-cards--3 .np-p2-card-art {
+    aspect-ratio: 5 / 4;
+  }
+
+  .np-scope .np-p2-card-title {
+    font-family: var(--font-body);
+    font-size: var(--np-t-h4);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-p2-tags {
+    display: block;
+    overflow-wrap: anywhere;
+    font-family: var(--font-ui);
+    font-size: var(--np-t-cap);
+    line-height: 1.25;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-p2-tag {
+    display: inline;
+  }
+
+  .np-scope .np-p2-tag:not(:last-child)::after {
+    content: " · ";
+  }
+
+  /* — voices: the person from the art, a torn paper note carrying the quote as live text — */
+  .np-scope .np-voice {
+    position: relative;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .np-scope .np-voice-art {
+    display: block;
+    width: 100%;
+    height: auto;
+    position: relative;
+    z-index: 0;
+  }
+
+  .np-scope .np-voice-note {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    margin: -5% 0 0;
+    padding: 7% 6% 6% 6%;
+    background: #f1e2c8;
+    clip-path: polygon(
+      0 7%, 8% 2%, 20% 5%, 34% 0, 50% 4%, 66% 1%, 82% 5%, 94% 1%, 100% 6%, 100% 100%, 0 100%
+    );
+  }
+
+  .np-scope .np-voice-mark {
+    position: absolute;
+    top: 3%;
+    left: 5%;
+    font-family: var(--font-hero);
+    font-weight: 900;
+    font-size: var(--np-t-h2);
+    line-height: 1;
+    color: var(--np-red);
+  }
+
+  .np-scope .np-voice-note p {
+    margin: 0 0 0 1.75em;
+    font-family: var(--font-body);
+    font-style: italic;
+    font-size: var(--np-t-cap);
+    line-height: 1.32;
+    color: var(--np-ink);
+  }
+
+  .np-scope .np-voice-note footer {
+    margin: 0.5em 0 0 1.75em;
+    font-family: var(--font-ui);
+    font-size: var(--np-t-micro);
+    line-height: 1.2;
+    color: var(--np-ink-mute);
+  }
+
+  .np-scope .np-voice-note footer b {
+    display: block;
+    color: var(--np-ink);
+  }
+
+  /* — closing line — */
+  .np-scope .np-p2-close {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.78fr);
+    gap: 2cqw;
+    align-items: center;
+    padding: 1.4cqw 0 0.6cqw;
+  }
+
+  .np-scope .np-p2-pillars {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    justify-content: start;
+    gap: 1.4cqw 2.4cqw;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .np-scope .np-p2-pillars li {
+    display: flex;
+    align-items: center;
+    gap: 0.55em;
+    font-family: var(--font-body);
+    font-size: var(--np-t-cap);
+    line-height: 1.15;
+    color: var(--np-ink-soft);
+  }
+
+  .np-scope .np-p2-pillars .np-p2-icon {
+    width: 3.4cqw;
+    height: 3.4cqw;
+  }
+
+  .np-scope .np-p2-plane {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: auto;
+  }
+
+  /* A narrow sheet (phones, plain mode): everything in one column. Rows are already stacked, so the
+     cards keep a grid only where they still fit. */
+  @container page (max-width: 399px) {
+    .np-scope .np-p2-art {
+      float: none;
+      width: auto;
+      margin: 2cqw -3cqw 0 0;
+      shape-outside: none;
+    }
+    .np-scope .np-p2-hero-in {
+      display: flex;
+      flex-direction: column;
+    }
+    .np-scope .np-p2-art {
+      order: 3;
+    }
+    .np-scope .np-p2-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .np-scope .np-p2-stat:nth-child(3) {
+      border-left: 0;
+    }
+    .np-scope .np-p2-pitch,
+    .np-scope .np-p2-close {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .np-scope .np-p2-cards--4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .np-scope .np-p2-cards--3 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .np-scope .np-p2-card-art {
+      max-width: 220px;
+      margin: 0 auto;
+    }
+    .np-scope .np-p2-plane {
+      width: 80%;
+      margin: 0 auto;
+    }
+    .np-scope .np-p2-pillars {
+      flex-wrap: wrap;
+      justify-content: space-between;
     }
   }
 
@@ -1462,26 +1759,6 @@
   }
 
   .np-scope .np-pill--on {
-    background: var(--color-black);
-    color: #faf1e4;
-  }
-
-  /* initials avatar */
-  .np-scope .np-avatar {
-    width: 2.15em;
-    height: 2.15em;
-    border-radius: 50%;
-    border: 2px solid var(--color-black);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: var(--font-mono);
-    font-size: var(--np-t-micro);
-    font-weight: 700;
-    flex: none;
-  }
-
-  .np-scope .np-avatar--on {
     background: var(--color-black);
     color: #faf1e4;
   }
