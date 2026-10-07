@@ -1,123 +1,188 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useFrame, useLoader } from "@react-three/fiber";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { PAGE_H, PAGE_W } from "./sceneConfig";
+import {
+  LEAF_BASE_RIGHT,
+  PAGE_H,
+  PAGE_W,
+  closeProgress,
+  folderProgress,
+  pageBow,
+} from "./sceneConfig";
 import type { RoomLight } from "./roomLight";
+import { ROOM_SHADING, makeProfileTexture, roomUniforms } from "./roomShading";
 import { createCollegeStrip, resolveUiFont, type CollegeStrip } from "./collegeStrip";
+import { disposeTexture, loadManifest, loadTexture, type PagesManifest } from "./textures";
 
 /**
- * One leaf — a physical sheet with a page printed on each side.
+ * One card of the deck — a single page, the edition read one page at a time.
  *
- * ── The curl ────────────────────────────────────────────────────────────────
- * This is the thing CSS structurally could not do, and the reason for the whole
- * rewrite: the page BENDS as it turns instead of pivoting rigidly.
+ * The motion is in `cardPose` below: the top card is taken off, drawn out to the side,
+ * and slid back under the deck, the way you go through a pack of cards. The card is
+ * a plane deformed in the vertex shader, which can also BEND it — an exact circular arc,
+ * derived rather than faked: give the sheet a tangent angle that grows linearly along it,
+ * phi(u) = A + k*u, and integrate (arc length is preserved, so the paper bows without
+ * stretching). Here A stays 0 — a card is never turned over — and k is the slight bow of
+ * a card being pulled from the pile. The surface normal falls out of the same tangent,
+ * so the room's light bends with it.
  *
- * The bend is an exact circular arc, derived rather than faked. Parameterise the
- * sheet by arc length s from the spine and give it a tangent angle that grows
- * linearly along it — phi(s) = A + k*s — then integrate:
- *
- *     X(s) = INTEGRAL cos(phi) ds = ( sin(A + k*s) - sin(A) ) / k
- *     Y(s) = INTEGRAL sin(phi) ds = ( cos(A) - cos(A + k*s) ) / k
- *
- * Because it is integrated from a unit-speed tangent, arc length is preserved
- * exactly — the paper bends without stretching, which is precisely what the
- * cheap "displace along a sine wave" approach gets wrong. A is the rigid
- * rotation about the spine (0 to PI across a turn) and k is curvature, peaking
- * mid-turn and vanishing at both ends so a resting page is dead flat.
- *
- * The surface normal falls out of the same tangent — (-sin phi, cos phi, 0) — so
- * the lighting bends with the paper for free.
- *
- * ── One mesh, two pages ──────────────────────────────────────────────────────
- * gl_FrontFacing picks the texture in the fragment shader, so a leaf is a single
- * double-sided plane rather than two meshes back to back. No z-fighting along
- * the fold, and nothing to keep in sync.
+ * The back face is plain paper (uBack): a card's back is never what you read.
  */
 
 /** Segments across the sheet. The arc is evaluated per vertex, so this is the
  *  only thing standing between a smooth curl and a visible polygon fan. */
 const SEGMENTS = 72;
 
-/** Peak curvature mid-turn, in 1/units. Higher bends the paper harder; too high
- *  and the free edge curls back through the sheet. */
-const CURVATURE = 1.55;
-
 /** Vertical gap between stacked leaves. Large enough that no two sheets are ever
  *  coplanar (which z-fights), small enough that the stack reads as paper rather
  *  than a staircase. */
 const SEPARATION = 0.0016;
 
-const LEAVES = 4;
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(Math.max((x - a) / (b - a), 0), 1);
+  return t * t * (3 - 2 * t);
+};
+
+/**
+ * Where a card is, as the reader works through the deck.
+ *
+ * ── Why a deck, and not a book ───────────────────────────────────────────────
+ * The edition's pages are loose cards in a folder, read one at a time, and you go
+ * through a deck the way you go through any deck of cards: take the top one, move it
+ * to the back. So every page stays on the one pile on the right; nothing is turned
+ * over and nothing lands on the left. For the card on top, `t` of the way through
+ * its move:
+ *
+ *   0.00–0.16  picked up        it lifts off the deck toward the reader
+ *   0.08–0.50  drawn out        it slides out over the open cover (DRAW_DIR), the wrist twisting a few
+ *                               degrees and the card bowing slightly as it is pulled
+ *   0.46–0.58  lowered          clear of the deck, it drops to the bottom of the pile
+ *   0.52–0.95  slid back under  and is pushed back in, beneath everything — the card
+ *                               that was under it is now on top, and is what you read
+ *
+ * Nothing passes through anything: the card only changes height while it is entirely
+ * clear of the deck (drawn out by more than a page width).
+ *
+ * ── Heights ──────────────────────────────────────────────────────────────────
+ * A card's place in the pile is its RANK from the bottom. Before its own move, card i
+ * has the unmoved cards below it plus every card already sent to the back; after, it
+ * has only the cards sent back after it. `u` is continuous, so ranks — and therefore
+ * heights — slide smoothly as cards come and go, and the pile never z-fights.
+ */
+export const CARDS = 8;
+
+function rankOf(i: number, u: number) {
+  const t = u - i;
+  if (t <= 0) return CARDS - 1 - i + Math.max(0, Math.min(u, i));
+  if (t >= 1) return Math.max(0, Math.min(u - 1 - i, CARDS - 1));
+  return THREE.MathUtils.lerp(CARDS - 1, 0, t);
+}
+
+const heightOf = (rank: number) => LEAF_BASE_RIGHT + (rank + 1) * SEPARATION;
+
+/**
+ * Which way the top card is drawn out: −1 is LEFT, over the open cover.
+ *
+ * It used to go right, off the deck's free edge. But the reading pose now slides the open
+ * folder right to balance it in the frame (READ_SHIFT in NewspaperScene), and that left
+ * no room on that side: at the peak of the move half the card was off the screen. The
+ * open cover is the empty half of the composition, and lying flat at the board's height it
+ * sits well below anything a card is carried at (≥ LEAF_BASE_RIGHT), so the card is drawn
+ * out over it — fully in frame, the way you would slide a card onto the table beside the
+ * deck — and pushed back under the deck from that side.
+ */
+const DRAW_DIR = -1;
+
+function cardPose(i: number, u: number) {
+  const half = PAGE_W / 2;
+  const t = THREE.MathUtils.clamp(u - i, 0, 1);
+  const rest = heightOf(rankOf(i, u));
+  if (t <= 0 || t >= 1) {
+    return { a: 0, k: 0, cx: half, cy: rest, yaw: 0, calm: 1, t };
+  }
+  const out = smooth(0.08, 0.5, t);
+  const back = smooth(0.52, 0.95, t);
+  const lifted = heightOf(CARDS) + 0.07;
+  const up = THREE.MathUtils.lerp(heightOf(CARDS - 1), lifted, smooth(0, 0.16, t));
+  const cy = THREE.MathUtils.lerp(up, heightOf(0), smooth(0.46, 0.58, t));
+  const carry = Math.sin(Math.PI * t);
+  return {
+    a: 0,
+    // Bowed a little by the pull, and only while in the hand.
+    k: -0.22 * carry,
+    // Out past the deck's edge by a little more than a page, then back.
+    cx: half + DRAW_DIR * PAGE_W * 1.08 * (out - back),
+    cy,
+    // The wrist: a few degrees one way going out, easing back as it is pushed home.
+    yaw: -DRAW_DIR * 0.09 * Math.sin(Math.PI * out) * (1 - back),
+    calm: 1 - smooth(0, 0.1, t) * (1 - smooth(0.9, 1, t)),
+    t,
+  };
+}
 
 const vertex = /* glsl */ `
-  uniform float uTurn;      // 0 = flat on the right. 1 = flat on the left.
-  uniform float uCurve;     // peak curvature
+  // The sheet's pose, computed per frame in sheetPose() — see there for the motion.
+  uniform float uA;         // how far it has been turned over, 0 … PI, about its own middle
+  uniform float uK;         // its sag while carried, in 1/units
+  uniform vec2 uC;          // where its middle is: x across the desk, y up off it
+  uniform float uYaw;       // the twist of the wrist that carries it
+  uniform float uCalm;      // 1 lying on a pile, 0 in the hand
   uniform float uBow;       // how far the free edges of resting paper rise
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vWorld;
-  varying float vLift;      // 0 where the sheet touches the table, 1 at its most raised
-
-  const float PI = 3.141592653589793;
+  varying float vLift;      // 0 where the sheet touches the pile, 1 at its most raised
 
   void main() {
     vUv = uv;
 
-    // Plane geometry is authored in XY. The shader emits world-aligned axes
-    // directly — x across the desk from the spine, y up off it, z depth — so the
-    // mesh itself carries NO rotation. Rotating it as well would transform this
-    // output a second time.
-    //
-    // depth IS negated, and it has to be. Without the flip, a CCW triangle
-    // A(0,0) B(1,0) C(0,1) maps to a world normal of
-    // (1,0,0) x (0,0,1) = (0,-1,0) — pointing down, away from a camera that is
-    // above the desk. Every sheet then presents its BACK face, gl_FrontFacing
-    // reads inverted, and each leaf renders the wrong page, mirrored. Negating
-    // reverses the winding so the normal is (0,+1,0) and the recto faces up.
-    //
-    // It also fixes the vertical mapping for free: local +Y becomes world -Z,
-    // the FAR edge of the desk, so the masthead prints at the top of the page
-    // with no UV flip needed in the fragment shader.
-    float s = position.x + ${(PAGE_W / 2).toFixed(6)};
+    // Plane geometry is authored in XY; the shader emits edition axes directly
+    // (x across the desk from the spine, y up off it, z depth), so the mesh carries
+    // no rotation. depth IS negated: that keeps the recto's winding facing up and
+    // puts local +Y — the masthead — at the far edge of the desk.
+    float u = position.x;                              // from the sheet's middle
+    float s = u + ${(PAGE_W / 2).toFixed(6)};          // from its spine edge
     float depth = -position.y;
 
-    float A = uTurn * PI;
-    float k = uCurve * sin(uTurn * PI);
-
-    vec2 arc;
-    float phi;
-    if (abs(k) < 1e-4) {
-      // Zero curvature is a straight line, and the integrated form divides by k.
-      // Resting pages land here every frame, so it is the common case.
-      phi = A;
-      arc = vec2(cos(A), sin(A)) * s;
+    /* A sheet held by its middle and turned over: the tangent angle is the turn plus
+       a constant curvature (the sag), integrated outward from the middle, so the
+       paper bends without stretching — the same exact-arc construction the old
+       spine-hinged turn used, centred on the hand instead of the spine. */
+    float phi = uA + uK * u;
+    vec2 d;
+    if (abs(uK) < 1e-4) {
+      d = vec2(cos(uA), sin(uA)) * u;
     } else {
-      phi = A + k * s;
-      arc = vec2((sin(phi) - sin(A)) / k, (cos(A) - cos(phi)) / k);
+      d = vec2((sin(phi) - sin(uA)) / uK, (cos(uA) - cos(phi)) / uK);
     }
+    vec2 nrm = vec2(-sin(phi), cos(phi));
 
-    /* Resting paper is not flat. The free edge and the far and near edges rise a
-       little; the middle, and the spine side, stay down — so it still TOUCHES the
-       table, and lifts off it toward the edges, which is what gives the contact
-       shadow something to be under. It is added in the sheet's own frame (the group
-       carries the tilt), and fades to nothing as the leaf turns, where the arc is
-       already bending it far more than this could. */
-    float calm = 1.0 - sin(uTurn * PI);
+    /* Resting paper is not flat: the free edge and the far and near edges rise a
+       little while the middle and spine side stay down, so it touches the pile and
+       lifts off it toward the edges. Only while it is lying down. */
     float freeE = max(0.0, 2.0 * s - 1.0);
     float halfH = ${(PAGE_H / 2).toFixed(6)};
     float dn = depth / halfH;
     float bowK = 0.4 * freeE * freeE + 0.6 * dn * dn;
-    vLift = bowK * calm;
-    float bowH = uBow * calm * bowK;
-    float dhds = uBow * calm * 0.4 * 4.0 * freeE;
-    float dhdd = uBow * calm * 0.6 * 2.0 * dn / halfH;
-    // Horizontal part of the upward normal of the bowed surface; flips with the leaf.
+    vLift = bowK * uCalm;
+    float bowH = uBow * uCalm * bowK;
+    float dhds = uBow * uCalm * 0.4 * 4.0 * freeE;
+    float dhdd = uBow * uCalm * 0.6 * 2.0 * dn / halfH;
+    // UP, whichever face is up — not along the sheet's normal, which points down once
+    // it lies face-down and would bend its edges through the cover beneath it.
+    d.y += bowH;
     vec3 bowN = vec3(-dhds * cos(phi), 0.0, -dhdd) * sign(cos(phi));
 
-    vec3 local = vec3(arc.x, arc.y + bowH, depth);
-    vNormalW = normalize(mat3(modelMatrix) * (vec3(-sin(phi), cos(phi), 0.0) + bowN));
+    // The twist of the wrist, about the vertical through the sheet's middle.
+    float cy = cos(uYaw);
+    float sy = sin(uYaw);
+    vec3 local = vec3(uC.x + d.x * cy + depth * sy, uC.y + d.y, -d.x * sy + depth * cy);
+    vec3 n = vec3(nrm.x, nrm.y, 0.0) + bowN;
+    n = vec3(n.x * cy + n.z * sy, n.y, -n.x * sy + n.z * cy);
+
+    vNormalW = normalize(mat3(modelMatrix) * n);
     vec4 world = modelMatrix * vec4(local, 1.0);
     vWorld = world.xyz;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(local, 1.0);
@@ -131,37 +196,12 @@ const fragment = /* glsl */ `
   uniform sampler2D uStrip;   // live "Available at" ticker (page 1 only)
   uniform vec4 uStripRect;    // its patch of the front texture: u0, v0, du, dv
   uniform float uStripOn;
-  uniform vec3 uLightDir;
-  uniform vec3 uTint;
-  uniform vec3 uSun;
-  uniform sampler2D uProfile; // the clip's own window-light pattern across the desk
-  uniform vec3 uProf;         // tMin, 1/(tMax-tMin), ref
-  uniform float uGoboK;
-  uniform float uGoboP;
-  uniform float uTime;
-  uniform float uDapple;
-  uniform float uDappleScale;
-  uniform float uDappleSpeed;
   varying vec2 vUv;
   varying vec3 vNormalW;
   varying vec3 vWorld;
   varying float vLift;
 
-  // Cheap value noise, three octaves. Only ever read at one soft threshold, so
-  // it does not need to be good noise — it needs to be smooth and cost nothing.
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float vnoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
-      f.y);
-  }
-  float fbm(vec2 p) {
-    return 0.55 * vnoise(p) + 0.3 * vnoise(p * 2.03 + 7.1) + 0.15 * vnoise(p * 4.1 + 3.3);
-  }
+  ${ROOM_SHADING}
 
   void main() {
     // The recto needs no correction at all: u = 0 sits at the spine, which is a
@@ -186,59 +226,14 @@ const fragment = /* glsl */ `
     }
 
     vec3 n = normalize(vNormalW) * (gl_FrontFacing ? 1.0 : -1.0);
-    float lambert = max(dot(n, normalize(uLightDir)), 0.0);
 
-    // Generous ambient: this is printed paper under room light, not a studio
-    // subject, and crushing the shadow side would cost legibility.
-    /* The room tints the paper too, but far more gently than it tints the
-       table — uTint stays close to white. Deliberate: these eight pages are the
-       only thing on screen anyone has to be able to read. */
-    /* The same window bars that cross the table cross the paper. Far weaker —
-       this is the only thing on screen anyone has to read — but continuity of
-       light across the two surfaces is most of what makes them one scene rather
-       than a page pasted onto a photograph. */
-    vec3 Ln = normalize(uLightDir);
-    vec2 lh = normalize(vec2(Ln.x, Ln.z));
-    /* The bars creep. A window's light on a desk is never perfectly still — the
-       sun moves, the glass flexes, the trees outside shift — so the phase drifts
-       a few percent of a period back and forth. Slow enough to read as the room
-       breathing rather than as an effect. */
-    float drift = 0.045 * sin(uTime * 0.21) + 0.03 * sin(uTime * 0.083 + 1.7);
-    /* The MEASURED bars (see lightProfile in roomLight.ts): where this point of the
-       paper falls across the window's shadow stripes, read off the same pattern that
-       is lying on the mat beside it. Only close to the desk — a page stood up to the
-       lens is not in the bars' plane — so it fades out over the first few tenths of
-       a unit of lift, and the open spread is lit evenly. */
-    float tc = dot(vWorld.xz, vec2(-lh.y, lh.x)) + drift * uGoboP;
-    float pf = texture2D(uProfile, vec2(clamp((tc - uProf.x) * uProf.y, 0.0, 1.0), 0.5)).r;
-    float deskward = 1.0 - smoothstep(0.0, 0.32, vWorld.y);
-    float bar = 1.0 - deskward * (1.0 - clamp(pf / uProf.z, 0.0, 1.0));
-
-    /* Leaf-shadow dapple, drifting along the light's own bearing — the leaves are
-       between the sun and the desk, so their shadows travel the way the light
-       travels. One soft threshold: blotches, not noise. */
-    vec2 dq = vWorld.xz * uDappleScale + lh * (uTime * uDappleSpeed * 0.06)
-            + vec2(0.35 * sin(uTime * 0.17), 0.3 * cos(uTime * 0.13));
-    float leaf = smoothstep(0.40, 0.64, fbm(dq));
-    float dapple = 1.0 - uDapple * (1.0 - leaf);
-
-    /* Low orange sun: the side facing the window takes the sun's colour, the side
-       turned away stays neutral. The same lambert that shades the page drives
-       it, so the warmth bends with the paper as it curls. */
-    vec3 lit = mix(vec3(1.0), uSun, 0.55 * lambert);
-
-    /* A faint glint where the page catches the sun toward the lens. Paper is not
-       a mirror, so this is a broad, weak lobe, not a highlight — but golden hour
-       paper has a sheen, and without it the page looks matte-printed on screen. */
-    vec3 V = normalize(cameraPosition - vWorld);
-    float sheen = pow(max(dot(reflect(-normalize(uLightDir), n), V), 0.0), 7.0);
-
-    /* The floor is high (0.84) on purpose. The sun is low and BEHIND the table, so a
+    /* The room's light (roomShading.ts), shared with the folder the pages sit in.
+       The floor is high (0.84) on purpose. The sun is low and BEHIND the table, so a
        page stood up to face the lens faces away from it and the sun term is zero
        there; paper held up in a bright room still takes bounce light off the desk
        and the walls, and a floor of 0.70 made the open spread read as dim and
        brown exactly when it has to be read. */
-    vec3 col = page.rgb * (0.84 + 0.28 * lambert) * lit * mix(1.0, bar, uGoboK) * dapple * uTint;
+    vec3 col = roomShade(page.rgb, n, 0.84, 0.28);
     /* Where the sheet touches the table it is shut off from the sky — a few percent
        darker than where its edges stand clear — and its very rim, being an edge, takes
        a little shade. Both are small and both are the sort of thing the eye uses to
@@ -250,7 +245,7 @@ const fragment = /* glsl */ `
     float rest = (1.0 - smoothstep(0.0, 0.32, vWorld.y));
     col *= mix(1.0, mix(0.9, 1.0, rim), rest);
     col *= mix(1.0, mix(0.93, 1.0, smoothstep(0.0, 0.7, vLift)), rest);
-    col += uSun * sheen * 0.07;
+    col += uSun * roomSheen(n, 7.0) * 0.07;
     gl_FragColor = vec4(col, 1.0);
 
     /* The texture is decoded to LINEAR on sample (it is tagged SRGBColorSpace),
@@ -262,14 +257,22 @@ const fragment = /* glsl */ `
 `;
 
 export interface LeafProps {
-  /** Leaf index, 0-based. */
+  /** Card index, 0-based — the page number it carries. Card 0 is page 1, on top. */
   index: number;
-  frontUrl: string;
-  backUrl: string;
+  /** The page-texture manifest (textures.ts), or null until it has arrived. */
+  manifest: PagesManifest | null;
+  /** The scene is on screen. Nothing is downloaded for a page until then. */
+  ready: boolean;
+  /** The size read at: "l" (3x) on a capable laptop, "m" (2x) otherwise. */
+  full: "l" | "m";
+  /** A page could not be shown at all — the scene should give way to the plain document. */
+  onFail: (reason: string) => void;
   /** Scroll position in step units. Read per frame, never during render. */
   posRef: React.RefObject<number>;
   /** Steps of camera-only lead-in before leaf 0 begins to turn. */
   lead: number;
+  /** Steps that move a leaf — needed to know when the folder is closing at the end. */
+  turns: number;
   /** The hour's light rig, shared with the table and the room behind it. */
   light: RoomLight;
 }
@@ -292,9 +295,7 @@ function useCollegeStrip(enabled: boolean): CollegeStrip | null {
 
     (async () => {
       try {
-        const res = await fetch("/pages/meta.json");
-        if (!res.ok) return;
-        const rect = (await res.json())?.colleges;
+        const rect = (await loadManifest())?.colleges;
         if (!rect) return;
         const family = resolveUiFont();
         await document.fonts.load(`700 24px ${family}`);
@@ -315,68 +316,121 @@ function useCollegeStrip(enabled: boolean): CollegeStrip | null {
   return strip;
 }
 
-export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: LeafProps) {
-  const [front, back] = useLoader(THREE.TextureLoader, [frontUrl, backUrl]);
-  const strip = useCollegeStrip(index === 0);
+type Tier = "s" | "m" | "l";
 
-  /* Texture setup is a mutation, so it belongs in an effect rather than a memo.
-     Anisotropy matters more than usual here: the pages are read at a steep angle
-     and without it the type along the far edge turns to mush. */
-  useLayoutEffect(() => {
-    for (const t of [front, back]) {
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.anisotropy = 8;
-      t.minFilter = THREE.LinearMipmapLinearFilter;
-      t.needsUpdate = true;
-    }
-  }, [front, back]);
+/**
+ * When a card wants its full-size page, in steps of its own move (d = u − index):
+ * from two cards before it reaches the top until one card after it has gone to the
+ * back — loaded while the reader is still on an earlier page, not as this one arrives.
+ * Released again past FAR; the gap is hysteresis, so scrolling back and forth across one
+ * page does not reload it. At most four cards' worth of full textures are on the GPU.
+ */
+const NEAR_BEFORE = 2.2;
+const NEAR_AFTER = 1.3;
+const FAR_BEFORE = 3.2;
+const FAR_AFTER = 2.3;
 
-  /* The profile as a 64x1 texture. One byte a sample is plenty for a gradient that
-     is only ever read through a linear filter. */
-  const profileTex = useMemo(() => {
-    const d = new Uint8Array(light.lightProfile.samples.map((v) => Math.round(Math.min(1, Math.max(0, v)) * 255)));
-    const t = new THREE.DataTexture(d, d.length, 1, THREE.RedFormat, THREE.UnsignedByteType);
-    t.minFilter = THREE.LinearFilter;
-    t.magFilter = THREE.LinearFilter;
-    t.wrapS = THREE.ClampToEdgeWrapping;
-    t.wrapT = THREE.ClampToEdgeWrapping;
-    t.needsUpdate = true;
-    return t;
-  }, [light.lightProfile]);
+/**
+ * A finished download is swapped in — which is when its pixels are uploaded to the GPU,
+ * a 1722x2376 upload with mipmaps that costs a visible frame — only while the scroll is
+ * still, or when the card is about to be seen and it must be there regardless. Uploading
+ * the moment it lands put that hitch in the middle of a scroll.
+ */
+const STILL_FRAMES = 6;
+const MUST_SHOW = -1.05;
+
+export default function Leaf({
+  index,
+  manifest,
+  ready,
+  full,
+  onFail,
+  posRef,
+  lead,
+  turns,
+  light,
+}: LeafProps) {
+  // The live ticker paints its own logos — after the scene is up, not competing with it.
+  const strip = useCollegeStrip(index === 0 && ready);
+
+  const profileTex = useMemo(() => makeProfileTexture(light), [light]);
 
   const uniforms = useMemo(
     () => ({
-      uTurn: { value: 0 },
-      uCurve: { value: CURVATURE },
+      uA: { value: 0 },
+      uK: { value: 0 },
+      uC: { value: new THREE.Vector2() },
+      uYaw: { value: 0 },
+      uCalm: { value: 1 },
       uBow: { value: light.restBow },
-      uFront: { value: front },
-      uBack: { value: back },
+      // Paper-coloured until the preview lands. Nobody sees it: on the first frame
+      // every leaf is under the folder's shut cover.
+      uFront: { value: BLANK as THREE.Texture },
+      uBack: { value: BLANK as THREE.Texture },
       uStrip: { value: BLANK as THREE.Texture },
       uStripRect: { value: new THREE.Vector4() },
       uStripOn: { value: 0 },
-      uLightDir: { value: new THREE.Vector3(...light.dir).normalize() },
-      uTint: { value: new THREE.Color(light.paperTint) },
-      uSun: { value: new THREE.Color(light.sunColor) },
-      uProfile: { value: profileTex },
-      uProf: {
-        value: new THREE.Vector3(
-          light.lightProfile.tMin,
-          1 / (light.lightProfile.tMax - light.lightProfile.tMin),
-          light.lightProfile.ref,
-        ),
-      },
-      uGoboK: { value: light.goboPaper },
-      uGoboP: { value: light.goboPeriod },
-      uTime: { value: 0 },
-      uDapple: { value: light.dapple },
-      uDappleScale: { value: light.dappleScale },
-      uDappleSpeed: { value: light.dappleSpeed },
+      ...roomUniforms(light, profileTex),
     }),
-    [front, back, light, profileTex],
+    [light, profileTex],
   );
 
   const group = useRef<THREE.Group>(null);
   const material = useRef<THREE.ShaderMaterial>(null);
+
+  /**
+   * Which size of this leaf's two pages is on the GPU, and which is on its way.
+   *
+   * A ref, not state: it changes from the render loop and nothing React renders depends
+   * on it — the textures go straight into the material's uniforms.
+   */
+  const tex = useRef({
+    tier: null as Tier | null,
+    pending: null as Tier | null,
+    current: null as THREE.Texture | null,
+    /** Downloaded and decoded, waiting for a still moment to be swapped in. */
+    ready: null as { tier: Tier; t: THREE.Texture } | null,
+    fullFailed: false,
+    gone: false,
+    lastPos: Number.NaN,
+    still: 0,
+  });
+
+  useEffect(() => {
+    const s = tex.current;
+    s.gone = false;
+    return () => {
+      s.gone = true;
+      disposeTexture(s.current);
+      disposeTexture(s.ready?.t);
+      s.current = null;
+      s.ready = null;
+      s.tier = s.pending = null;
+    };
+  }, []);
+
+  /** Start fetching this card's page at `tier`; it is swapped in by the frame loop. */
+  const want = (tier: Tier) => {
+    const s = tex.current;
+    const url = manifest?.pages[index]?.[tier];
+    if (!url || s.pending === tier || s.tier === tier || s.ready?.tier === tier) return;
+    s.pending = tier;
+    loadTexture(url)
+      .then((t) => {
+        if (s.gone || s.pending !== tier) return disposeTexture(t);
+        s.pending = null;
+        disposeTexture(s.ready?.t);
+        s.ready = { tier, t };
+      })
+      .catch(() => {
+        if (s.gone) return;
+        s.pending = null;
+        // A missing full size is survivable — the preview stays. A missing preview means
+        // this page cannot be shown at all.
+        if (tier === "s") onFail("texture");
+        else s.fullFailed = true;
+      });
+  };
 
   // Bind the live ticker once it exists. Uniforms are mutated rather than rebuilt so the
   // material is not recompiled for a patch of one page.
@@ -394,24 +448,57 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
 
   useFrame((state) => {
     const m = material.current;
-    const g = group.current;
-    if (!m || !g) return;
+    if (!m) return;
 
-    /* Each leaf derives its own turn rather than being handed one. Leaf k turns
-       across pos [k, k+1], so no shared array has to be built, indexed during
-       render, and kept in step. */
-    const t = THREE.MathUtils.clamp((posRef.current ?? 0) - lead - index, 0, 1);
-    m.uniforms.uTurn.value = t;
+    /* Each leaf derives its own move rather than being handed one. Leaf k is
+       handled across pos [k, k+1], so no shared array has to be built, indexed
+       during render, and kept in step. */
+    const pos = posRef.current ?? 0;
+    /* Capped at the last card. Past it is the lead-out, where the cover closes over the
+       deck — and uncapped, the lead-out step read as "move the last card", so page 8
+       was drawn out from under a closing cover. */
+    const p = cardPose(index, Math.min(pos - lead, turns));
+    const t = p.t;
+    m.uniforms.uA.value = p.a;
+    m.uniforms.uK.value = p.k;
+    m.uniforms.uC.value.set(p.cx, p.cy);
+    m.uniforms.uYaw.value = p.yaw;
+    m.uniforms.uCalm.value = p.calm;
     m.uniforms.uTime.value = state.clock.elapsedTime;
+    // Pressed flat while a board is anywhere near it; a bowed edge would push through.
+    m.uniforms.uBow.value =
+      light.restBow * pageBow(folderProgress(pos, lead), closeProgress(pos, turns, lead));
 
-    // The ticker is only on the recto, so only repaint while that face is up.
-    if (strip && t < 0.6) strip.update(state.clock.elapsedTime);
+    // The ticker is on page 1 only, so only repaint while that card is anywhere near the top.
+    if (strip && t < 0.6 && pos - lead < 1.2) strip.update(state.clock.elapsedTime);
 
-    // Unturned leaves stack on the right in reading order; turned ones pile on
-    // the left in the order they were turned. Lerping between the two keeps a
-    // leaf from ever being exactly coplanar with a neighbour.
-    g.position.y = THREE.MathUtils.lerp((LEAVES - index) * SEPARATION, (index + 1) * SEPARATION, t);
+    /* Textures, just in time. Every leaf gets its preview once the scene is up; the
+       full size only while the reader is within NEAR of this leaf's move, and it is
+       given back (the preview is re-fetched from cache) once they are past FAR — so at
+       most three leaves' worth of full textures are ever on the GPU. */
+    if (!ready || !manifest) return;
+    const s = tex.current;
+    const d = pos - lead - index;
+
+    s.still = Math.abs(pos - s.lastPos) < 1e-4 ? s.still + 1 : 0;
+    s.lastPos = pos;
+    // The first texture always goes straight in; after that, only when still or needed.
+    if (s.ready && (!s.current || s.still >= STILL_FRAMES || d > MUST_SHOW)) {
+      const { tier, t: nt } = s.ready;
+      s.ready = null;
+      disposeTexture(s.current);
+      s.current = nt;
+      s.tier = tier;
+      m.uniforms.uFront.value = nt;
+    }
+
+    const near = d > -NEAR_BEFORE && d < NEAR_AFTER;
+    const far = d < -FAR_BEFORE || d > FAR_AFTER;
+    if (!s.tier && !s.ready) want("s");
+    else if (near && s.tier !== full && !s.fullFailed) want(full);
+    else if (far && s.tier && s.tier !== "s") want("s");
   });
+
 
   return (
     <group ref={group}>
@@ -419,20 +506,19 @@ export default function Leaf({ index, frontUrl, backUrl, posRef, lead, light }: 
           shader already places every vertex in world-aligned axes. */}
       <mesh frustumCulled={false} renderOrder={1}>
         <planeGeometry args={[PAGE_W, PAGE_H, SEGMENTS, 1]} />
-        {/* `transparent` with an alpha of exactly 1 — it blends as opaque. It is set for the
-            DRAW ORDER: three draws opaque objects first and transparent ones after,
-            and the contact shadow is transparent, so with an opaque paper the shadow
-            was drawn LAST and painted itself over any part of the paper that dipped
-            below its plane while it tilted up (a grey band across the bottom edge for
-            a few frames). Transparent, and a higher renderOrder than the shadow's -1,
-            the paper is drawn after it and always wins where they overlap. */}
+        {/* OPAQUE, and that is a performance decision. Eight cards lie stacked on each
+            other; three draws transparent objects back to front, so as "transparent" (an
+            old fix for the paper dipping below the contact shadow, which no longer can:
+            the deck rides on the folder, well above the shadow plane) the GPU fully shaded
+            all eight on every pixel of the page. Opaque, they are drawn front to back and
+            every card under the top one is rejected by the depth test before it is
+            shaded. */}
         <shaderMaterial
           ref={material}
           vertexShader={vertex}
           fragmentShader={fragment}
           side={THREE.DoubleSide}
           uniforms={uniforms}
-          transparent
         />
       </mesh>
     </group>

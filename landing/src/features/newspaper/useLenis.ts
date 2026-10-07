@@ -18,15 +18,28 @@ import Lenis from "lenis";
  * print and no-JS land, and none of them should get momentum scrolling.
  */
 
-/** No scroll movement for this long counts as "the reader stopped pushing". */
-const SETTLE_IDLE_MS = 140;
+/** No scroll movement for this long counts as "the reader stopped pushing". A little
+ *  longer than it was (140): a trackpad's momentum tail can pause that long between
+ *  events, and settling into it felt like the page tugging against the reader's hand. */
+const SETTLE_IDLE_MS = 180;
 
 /** Closer to flat than this and settling would be visible work for no gain. */
 const SETTLE_EPSILON = 0.02;
 
 /** How long a settle takes, seconds. Long enough to read as a fall, short
  *  enough that a reader who immediately scrolls again does not fight it. */
-const SETTLE_DURATION = 0.5;
+const SETTLE_DURATION = 0.6;
+
+/**
+ * The settle's easing: smooth at BOTH ends.
+ *
+ * Lenis's default is exponential ease-out — it leaves at full speed. For a jump the
+ * reader asked for that is right; for a settle it is wrong, because a settle starts from
+ * rest (the reader has just stopped), and going from still to full speed in one frame is
+ * a visible jolt — the "uneven" lurch after letting go. Ease-in-out cubic starts as
+ * gently as it stops.
+ */
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Default duration for goTo/corner/keyboard jumps, seconds. */
 const JUMP_DURATION = 0.9;
@@ -36,6 +49,7 @@ export interface ScrollToOpts {
    *  would be a scroll the reader did not ask for. */
   immediate?: boolean;
   duration?: number;
+  easing?: (t: number) => number;
 }
 
 export interface UseLenisArgs {
@@ -81,6 +95,7 @@ export function useLenis({ enabled, pos, steps, topForIndex }: UseLenisArgs) {
 
     lenis.scrollTo(top, {
       duration,
+      easing: opts?.easing,
       immediate: opts?.immediate ?? false,
       onComplete: () => {
         ownUntil.current = 0;
@@ -123,7 +138,7 @@ export function useLenis({ enabled, pos, steps, topForIndex }: UseLenisArgs) {
       const target = Math.round(v);
       if (target < 0 || target > steps) return;
       if (Math.abs(v - target) < SETTLE_EPSILON) return;
-      scrollTo(topForIndex(target), { duration: SETTLE_DURATION });
+      scrollTo(topForIndex(target), { duration: SETTLE_DURATION, easing: easeInOutCubic });
     };
 
     const onScroll = () => {

@@ -44,6 +44,11 @@ export default function Page1Front() {
             width={hero.w}
             height={hero.h}
             alt="A torn-paper collage of a campus clock tower among trees, with newsprint and red paper scraps."
+            /* Lazy even though it is above the fold on a phone: in the 3D view this whole
+               document is a hidden screen-reader copy, and an eager <img> is fetched by the
+               preload scanner whether anyone can see it or not. In view, lazy loads at once. */
+            loading="lazy"
+            decoding="async"
             draggable={false}
           />
         </figure>

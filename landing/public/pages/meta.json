@@ -4,5 +4,47 @@
     "y": 0.20034327651515152,
     "w": 0.7148573606271778,
     "h": 0.033321496212121215
-  }
+  },
+  "pages": [
+    {
+      "l": "/pages/01.l.8e3bab91.avif",
+      "m": "/pages/01.m.226f7abb.avif",
+      "s": "/pages/01.s.8fee66eb.avif"
+    },
+    {
+      "l": "/pages/02.l.17800530.avif",
+      "m": "/pages/02.m.90789bde.avif",
+      "s": "/pages/02.s.7e2419bd.avif"
+    },
+    {
+      "l": "/pages/03.l.af510e86.avif",
+      "m": "/pages/03.m.645196cf.avif",
+      "s": "/pages/03.s.caf51c43.avif"
+    },
+    {
+      "l": "/pages/04.l.e5f1b56e.avif",
+      "m": "/pages/04.m.2bc62586.avif",
+      "s": "/pages/04.s.57f494f7.avif"
+    },
+    {
+      "l": "/pages/05.l.4f456073.avif",
+      "m": "/pages/05.m.e4d87b8e.avif",
+      "s": "/pages/05.s.5c660e2c.avif"
+    },
+    {
+      "l": "/pages/06.l.d614b72e.avif",
+      "m": "/pages/06.m.9d3df56d.avif",
+      "s": "/pages/06.s.215d727b.avif"
+    },
+    {
+      "l": "/pages/07.l.816ad1f3.avif",
+      "m": "/pages/07.m.be310a1e.avif",
+      "s": "/pages/07.s.aad3022e.avif"
+    },
+    {
+      "l": "/pages/08.l.90ff8900.avif",
+      "m": "/pages/08.m.71ded0a0.avif",
+      "s": "/pages/08.s.0406e641.avif"
+    }
+  ]
 }

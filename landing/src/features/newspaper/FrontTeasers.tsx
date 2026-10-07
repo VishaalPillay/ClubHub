@@ -36,6 +36,8 @@ export default function FrontTeasers() {
               width={a.w}
               height={a.h}
               alt=""
+              loading="lazy"
+              decoding="async"
               draggable={false}
             />
             <span className="np-teaser-body">{body}</span>

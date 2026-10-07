@@ -40,6 +40,8 @@ export default function CollegeStrip() {
               width={logo.w}
               height={logo.h}
               alt=""
+              loading="lazy"
+              decoding="async"
               draggable={false}
             />
           ) : null}

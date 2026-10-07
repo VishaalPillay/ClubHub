@@ -30,29 +30,88 @@ const REDUCED = "(prefers-reduced-motion: reduce)";
  */
 export const MIN_WIDTH = 1024;
 
+/** Testing only: `localStorage["clubhub:force-tier"] = "high" | "mid" | "low"` overrides the
+ *  device check (so screenshot scripts can run the scene under software GL) and turns the
+ *  watchdogs off. Read by the boot script, which marks <html data-np-forced>. */
+export const FORCE_TIER_KEY = "clubhub:force-tier";
+
+/** Set for the rest of the session when the scene had to give way — see failScene. */
+export const SCENE_FAILED_KEY = "clubhub:scene-failed";
+
 /**
  * Can this browser actually run the scene?
  *
- * Probed once and cached: creating a context is not free, and `getReadingMode`
- * is called on every store read. A failure here is not exotic — blocked WebGL,
- * a software renderer that has been blacklisted, or a machine that has simply
- * run out of contexts are all real.
+ * WebGL2 specifically: three.js has been WebGL2-only since r163, and a WebGL1-only
+ * machine passing this check is a machine that gets a blank canvas. Probed once and
+ * cached: creating a context is not free, and `getReadingMode` is called on every
+ * store read.
  */
 let webglOk: boolean | null = null;
 
-function hasWebGL(): boolean {
+function hasWebGL2(): boolean {
   if (webglOk !== null) return webglOk;
   try {
     const canvas = document.createElement("canvas");
-    webglOk = Boolean(
-      canvas.getContext("webgl2") ??
-        canvas.getContext("webgl") ??
-        canvas.getContext("experimental-webgl"),
-    );
+    const gl = canvas.getContext("webgl2");
+    webglOk = Boolean(gl);
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
   } catch {
     webglOk = false;
   }
   return webglOk;
+}
+
+/** Why the scene gave way this session, if it did. */
+let failed: string | null = null;
+
+/**
+ * Failures that say something about THIS LOAD, not this machine, so they are not
+ * remembered (see failScene): a first frame that was late, a slow stretch (a busy moment,
+ * DevTools open), a lost GPU context (a driver reset recovers; a fresh page gets a fresh
+ * context). Earlier builds DID store them, and a tab's sessionStorage is copied into tabs
+ * opened from it (duplicate, ctrl+click), so a stored one is dropped on sight rather than
+ * honoured — the boot script does the same. What is still remembered is deterministic:
+ * a render error or missing files, which a reload would only hit again.
+ */
+export const TRANSIENT_FAILURES = ["ready-timeout", "frame-rate", "context-lost"];
+
+function sceneFailed(): boolean {
+  if (failed) return true;
+  try {
+    const stored = window.sessionStorage.getItem(SCENE_FAILED_KEY);
+    if (stored && TRANSIENT_FAILURES.includes(stored)) {
+      window.sessionStorage.removeItem(SCENE_FAILED_KEY);
+      return false;
+    }
+    return Boolean(stored);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The scene could not carry on — an error, a lost GPU context, a page that will not
+ * load, or a frame rate the machine cannot hold. Switch to the plain document, which
+ * always works, and remember it for the session so a reload does not walk the reader
+ * into the same wall twice. Not persisted beyond the session: a driver update or a
+ * better connection tomorrow deserves another try.
+ *
+ * A TRANSIENT_FAILURES reason switches this page to plain and leaves a reload free to
+ * try again. Remembering those is how a single slow load — or opening DevTools — used to
+ * cost the reader the scene for the whole session.
+ */
+export function failScene(reason: string) {
+  if (failed) return;
+  failed = reason;
+  if (!TRANSIENT_FAILURES.includes(reason)) {
+    try {
+      window.sessionStorage.setItem(SCENE_FAILED_KEY, reason);
+    } catch {
+      /* the in-memory flag still applies */
+    }
+  }
+  console.info(`[landing] 3D scene off (${reason}); showing the plain edition.`);
+  emit();
 }
 
 let override: ReadingMode | null = null;
@@ -85,14 +144,32 @@ export function subscribeReadingMode(onChange: () => void) {
   };
 }
 
+/**
+ * The scene has been shown on this page. From then on the width gate no longer applies:
+ * MIN_WIDTH is a COST judgement (see above), and on a machine that has already loaded and
+ * is running the scene that cost is paid. A desktop window narrowing for a moment —
+ * DevTools docked to the side, a window snapped to half the screen — used to tear the
+ * scene down and rebuild it from scratch when it widened again.
+ */
+let paperShown = false;
+
 export function getReadingMode(): ReadingMode {
+  const mode = decideReadingMode();
+  if (mode === "paper") paperShown = true;
+  return mode;
+}
+
+function decideReadingMode(): ReadingMode {
   /* Hard gates first, and they outrank a stored preference: someone who chose
      the newspaper on a desktop and later opened the site on a phone, or turned
      reduced-motion on since, should not be handed a scene their device or their
      settings have ruled out. */
   if (window.matchMedia(REDUCED).matches) return "plain";
-  if (window.matchMedia(`(width < ${MIN_WIDTH}px)`).matches) return "plain";
-  if (!hasWebGL()) return "plain";
+  if (!paperShown && window.matchMedia(`(width < ${MIN_WIDTH}px)`).matches) return "plain";
+  if (!hasWebGL2()) return "plain";
+  // The boot script's verdict on this device and connection (bootScript.ts).
+  if (document.documentElement.dataset.npTier === "low") return "plain";
+  if (sceneFailed()) return "plain";
 
   if (override) return override;
   try {

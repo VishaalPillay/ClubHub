@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
-import { motion, useTransform, type MotionValue } from "framer-motion";
-import { ROOM_POSTER, ROOM_VIDEO } from "../scene/roomLight";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { motion, useMotionValueEvent, useTransform, type MotionValue } from "framer-motion";
+import { ROOM_POSTER, ROOM_VIDEO, ROOM_VIDEO_720 } from "../scene/roomLight";
 import { openness } from "../scene/sceneConfig";
 
 /**
@@ -76,9 +76,16 @@ export interface RoomBackdropProps {
   /** Steps of camera-only lead-in. The room defocuses over exactly this, so it
    *  must match the rig or the two move on different curves. */
   lead: number;
+  /**
+   * Which clip, if any. "full" 1080p, "light" 720p, "still" none — the poster stays.
+   * Decided by the shell from the device and the connection (see deviceTier.ts).
+   */
+  video: "full" | "light" | "still";
+  /** The 3D scene is on screen. The clip is not even requested before this. */
+  start: boolean;
 }
 
-export default function RoomBackdrop({ pos, steps, lead }: RoomBackdropProps) {
+export default function RoomBackdrop({ pos, steps, lead, video: clip, start }: RoomBackdropProps) {
   const video = useRef<HTMLVideoElement>(null);
 
   /** 0 shut, 1 open — the same curve the scene runs on, from the same function. */
@@ -103,29 +110,74 @@ export default function RoomBackdrop({ pos, steps, lead }: RoomBackdropProps) {
   // never drift across type being read.
   const dustOpacity = useTransform(open, [0, 0.55], [1, 0]);
 
+  /**
+   * The clip is the last thing on the page to load, not the first.
+   *
+   * It is the biggest single file and nothing depends on it: the poster IS its first
+   * frame, already on screen since the boot script painted it. So no `src` until the
+   * scene is up and the browser has a quiet moment — then the room starts moving with
+   * nothing visibly changing. On a slow or metered connection it never loads at all
+   * and the room stays a photograph.
+   */
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!start || clip === "still") return;
+    const want = clip === "full" ? ROOM_VIDEO : ROOM_VIDEO_720;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
+    if (w.requestIdleCallback) {
+      const h = w.requestIdleCallback(() => setSrc(want), { timeout: 1500 });
+      return () => w.cancelIdleCallback?.(h);
+    }
+    const t = setTimeout(() => setSrc(want), 400);
+    return () => clearTimeout(t);
+  }, [start, clip]);
+
   useEffect(() => {
     const el = video.current;
-    if (!el) return;
+    if (!el || !src) return;
     /* Autoplay can be refused — iOS low-power mode declines even muted video.
        Nothing to handle: the poster is the same frame the clip opens on, so a
        refusal degrades to a still photograph of the room and no one can tell
        until they notice it is not moving. */
     void el.play().catch(() => {});
-  }, []);
+  }, [src]);
+
+  /**
+   * The room holds still while the paper is being read.
+   *
+   * Once the paper is up against the lens the room is 15px out of focus under a two-thirds
+   * veil: a leaf moving in it is invisible, but decoding it is not free — it is a 1080p H.264
+   * stream running on the same machine that is rasterising the page turn. So past 0.92 open
+   * the clip pauses and the dust stops; below 0.85 both resume. The gap between the two
+   * thresholds is hysteresis, so a reader hovering at the boundary does not flicker it. The
+   * clip resumes from the frame it stopped on, so there is no jump to see.
+   */
+  const room = useRef<HTMLDivElement>(null);
+  const still = useRef(false);
+  useMotionValueEvent(open, "change", (v) => {
+    const el = video.current;
+    const next = still.current ? v > 0.85 : v > 0.92;
+    if (next === still.current) return;
+    still.current = next;
+    room.current?.toggleAttribute("data-still", next);
+    if (!el) return;
+    if (next) el.pause();
+    else void el.play().catch(() => {});
+  });
 
   return (
-    <div className="np-room" aria-hidden>
+    <div ref={room} className="np-room" aria-hidden>
       <motion.video
         ref={video}
         className="np-room-clip"
         style={{ scale, y, filter: blur }}
         poster={ROOM_POSTER}
-        src={ROOM_VIDEO}
+        src={src ?? undefined}
         autoPlay
         muted
         loop
         playsInline
-        preload="auto"
+        preload={src ? "auto" : "none"}
         // Never part of the tab order or the a11y tree; it is wallpaper.
         tabIndex={-1}
       />

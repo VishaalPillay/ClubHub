@@ -26,7 +26,8 @@
  */
 
 import { createReadStream } from "node:fs";
-import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, readdir, stat, unlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, resolve } from "node:path";
 import { chromium } from "playwright-core";
@@ -49,6 +50,25 @@ const SCALE = 3;
 /* Flat type on paper compresses very well in AVIF, so the extra pixels cost far less
    than the 2.25x they add; quality is held up because text edges are what ring first. */
 const AVIF = { quality: 64, effort: 6 };
+
+/**
+ * Three sizes of every page, so the 3D view never waits on the big one.
+ *
+ *   l  3x, the size above — read on a capable laptop, near the reading position only
+ *   m  2x — what a mid-range laptop reads at
+ *   s  a 430px preview, ~20 KB, so every page has SOMETHING once the scene is up; the
+ *      full texture replaces it when the reader gets near that page
+ *
+ * Every file is named for its own content hash (`01.l.3f9a2c1d.avif`), so it can be
+ * cached forever (public/_headers) and a re-render can never be served stale. meta.json —
+ * not hashed, not cached long — is the manifest the scene reads them from.
+ */
+const TIERS = [
+  { key: "l", scale: 1, avif: AVIF },
+  { key: "m", scale: 2 / 3, avif: { quality: 62, effort: 6 } },
+  { key: "s", scale: 0.25, avif: { quality: 50, effort: 6 } },
+];
+const hash8 = (buf) => createHash("sha256").update(buf).digest("hex").slice(0, 8);
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -140,6 +160,15 @@ async function main() {
 
   // Self-hosted next/font files load late enough to photograph a fallback face.
   await page.evaluate(() => document.fonts.ready);
+
+  /* The article pictures are `loading="lazy"` (so the 3D view, where these articles are a
+     hidden copy, never downloads them). Here every one has to be in the photograph, so
+     force them all in and wait until each has decoded. */
+  await page.evaluate(async () => {
+    const imgs = [...document.querySelectorAll(".np-page-body img")];
+    for (const img of imgs) img.loading = "eager";
+    await Promise.all(imgs.map((img) => img.decode().catch(() => {})));
+  });
   await page.waitForTimeout(400);
 
   const faces = await page.$$(".np-page-body");
@@ -166,7 +195,6 @@ async function main() {
       h: r.height / f.height,
     };
   });
-  await writeFile(join(DEST_DIR, "meta.json"), JSON.stringify({ colleges: strip }, null, 2) + "\n");
 
   /* A page is a fixed-height sheet with `overflow: hidden`, so content past the
      bottom is not scrolled, it is photographed away. Measure before shooting and
@@ -177,23 +205,46 @@ async function main() {
     if (over > 1) overflows.push(`${String(i + 1).padStart(2, "0")} (+${over}px)`);
   }
 
+  const pages = [];
+  const written = new Set();
+  const totals = { l: 0, m: 0, s: 0 };
   for (let i = 0; i < faces.length; i++) {
     const png = await faces[i].screenshot({ type: "png" });
+    const { width, height } = await sharp(png).metadata();
     const name = String(i + 1).padStart(2, "0");
-    const out = join(DEST_DIR, `${name}.avif`);
-    await writeFile(out, await sharp(png).avif(AVIF).toBuffer());
-    const { size } = await stat(out);
-    const meta = await sharp(png).metadata();
-    console.log(`  ${name}.avif  ${meta.width}x${meta.height}  ${(size / 1024).toFixed(0)} KB`);
+    const entry = {};
+    const line = [];
+    for (const t of TIERS) {
+      const img =
+        t.scale === 1
+          ? sharp(png)
+          : sharp(png).resize(Math.round(width * t.scale), Math.round(height * t.scale), {
+              kernel: "lanczos3",
+            });
+      const buf = await img.avif(t.avif).toBuffer();
+      const file = `${name}.${t.key}.${hash8(buf)}.avif`;
+      await writeFile(join(DEST_DIR, file), buf);
+      written.add(file);
+      entry[t.key] = `/pages/${file}`;
+      totals[t.key] += buf.length;
+      line.push(`${t.key} ${(buf.length / 1024).toFixed(0)} KB`);
+    }
+    pages.push(entry);
+    console.log(`  ${name}  ${width}x${height}  ${line.join(" · ")}`);
   }
 
   await browser.close();
   server.close();
 
-  const files = (await readdir(DEST_DIR)).filter((f) => f.endsWith(".avif"));
-  let total = 0;
-  for (const f of files) total += (await stat(join(DEST_DIR, f))).size;
-  console.log(`\n  ${files.length} textures, ${(total / 1024 / 1024).toFixed(2)} MB total`);
+  await writeFile(join(DEST_DIR, "meta.json"), JSON.stringify({ colleges: strip, pages }, null, 2) + "\n");
+
+  // Retire every texture this run did not write (old hashes, and the pre-tier names).
+  for (const f of await readdir(DEST_DIR)) {
+    if (f.endsWith(".avif") && !written.has(f)) await unlink(join(DEST_DIR, f));
+  }
+
+  const mb = (n) => (n / 1024 / 1024).toFixed(2);
+  console.log(`\n  8 pages · l ${mb(totals.l)} MB · m ${mb(totals.m)} MB · s ${mb(totals.s)} MB`);
   if (overflows.length) {
     console.error(`
   OVERFLOW — content is clipped on page(s): ${overflows.join(", ")}`);

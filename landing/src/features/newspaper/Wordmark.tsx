@@ -45,6 +45,11 @@ export default function Wordmark({
       alt={title}
       className={`np-wordmark ${className}`}
       fetchPriority={priority ? "high" : undefined}
+      /* The nameplate lives inside the articles, which in the 3D view are a hidden
+         screen-reader copy: eager, the HTML parser fetches it for nobody. Lazy and
+         high-priority, it still loads at once wherever it is actually in view. The
+         controls-bar mark (not `priority`) is always visible and stays eager. */
+      loading={priority ? "lazy" : undefined}
       draggable={false}
     />
   );

@@ -36,7 +36,10 @@ const port = server.address().port;
 const browser = await chromium.launch({ channel: "chrome",
   args: ["--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader","--autoplay-policy=no-user-gesture-required"] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 810 } });
-await ctx.addInitScript(() => { try { localStorage.setItem("clubhub:reading-mode", "paper"); } catch {} });
+await ctx.addInitScript(() => { try { localStorage.setItem("clubhub:reading-mode", "paper");
+      // Headless Chrome renders WebGL in software, which the device check (bootScript.ts)
+      // sends to the plain edition. Force the full scene; this also stands the watchdogs down.
+      localStorage.setItem("clubhub:force-tier", "high"); } catch {} });
 const page = await ctx.newPage();
 
 const t0 = Date.now();

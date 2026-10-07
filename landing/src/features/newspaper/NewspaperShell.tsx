@@ -14,16 +14,20 @@ import dynamic from "next/dynamic";
 import { motion, useMotionValueEvent, useScroll, useTransform } from "framer-motion";
 import { NewspaperProvider, type NewspaperCtx } from "./NewspaperContext";
 import {
+  failScene,
   getReadingMode,
   getServerReadingMode,
   setReadingMode,
   subscribeReadingMode,
 } from "./readingMode";
+import { readTier, roomVideoFor, slowNet, watchdogsEnabled } from "./deviceTier";
+import { HIGH_QUALITY, MID_QUALITY, type SceneQuality } from "../scene/sceneContext";
 import { PAGES_PER_SHEET, rectoForSpread, spreadForPage, type EditionPage } from "./edition";
 import PageControls from "./PageControls";
 import RoomBackdrop from "./RoomBackdrop";
 import { useLenis } from "./useLenis";
 import { useMediaQuery } from "./useMediaQuery";
+import { useReveal } from "./useReveal";
 
 /**
  * three.js touches `window` at import time and there is nothing in a WebGL scene
@@ -32,6 +36,9 @@ import { useMediaQuery } from "./useMediaQuery";
  * Server Component. The server keeps emitting plain mode either way.
  */
 const NewspaperScene = dynamic(() => import("../scene/NewspaperScene"), { ssr: false });
+
+/** Below this, after the scene has already been lightened, the 3D view is unusable. */
+const GIVE_UP_FPS = 18;
 
 /**
  * Starts the scene chunk downloading at module evaluation, not from an effect.
@@ -66,7 +73,9 @@ class SceneBoundary extends Component<{ children: React.ReactNode }, { failed: b
   }
 
   componentDidCatch(error: unknown) {
-    console.warn("[landing] 3D scene failed; the plain document remains available.", error);
+    console.warn("[landing] 3D scene failed; switching to the plain document.", error);
+    // Not an empty room with the paper missing: the reader gets the edition, as text.
+    failScene("render-error");
   }
 
   render() {
@@ -104,6 +113,7 @@ export default function NewspaperShell({
   children: React.ReactNode;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const scopeRef = useRef<HTMLDivElement>(null);
 
   /** Server snapshot is always "plain", so the SSR document is the eight plain
    *  articles. The client upgrades to "paper" on its first post-hydration read
@@ -127,12 +137,23 @@ export default function NewspaperShell({
    * anything moves, and the lead-out gives it a step to pull back out over the
    * back cover.
    *
-   * Zero outside paper mode, because there is no camera there to move.
+   * Zero outside paper mode, because there is no camera there to move. Not tied to the
+   * width: paper mode survives a window narrowing (readingMode.ts), and a lead that
+   * vanished below 1024px dropped the shut-folder step — the folder jumped open.
    */
-  const lead = mode === "paper" && spread ? 1 : 0;
+  const lead = mode === "paper" ? 1 : 0;
 
-  /** Steps that actually turn a leaf. Spread: one per leaf. Narrow: one per page. */
-  const turns = spread ? sheetCount : pages.length - 1;
+  /**
+   * Whether a step is a two-page SPREAD (true) or a single page (false).
+   *
+   * The 3D view is read one page at a time — the pages are a deck of cards, the top one
+   * sent to the back on each step (scene/Leaf.tsx) — so in paper mode a step is always a
+   * page. Plain mode on a wide screen keeps its pairs (it lays two pages side by side).
+   */
+  const pairs = spread && mode !== "paper";
+
+  /** Steps that move something. Pairs: one per leaf. Otherwise: one per page. */
+  const turns = pairs ? sheetCount : pages.length - 1;
 
   const steps = turns + lead * 2;
 
@@ -151,6 +172,10 @@ export default function NewspaperShell({
    */
   const intentRef = useRef(0);
   const stepPx = useRef(0);
+  /** The track's document Y, cached with stepPx so a per-frame read never touches layout. */
+  const trackTop = useRef(0);
+  /** The continuous position the 3D scene reads — see the motion subscription below. */
+  const scenePosRef = useRef(0);
 
   /** The incoming deep link, captured on the FIRST render — before any effect
    *  can run. `useScroll`'s own layout effect fires a `pos` change during setup,
@@ -176,8 +201,8 @@ export default function NewspaperShell({
    * which layout is running.
    */
   const posForPage = useCallback(
-    (p: number) => (spread ? spreadForPage(p) : p) + lead,
-    [spread, lead],
+    (p: number) => (pairs ? spreadForPage(p) : p) + lead,
+    [pairs, lead],
   );
 
   /** Measure one step's worth of scroll once per resize — never inside a motion
@@ -186,6 +211,15 @@ export default function NewspaperShell({
     const el = trackRef.current;
     if (!el) return;
     stepPx.current = (el.offsetHeight - window.innerHeight) / Math.max(1, steps);
+    trackTop.current = el.offsetTop;
+  }, [steps]);
+
+  /** The scroll position in steps, from the page itself. Read by the 3D scene at the top
+   *  of every frame (ScrollSync), so the paper never lags the scroll unevenly. */
+  const readScenePos = useCallback(() => {
+    const px = stepPx.current;
+    if (!px) return scenePosRef.current;
+    return Math.min(Math.max((window.scrollY - trackTop.current) / px, 0), steps);
   }, [steps]);
 
   /** Reads live layout on every call, so it stays a stable callback over refs
@@ -219,7 +253,7 @@ export default function NewspaperShell({
       intentRef.current = target;
 
       if (mode !== "paper" || !trackRef.current) {
-        const page = spread ? rectoForSpread(target) : target;
+        const page = pairs ? rectoForSpread(target) : target;
         document
           .getElementById(pages[page].slug)
           ?.scrollIntoView({ behavior: opts?.behavior ?? "smooth", block: "start" });
@@ -233,7 +267,7 @@ export default function NewspaperShell({
       // system to desync from.
       scrollTo(topForStep(target), { immediate: opts?.behavior === "instant" });
     },
-    [mode, pages, spread, steps, scrollTo, topForStep],
+    [mode, pages, pairs, steps, scrollTo, topForStep],
   );
 
   /** Relative move, chained off the pending target rather than the settled one
@@ -259,7 +293,77 @@ export default function NewspaperShell({
    * value only the render loop consumes would defeat the point of a render loop.
    * Same reasoning that kept the CSS version on MotionValues.
    */
-  const scenePosRef = useRef(0);
+
+  /** The 3D scene has its first frame up. The room clip waits for this. */
+  const [sceneReady, setSceneReady] = useState(false);
+  const onSceneReady = useCallback(() => {
+    setSceneReady(true);
+    // A real-user timing anyone can read (DevTools, the perf scripts, RUM if ever added).
+    performance.mark("np-scene-ready");
+  }, []);
+
+  /**
+   * How much of the scene this machine gets, from the boot script's device check
+   * (bootScript.ts; a "low" device never reaches paper mode at all). Held as state
+   * because the frame-rate watchdog can step it down at runtime.
+   */
+  const [quality, setQuality] = useState<SceneQuality>(() => {
+    if (typeof window === "undefined") return HIGH_QUALITY;
+    const q = readTier() === "mid" ? MID_QUALITY : HIGH_QUALITY;
+    // A slow link downloads the 2x pages; how the scene is RENDERED is the machine's call.
+    return slowNet() ? { ...q, full: "m" } : q;
+  });
+  const [roomVideo] = useState<"full" | "light" | "still">(() =>
+    typeof window === "undefined" ? "light" : roomVideoFor(readTier()),
+  );
+  const [watchdog] = useState(() => typeof window !== "undefined" && watchdogsEnabled());
+
+  const onSceneFail = useCallback((reason: string) => failScene(reason), []);
+
+  /**
+   * Too slow: drop to the light scene at 1x. Give way to the plain edition only if even
+   * that is UNUSABLE — under GIVE_UP_FPS — not merely below 60 or a little uneven: a
+   * scene at 30 fps is still a better page than no scene. (A smooth 37 fps used to be
+   * enough to lose it.) Not remembered for the session either (readingMode.ts) — a busy
+   * moment, or DevTools open, is not the machine.
+   */
+  const onSceneSlow = useCallback((fps: number) => {
+    setQuality((q) => {
+      if (q.tier === "high" || q.dpr[1] > 1) {
+        console.info(`[landing] ${fps.toFixed(0)} fps — lightening the 3D scene.`);
+        return { ...MID_QUALITY, dpr: [1, 1] };
+      }
+      if (fps < GIVE_UP_FPS) failScene("frame-rate");
+      return q;
+    });
+  }, []);
+
+  /**
+   * The scene has this long to put its first frame up, or the reader gets the plain
+   * edition instead. With the first frame now needing ~0.9 MB it is up in well under
+   * two seconds on 4G; nine is for the connection that is far worse than it reported,
+   * or a GPU that hangs compiling shaders — a reader should never sit in front of an
+   * empty room.
+   *
+   * Only VISIBLE time counts. A hidden tab draws no frames at all, so a page opened in
+   * a background tab could never be ready in time — a wall-clock timer switched it to
+   * plain before the reader had even looked at it. And the dev server gets far longer:
+   * `next dev` compiles three.js on the first request, which alone can take 9 s.
+   * A timeout is not remembered for the session (failScene): it was this load that was
+   * slow, not this machine.
+   */
+  useEffect(() => {
+    if (mode !== "paper" || sceneReady || !watchdog) return;
+    const limit = process.env.NODE_ENV === "production" ? 9000 : 60000;
+    const TICK = 250;
+    let seen = 0;
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      seen += TICK;
+      if (seen >= limit) failScene("ready-timeout");
+    }, TICK);
+    return () => clearInterval(t);
+  }, [mode, sceneReady, watchdog]);
 
   useMotionValueEvent(pos, "change", (v) => {
     scenePosRef.current = v;
@@ -282,13 +386,72 @@ export default function NewspaperShell({
    *  how many leaves have been turned, which is what a sheet's `depth` — and
    *  therefore the compositing budget — is measured against. */
   const turn = Math.min(Math.max(pos0 - lead, 0), turns);
-  const page = spread ? rectoForSpread(turn) : turn;
-  const sheet = spread ? turn : Math.floor((turn + 1) / PAGES_PER_SHEET);
+  const page = pairs ? rectoForSpread(turn) : turn;
+  const sheet = pairs ? turn : Math.floor((turn + 1) / PAGES_PER_SHEET);
 
   useEffect(() => {
     if (mode !== "paper") return;
     window.history.replaceState(null, "", `#${pages[page].slug}`);
   }, [mode, page, pages]);
+
+  /** <html data-np-mode> is written by the boot script before first paint; from here on it
+   *  follows the reading mode, so the CSS keyed on it (the hidden-copy images, the boot
+   *  rules) tracks a switch to plain — whether the reader asked for it or the scene fell
+   *  back on its own. */
+  /**
+   * Leaving paper mode — the reader's own choice or the scene giving way — must not
+   * throw them back to the top of an eight-page document. Land on the page they were
+   * reading. Next frame, so the plain layout exists to be scrolled to.
+   */
+  const lastMode = useRef(mode);
+
+  /* The page last READ in 3D, remembered rather than re-derived. On the switch to plain,
+     \`page\` is recomputed from the same step number under plain mode's rules — and a 3D
+     step is one page while a wide plain step is a two-page spread, so step 2 (page 2)
+     re-read as spread 2 (page 5) and sent the reader three pages on. Declared before the
+     effect below so that, on the switch, it has already stopped tracking. */
+  const paperPage = useRef(0);
+  useEffect(() => {
+    if (mode === "paper") paperPage.current = page;
+  }, [mode, page]);
+
+  useEffect(() => {
+    const was = lastMode.current;
+    lastMode.current = mode;
+    if (was !== "paper" || mode !== "plain") return;
+    const slug = pages[paperPage.current]?.slug;
+    const id = requestAnimationFrame(() =>
+      document.getElementById(slug)?.scrollIntoView({ block: "start" }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [mode, pages]);
+
+  /**
+   * The "Available at" ticker is a sideways marquee: its logos start off-screen to the
+   * right and slide in. As lazy images they would each be fetched only as they entered,
+   * so on a slow connection a blank chip slid into view first. In the plain document they
+   * are wanted now; they are lazy in the markup only so that the 3D view — where this
+   * whole document is a hidden copy — never fetches them. Duplicated chips share a URL,
+   * so this is the 18 logos once.
+   */
+  const modeSynced = useRef(false);
+  useEffect(() => {
+    /* Not on the first run. Hydration renders the SERVER snapshot ("plain") before the
+       client one, and writing that here would flip <html> to plain for one commit — long
+       enough for the browser to lay out and start fetching every lazy image. The boot
+       script already wrote the right value; only real changes after that are synced. */
+    if (!modeSynced.current) modeSynced.current = true;
+    else document.documentElement.setAttribute("data-np-mode", mode);
+
+    /* The ticker logos — eager only when the document really is the plain one. Keyed on
+       <html>, NOT on `mode`: on the first run `mode` is hydration's server snapshot
+       ("plain") even for a 3D visitor, and making them eager then fetched them all for a
+       hidden copy (caught by the load regression: +235 KB before the first frame). */
+    if (document.documentElement.dataset.npMode !== "plain") return;
+    for (const img of document.querySelectorAll<HTMLImageElement>(".np-college-logo")) {
+      img.loading = "eager";
+    }
+  }, [mode]);
 
   /** After the mode flip, measure and honour any incoming deep link.
    *
@@ -406,6 +569,10 @@ export default function NewspaperShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [mode, goToStep, stepBy, steps]);
 
+  /** The plain document is placed as it is read. Paper mode has no DOM pages to place — its
+   *  motion is the page turn. See useReveal for every case this stays off. */
+  useReveal(scopeRef, mode === "plain");
+
   /* The pointer parallax that used to live here is gone with the CSS stack. It
      faked depth by sweeping `perspective-origin`; the scene now has real depth,
      and a camera nudge belongs in the scene rather than out here. */
@@ -415,23 +582,24 @@ export default function NewspaperShell({
       page,
       sheet,
       count: pages.length,
-      spread,
+      spread: pairs,
       mode,
       goTo,
     }),
-    [page, sheet, pages.length, spread, mode, goTo],
+    [page, sheet, pages.length, pairs, mode, goTo],
   );
 
   /** "Pages 2–3 of 8" while a pair is open, "Page 1 of 8" on a closed cover. */
   const verso = page - 1;
   const announcement =
-    spread && verso >= 0 && page < pages.length
+    pairs && verso >= 0 && page < pages.length
       ? `Pages ${verso + 1}–${page + 1} of ${pages.length} — ${pages[page].title}`
       : `Page ${page + 1} of ${pages.length} — ${pages[page].title}`;
 
   return (
     <NewspaperProvider value={ctx}>
       <div
+        ref={scopeRef}
         className="np-scope"
         data-mode={mode}
         style={{ "--np-steps": steps } as React.CSSProperties}
@@ -469,9 +637,25 @@ export default function NewspaperShell({
           >
             {mode === "paper" && (
               <>
-                <RoomBackdrop pos={pos} steps={steps} lead={lead} />
+                <RoomBackdrop
+                  pos={pos}
+                  steps={steps}
+                  lead={lead}
+                  video={roomVideo}
+                  start={sceneReady}
+                />
                 <SceneBoundary>
-                  <NewspaperScene posRef={scenePosRef} turns={turns} lead={lead} />
+                  <NewspaperScene
+                    posRef={scenePosRef}
+                    turns={turns}
+                    lead={lead}
+                    quality={quality}
+                    onReady={onSceneReady}
+                    onFail={onSceneFail}
+                    watchdog={watchdog}
+                    onSlow={onSceneSlow}
+                    readPos={readScenePos}
+                  />
                 </SceneBoundary>
               </>
             )}

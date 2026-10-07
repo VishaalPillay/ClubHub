@@ -59,15 +59,21 @@ export interface CollegeStrip {
   dispose: () => void;
 }
 
-/** The resolved font stack behind `--font-ui` (next/font gives it a hashed name). */
-export function resolveUiFont(): string {
+/** The resolved font stack behind a `--font-*` variable (next/font gives it a hashed
+ *  name, so a canvas cannot simply ask for "Inter"). */
+export function resolveFont(variable: string, fallback = "sans-serif"): string {
   const probe = document.createElement("span");
-  probe.style.cssText = "position:absolute;visibility:hidden;font-family:var(--font-ui)";
+  probe.style.cssText = `position:absolute;visibility:hidden;font-family:var(${variable})`;
   probe.textContent = "x";
   document.body.appendChild(probe);
   const family = getComputedStyle(probe).fontFamily;
   probe.remove();
-  return family || "sans-serif";
+  return family || fallback;
+}
+
+/** The resolved font stack behind `--font-ui`. */
+export function resolveUiFont(): string {
+  return resolveFont("--font-ui");
 }
 
 export function createCollegeStrip(rect: StripRect, family: string): CollegeStrip {

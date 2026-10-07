@@ -139,6 +139,16 @@
     background: #0f0b07;
   }
 
+  /* The pictures in the articles are never seen in paper mode — the articles there
+     are the screen-reader copy of a 3D scene, clipped to a pixel — and they are over
+     two megabytes. They are `loading="lazy"`, and a lazy image that is not rendered is
+     never fetched, so this one rule is what keeps them off the wire. Keyed on <html>,
+     which the boot script sets before the body is parsed and the shell keeps in step
+     with the reading mode afterwards (so switching to plain brings them back). */
+  html[data-np-mode="paper"] .np-scope .np-page-body img {
+    display: none;
+  }
+
   /* Never `display: none` — the articles must stay in the layout so the deep
      link can measure the track the moment paper mode arrives. */
   html[data-np-mode="paper"] .np-scope[data-mode="plain"] .np-stack {
@@ -235,6 +245,12 @@
       transform: translate(var(--dx), var(--dy)) scale(0.8);
       opacity: 0;
     }
+  }
+
+  /* The paper is up and being read: the motes are already faded out, so stop paying for them
+     (RoomBackdrop sets this together with pausing the clip). */
+  .np-scope .np-room[data-still] .np-dust span {
+    animation-play-state: paused;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -2055,6 +2071,150 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  /* ══ READING MOTION (plain mode) ═══════════════════════════════════════════
+     The plain document is placed as it is read — see useReveal.ts for when this is on at all
+     (never in paper mode, never under reduced motion, never in pages:render, never without JS).
+
+     Every hidden state is gated on `[data-reveal="on"]`, which only the hook sets, and only
+     after it has marked the first screen `is-in`. So the server document is complete, and
+     nothing already on screen is ever hidden and re-shown.
+
+     The motion uses the individual `translate` / `rotate` / `scale` properties, NOT
+     `transform`: they compose with any transform a rule elsewhere puts on the same element
+     instead of replacing it, so a reveal can never knock a collage piece off its own angle.
+
+     Order within a screenful comes from the delays, not from JS: a headline lands, its copy
+     ~110ms behind, the collage ~200ms behind that, cards one after another, small marks last.
+     Fast enough to read as one placement, not a slideshow. */
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv] {
+    transition:
+      opacity 560ms cubic-bezier(0.22, 0.61, 0.36, 1) var(--rv-delay, 0ms),
+      translate 640ms cubic-bezier(0.22, 0.61, 0.36, 1) var(--rv-delay, 0ms),
+      rotate 760ms cubic-bezier(0.22, 0.61, 0.36, 1) var(--rv-delay, 0ms),
+      scale 760ms cubic-bezier(0.22, 0.61, 0.36, 1) var(--rv-delay, 0ms),
+      box-shadow 200ms ease-out,
+      background-color 150ms linear;
+  }
+
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv]:not(.is-in) {
+    opacity: 0;
+  }
+
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="head"]:not(.is-in) {
+    translate: 0 24px;
+  }
+
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="body"] {
+    --rv-delay: 110ms;
+  }
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="body"]:not(.is-in) {
+    translate: 0 16px;
+  }
+
+  /* A collage is set DOWN, not faded up: it arrives a little low, a degree off true and a
+     hair small, and settles flat onto the sheet. */
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="art"] {
+    --rv-delay: 200ms;
+  }
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="art"]:not(.is-in) {
+    translate: 0 40px;
+    rotate: -1.4deg;
+    scale: 0.965;
+  }
+
+  /* Cards land one after another along their row (`--rv-i`, set by the hook, capped at 4). */
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="card"] {
+    --rv-delay: calc(240ms + var(--rv-i, 0) * 95ms);
+  }
+  .np-scope[data-mode="plain"][data-reveal="on"] [data-rv="card"]:not(.is-in) {
+    translate: 0 20px;
+    rotate: 0.8deg;
+  }
+
+  /* ── Hover: a paper lift, not a UI bounce ─────────────────────────────────
+     Only where there is a real pointer. Two pixels up, a little more shadow, and — for the
+     collage pieces inside — a one-percent change in scale. The delay is cleared so a hover
+     never waits on the reveal's stagger. */
+  @media (hover: hover) and (pointer: fine) {
+    .np-scope[data-mode="plain"] :is(.np-teaser, .np-p2-card) {
+      transition:
+        translate 200ms ease-out,
+        box-shadow 200ms ease-out,
+        background-color 150ms linear;
+    }
+
+    .np-scope[data-mode="plain"] :is(.np-teaser, .np-p2-card):hover {
+      translate: 0 -2px;
+      box-shadow: 0 6px 14px -10px rgb(22 21 15 / 0.45);
+      --rv-delay: 0ms;
+    }
+
+    .np-scope[data-mode="plain"] :is(.np-teaser-art, .np-p2-card-art, .np-voice-art) {
+      transition: scale 260ms ease-out;
+    }
+
+    .np-scope[data-mode="plain"] :is(.np-teaser, .np-p2-card, .np-voice):hover
+      :is(.np-teaser-art, .np-p2-card-art, .np-voice-art) {
+      scale: 1.01;
+    }
+  }
+
+  /* ── Parallax: a few pixels, never more ───────────────────────────────────
+     The collage drifts against the type as it passes through the viewport — the main
+     pictures ±7px, the card art ±3px — which is just enough to read the paper as layered.
+     Pure CSS scroll-driven animation on the <img> (the reveal moves its <figure>, so the two
+     never fight over one element): zero JavaScript, runs on the compositor, and a browser
+     that lacks `animation-timeline` simply gets a still picture. Gated on `data-reveal`, so
+     it is off wherever the reveal is off — reduced motion included. */
+  @supports (animation-timeline: view()) {
+    .np-scope[data-mode="plain"][data-reveal="on"] :is(.np-hero-art, .np-p2-art) img {
+      --np-drift: 7px;
+      animation: np-drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+
+    .np-scope[data-mode="plain"][data-reveal="on"] :is(.np-teaser-art, .np-p2-card-art, .np-voice-art) {
+      --np-drift: 3px;
+      animation: np-drift linear both;
+      animation-timeline: view();
+      animation-range: cover;
+    }
+  }
+
+  @keyframes np-drift {
+    from {
+      translate: 0 var(--np-drift);
+    }
+    to {
+      translate: 0 calc(var(--np-drift) * -1);
+    }
+  }
+
+  /* Belt and braces for `pages:render`. The hook removes every trace of the reveal the moment
+     `data-render` appears (it arrives AFTER hydration, so the hook has already run), but if any
+     of it survived, nothing is left hidden, mid-transition or drifting under the photographer —
+     a moving element makes Playwright time out "waiting for element to be stable". */
+  .np-scope[data-render] :is([data-rv], [data-rv] img, .np-hero-art img, .np-p2-art img) {
+    opacity: 1 !important;
+    translate: none !important;
+    rotate: none !important;
+    scale: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .np-scope [data-rv] {
+      opacity: 1 !important;
+      translate: none !important;
+      rotate: none !important;
+      scale: none !important;
+      transition: none !important;
+      animation: none !important;
+    }
   }
 
   /* ══ PRINT ═════════════════════════════════════════════════════════════════

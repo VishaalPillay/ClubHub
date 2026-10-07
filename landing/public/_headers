@@ -1,0 +1,51 @@
+# Cloudflare Pages response headers (https://developers.cloudflare.com/pages/configuration/headers/).
+# Copied into out/ by `next build`. Without this file Pages sends
+# `Cache-Control: public, max-age=0, must-revalidate` for EVERYTHING, so a returning
+# visitor re-checks every file on every visit.
+#
+# Three policies, by whether a file's name changes when its content does:
+#
+#   hashed names    cached for a year, never re-checked ("immutable")
+#   meta.json       always re-checked — it is the manifest that points at the hashed
+#                   page textures, so a re-render reaches everyone on their next visit
+#   fixed names     fresh for a day; for 30 days after that the cached copy is shown
+#                   at once and refreshed in the background; then a cheap ETag check
+#
+# HTML keeps Pages' default (always re-checked), so a deploy is live immediately.
+# When several rules match, Pages merges them — `! Cache-Control` drops the value an
+# earlier rule set, so the later, more specific rule is the only one sent.
+
+# Next's build output: JS, CSS and self-hosted fonts, all content-hashed.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Page textures, named for their content hash by scripts/render-pages.mjs.
+/pages/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/pages/meta.json
+  ! Cache-Control
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Fixed-name assets: artwork, logos, the room clip and its poster.
+/art/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+
+/brand/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+
+/colleges/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+
+/backdrop/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+
+# Browser icons (Next links them with a content-hash query, but the path is fixed).
+/favicon.ico
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+
+/icon.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000
+
+/apple-icon.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=2592000

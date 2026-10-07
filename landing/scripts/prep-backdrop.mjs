@@ -335,7 +335,44 @@ async function processClip() {
   };
 }
 
+/**
+ * The lighter rendition for ordinary laptops and slower connections.
+ *
+ * Derived from the PUBLISHED clip rather than the source, so it inherits the loop cut,
+ * the dissolve and the denoise exactly — a second run of the pipeline at a different
+ * size would find its own loop point and could disagree. Frame count and timing are
+ * unchanged (no fps filter), so the wrap stays where it was. A higher CRF than the main
+ * encode: at 720p behind a defocus and a veil, bitrate buys nothing anyone can see.
+ *
+ *   npm run backdrop:prep -- --renditions   # just this, from the existing clip
+ */
+async function makeRenditions() {
+  const main = resolve(DEST_DIR, `${CLIP}.mp4`);
+  const out = resolve(DEST_DIR, `${CLIP}-720.mp4`);
+  await run(ffmpegPath, [
+    "-y", "-v", "error",
+    "-i", main,
+    "-vf", "scale=1280:720:flags=lanczos,format=yuv420p",
+    "-an",
+    "-c:v", "libx264",
+    "-profile:v", "high",
+    "-crf", "26",
+    "-preset", "slow",
+    "-movflags", "+faststart",
+    out,
+  ]);
+  const [a, b] = await Promise.all([stat(main), stat(out)]);
+  console.log(
+    `  ${CLIP}-720.mp4  ${(b.size / 1024).toFixed(0)} KB  (main ${(a.size / 1024).toFixed(0)} KB)`,
+  );
+}
+
 async function main() {
+  if (process.argv.includes("--renditions")) {
+    await makeRenditions();
+    return;
+  }
+
   try {
     await access(SRC_DIR);
   } catch {
@@ -357,6 +394,7 @@ async function main() {
       `${out.kb.toFixed(0)} KB video + ${out.posterKb.toFixed(0)} KB poster\n` +
       `             loop: ${out.loop}`,
   );
+  await makeRenditions();
 }
 
 main().catch((err) => {

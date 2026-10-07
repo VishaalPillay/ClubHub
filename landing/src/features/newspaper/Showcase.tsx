@@ -27,7 +27,16 @@ export function Art({ k, className, alt = "" }: { k: FrontArtKey; className?: st
   const a = FRONT_ART[k];
   return (
     // eslint-disable-next-line @next/next/no-img-element -- static export, art pre-sized by gen-front-art
-    <img className={className} src={a.src} width={a.w} height={a.h} alt={alt} draggable={false} />
+    <img
+      className={className}
+      src={a.src}
+      width={a.w}
+      height={a.h}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+    />
   );
 }
 

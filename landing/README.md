@@ -109,7 +109,7 @@ width grows ~25% in height. The nameplate band and the controls bar (`.np-contro
 checked against it; anything new that holds the mark needs the same look.
 
 **After changing the wordmark, re-run `npm run build && npm run pages:render`.** The nameplate is
-baked into `public/pages/01.avif` — and `pages:render` photographs `out/`, not the dev server, so
+baked into the page-1 textures (`public/pages/01.*.avif`) — and `pages:render` photographs `out/`, not the dev server, so
 without the build first it re-bakes the *previous* mark. Paper mode then keeps showing it, a silent
 staleness that only appears in 3D mode.
 
@@ -641,6 +641,194 @@ paper is simply **already on the table** on the first frame.
 What is left is worth stating plainly, because it is the whole brief: a newspaper
 on a table, in a blurred room, that turns properly.
 
+## The folder (`src/features/scene/Folder.tsx`)
+
+The edition is kept in a **kraft folder**, built in three.js. Shut: a back board, a stack of
+other documents with coloured tabs, a **deck of eight page cards**, and a front cover with a
+ClubHub label, held down by an elastic cord round a button. The reader is **handed it shut,
+opens it in front of them, closes it, and puts it down** — each end step is split by
+`FOLDER_SHARE` (0.45):
+
+| Step | Outer part | Inner part (`FOLDER_SHARE`) |
+|---|---|---|
+| Lead-in | The SHUT folder lifts to the reader (`openness` 0 → 1) | Cord off the button, cover swings open toward the lens (`folderProgress`) |
+| Lead-out | The SHUT folder is set back on the desk | The cover swings back over the deck, then the cord goes back on (`closeProgress`, `coverClose`, `cordHook`) |
+
+All of it is scroll-driven, not an intro: it never holds the scroll, scrubs both ways,
+and Lenis settles to the nearest whole step.
+
+### The boards are solid
+
+Both boards are **thick plates** (`thickPlate`): a generated closed solid, rounded on the
+free side, with real edge walls (the shader tells faces from walls by `normal.z`). The
+cover is bent in `PLATE_VERTEX` by the exact-arc construction with its thickness laid
+along the bent normal, so the walls bend with it. The edge is shaded as laminated
+pressed board. `uOuter` says which face is the outside: the cover's up face, the back
+board's desk face.
+
+### A folder that has been used
+
+A brand-new folder read as a render. Everything below is there to say somebody carries
+this one about:
+
+- **Loose papers poking out** (`SHEETS`): graph paper and a page torn from a pad (ragged
+  edge, `uTorn`) out of the right edge, a clipped typed letter, a pink carbon copy and a
+  ticket stub out of the near edge, a club flyer's red masthead out of the far edge, a
+  sticky note curling up on the right. Each is a plane laid in the stack at its own height
+  — mostly inside the stack box, which hides that part — drawn by one shader
+  (`SHEET_VERTEX`/`SHEET_FRAGMENT`). The part past the boards **droops** (the sticky note
+  curls up) and **flutters**: faintly all the time, properly while the folder is lifted,
+  opened or set down (`uFlutter`, from the scroll velocity, fast to rise and slow to
+  settle). The flutter's phase is from the point's position, so overlapping sheets flap
+  together and never cross. Placement rules: every sheet is below the deck, above the
+  released cord, and none crosses the right edge near z = 0, where the hooked cord runs.
+- **A Gem paperclip** (`paperclipGeometry`) on the letter's edge; the letter does not
+  flutter (it is clipped).
+- **The cover's outside** (`PLATE_FRAGMENT`): pale scuffs along the free edges (warm, not
+  grey — the pulp under the skin), a darker polished patch where a thumb opens it beside
+  the button, two **coffee rings** (dark tide line at the rim, faint wash inside, heavier
+  on one side), a red **rubber stamp** pressed unevenly with specks the ink missed, a
+  typed file line under the label, and **masking tape** over the label's top-left corner.
+- **A bent-up corner** (`EAR`, `EAR_K`, `uDogEar`): the cover's near free corner, lifted
+  past a diagonal fold in the vertex shader, its slope fed into the normal. The plate now
+  has rows across its depth (dense near that edge) — a board that only bent along s needed
+  none.
+- **The kraft itself**: the relief is fibres with a GRAIN (one dominant set a little off
+  axis, a weaker slanted one) and a slow warp; the crinkle web is a whisper. Cut mostly
+  from the crinkle at full strength, it read as pebbled leather; two equal fibre sets at
+  right angles read as linen. Specks are sparse and two-sized (dense one-size is a dot grid).
+- **The lettering is painted, not downloaded** (`folderDecals.ts`): one 1024x640 canvas
+  mask in the page's own fonts (Space Grotesk; Courier New for the typed line; the
+  system's handwriting face for the sticky note), on the first frame, repainted once if
+  the font was not in yet. No download, so nothing pops in.
+
+Measured with all of it on the laptop's Intel GPU at retina resolution: 55 fps, 0.5% of
+frames over 25 ms — unchanged.
+
+### The pages are a deck of cards
+
+Each page is its own card (`Leaf.tsx`, `CARDS` = 8), all on one pile on the right, read
+one at a time — **one scroll step is one page** in 3D (the shell's `pairs` flag; plain mode
+on a wide screen keeps its two-page spreads). Each step sends the top card to the back of
+the deck, the way you go through a pack of cards (`cardPose`): **picked up** toward the
+reader (0–0.16), **drawn out** to the LEFT, over the open cover (`DRAW_DIR`), with a few
+degrees of wrist twist and a slight bow (0.08–0.5) — it used to go right, and once the
+open folder was slid right to balance the frame (below) half the card left the screen at
+the peak; the cover is the empty half of the composition and lies well below any carried
+card — **lowered** to the bottom of the pile once it is entirely clear of the deck
+(0.46–0.58), and **slid back under** (0.52–0.95). Heights come from each card's rank from the
+bottom, continuous in the scroll position, so the pile never z-fights; a card's height only
+changes while it is clear of the deck, so nothing passes through anything.
+
+The last card never moves: the pose is capped at the final page, because past it is the
+lead-out — uncapped, page 8 was drawn out from under the closing cover.
+
+### Things that are easy to break
+
+- **The resting bow is world-UP**, not along the sheet normal, and is held flat while the
+  cover is near (`pageBow`, both the opening and the closing).
+- **The cover hinge only drops once the cover is past upright** (`hingeFor`).
+- **The button mirrors the cover's arc in JS** (`coverPoint`) — change one, change both.
+- **The cord's two poses have the same point count**; the release bows up and out so it
+  clears the cover. It is rebuilt only while moving.
+- **Decals live in the plate shader** (label outside; pocket, red slip and two B&W
+  snapshots inside, from `/brand/clubhub-960.webp`, `/art/campus.webp`,
+  `/art/events-2.webp`), loaded in page 1's Suspense boundary — the canvas fades in only
+  once they have decoded.
+- **One lighting model**: `roomShading.ts`, shared by leaves and folder (window bars at
+  0.92 on the folder). The kraft bump is cut from its own height field with screen-space
+  derivatives.
+- **Read scales are held at `READ_FIT` (0.955)** so the kraft border stays in frame; the
+  deck is always read at the single-page scale.
+- **The open folder is slid right by `READ_SHIFT` (0.3 page widths) × `coverOpenness`**
+  (`NewspaperScene.tsx`). With the page dead centre the open cover hung a half-page left
+  of it and ran off the screen; 0.3 is a little under a third of the way to centring the
+  whole folder (~0.5), so the PAGE stays the biggest, most central thing. It rides the
+  cover's own curve (`coverOpenness` in `sceneConfig.ts`, which `Folder.tsx` swings the
+  cover by), so the shut folder still lifts and lands dead centre. Capped by the frame
+  (`READ_EDGE`): the folder's right edge never leaves the screen, so a narrow window
+  gets less of the shift, down to none.
+- **Cards are OPAQUE.** Eight stacked cards drawn as transparent were shaded back to front —
+  all eight on every pixel of the page. Opaque, the depth test rejects every card under the
+  top one before it is shaded.
+
+## Motion — where each kind lives, and why only there
+
+The two reading modes can move in completely different ways, and that is not a choice:
+
+| | Paper mode (desktop, WebGL) | Plain mode (phones, tablets, "Read as a plain page", no WebGL) |
+|---|---|---|
+| The pages are | **Textures** — photographs of the HTML | Real DOM |
+| Motion | The card deck, the folder, the lift, the room | Scroll reveal, hover lift, a few px of parallax |
+| Reduced motion | Never reached — `readingMode.ts` routes it to plain | Everything below is **off** |
+
+A texture cannot fade a headline in or lift a card on hover — there is no headline
+or card in it, only pixels, and nothing on a 3D page can be pointed at (no
+raycasting). So anything per-element lives in the plain document, and the 3D view's
+motion is the turn itself.
+
+**Pages are a deck of cards** (`cardPose` in `Leaf.tsx`) — the top card is sent to the
+back on each step. See "The pages are a deck of cards" above.
+
+### Smoothness — measured on a real integrated GPU
+
+Headless Chrome on this machine uses the laptop's own Intel UHD graphics (the probes force
+software GL only when they need determinism), so frame times can be measured for real.
+Scrolling through the deck at retina resolution, full quality went from **41 fps with 26.5%
+of frames over 25 ms** — the choppy feel — to **55 fps with under 2%**. What did it, and what
+must not be undone:
+
+- **The scene reads the scroll position itself, every frame** (`ScrollSync`, priority −1,
+  via the shell's `readScenePos`). It used to arrive via a scroll event, framer's useScroll,
+  a motion value on framer's next frame, then a ref — asynchronous to three's own rAF, so
+  some frames saw the new position and some the old: the paper moved two steps' worth, then
+  none.
+- **The settle eases in AND out** (`easeInOutCubic`, 0.6 s, after 180 ms idle). Lenis's
+  default exponential ease-out leaves at full speed — a jolt, because a settle starts from
+  rest.
+- **The kraft is computed once per pixel** (`kraftFH`: colour and bump from the same 9
+  noise lookups; the pocket reuses it). It was ~20, plus more passes for the pocket.
+- **Cards are opaque** (above), and **DPR is capped at 1.5** on the high tier.
+- **Full-size page textures are swapped in only while the scroll is still**, or just before
+  the card is shown — a 1722x2376 upload with mipmaps is a dropped frame — and are fetched
+  two cards ahead so they are ready by then.
+- **The watchdog counts hitches**, not just the average: more than 10% of frames over
+  50 ms in a two-second window counts as slow. (The first version counted frames over
+  25 ms — which is not a hitch, just "under 40 fps": a smooth 37 fps had every frame
+  "late", and opening DevTools was enough to lose the scene.)
+
+**The room holds still while you read** (`RoomBackdrop.tsx`). Past 0.92 `open` the
+clip pauses and the dust motes stop; below 0.85 both resume (the gap is hysteresis).
+At that point the room is 15px out of focus under a two-thirds veil, so nobody can
+see it move, but decoding a 1080p stream beside the page turn is real cost.
+
+**The plain document is placed as it is read** (`useReveal.ts` + the READING MOTION
+block in `newspaper.css`). One IntersectionObserver tags elements by role — `card`,
+`art`, `head`, `body`, most specific first; anything inside a card moves with it —
+and CSS delays give the order: headline, copy ~110ms behind, collage ~200ms, cards
+one after another (95ms apart), so a screenful reads as one placement rather than a
+slideshow. A collage is *set down*: 40px low, −1.4°, 96.5% scale, settling flat. The
+collages are single flattened images, so there are no layers inside one to stagger.
+Rules worth knowing before you touch it:
+
+- **Nothing on the first screen ever hides.** The server sends everything visible;
+  the hook marks what is above the fold `is-in` *before* the scope opts in to the
+  hidden state. Hiding it after hydration would flash it.
+- **Motion uses `translate` / `rotate` / `scale`, never `transform`.** The individual
+  properties compose with a transform set elsewhere instead of replacing it.
+- **Parallax is CSS scroll-driven animation** (`animation-timeline: view()`) on the
+  `<img>`, ±7px for the big collages, ±3px for card art. The reveal moves the
+  `<figure>`, so the two never fight over one element. No JS; a browser without
+  `animation-timeline` simply gets a still picture.
+- **Excluded:** anything inside `<details>` (a closed disclosure never intersects, so
+  its answer would be stuck hidden), reduced motion, and `pages:render`.
+- **`pages:render` arrives in render mode late.** It loads plain mode, lets it
+  hydrate — so the hook has already run — and only then sets `data-render`. The hook
+  watches for that attribute and removes every trace of itself; the CSS also forces
+  everything under `[data-render]` visible and still. The first version only checked
+  at mount, left the parallax drifting, and Playwright timed out "waiting for element
+  to be stable".
+
 ## The first second — read before touching the boot path
 
 The server always sends the **plain eight-page document**. That is correct: it
@@ -671,10 +859,10 @@ Four things fix it, and they are load-bearing together:
    the room's own poster is painted straight from the stylesheet. It used to
    arrive as a custom property the script wrote, because the script picked which
    room; with one room the URL is a constant and the script only preloads it.
-3. **The boot script starts the downloads its decision implies** — the poster and
-   the first leaf's two textures. They were previously requested only after the
-   scene chunk arrived. **The textures must be preloaded
-   `crossOrigin="anonymous"` and the poster must not**: three's TextureLoader
+3. **The boot script starts the downloads its decision implies** — the poster, the
+   folder label (`/brand/clubhub-480.webp`) and the page manifest (`meta.json`). No
+   page texture: the first frame is the shut folder. **The label and manifest must be
+   preloaded `crossOrigin="anonymous"` and the poster must not**: three's TextureLoader
    issues an anonymous CORS request, and a preload whose credentials mode differs
    from the eventual fetch is silently discarded — the file is downloaded twice
    and the preload buys nothing at all. The poster is consumed as a CSS
@@ -686,10 +874,9 @@ Four things fix it, and they are load-bearing together:
    first render. The largest download on the page was queued behind the very
    hydration it was waiting for.
 
-Two smaller pieces: Suspense is **per leaf** rather than one boundary around all
-four, so the front page appears without waiting on six textures nobody can see
-yet; and the canvas **fades in** when leaf 0 resolves, over a room that is
-already on screen, so it is a hand-off rather than an arrival.
+The canvas **fades in** when the folder's Suspense boundary resolves, over a room
+that is already on screen, so it is a hand-off rather than an arrival. The leaves
+do not suspend at all — see the next section.
 
 `<html>` carries `suppressHydrationWarning`, and that is not a shrug. The boot
 script writes attributes React never rendered, so React reports a mismatch it
@@ -703,6 +890,108 @@ frame in which the plain document is visible.
 One console warning remains and is not ours — *"THREE.Clock: This module has been
 deprecated"* — emitted by `@react-three/fiber`'s own render loop against three
 r185. It goes when R3F updates.
+
+## Loading, device tiers and failure — read before adding anything to the first frame
+
+Measured cold, on the production build (`out/`, text compressed as Cloudflare does),
+before → after this work:
+
+| | Before | Now |
+|---|---|---|
+| Downloaded before the scene appears | 7.5 MB | ~0.85 MB |
+| Scene up on 4G / 3G | 8.7 s / 36.6 s | ~1.6 s / ~5 s (and a 3G visitor now gets the plain edition) |
+| Return visit | everything re-checked | ~0 KB (two 304s) |
+
+**What the first frame waits for, and nothing else:** JS (~430 KB compressed, three.js
+is ~250 KB of it), fonts, the room poster, the 30 KB folder label. If you add to that
+list, measure again.
+
+### What loads when
+
+- **The articles' pictures never load in 3D.** In paper mode the eight articles are a
+  hidden screen-reader copy, and their images were 2.1 MB. They are `loading="lazy"` and
+  `html[data-np-mode="paper"] … img { display: none }` — a lazy image that is not rendered
+  is never fetched. The shell keeps `<html data-np-mode>` in step with the mode after
+  hydration (skipping hydration's first, server-snapshot render, which would briefly flip
+  it to plain and start every download). `pages:render` forces them eager before
+  photographing. In plain mode the ticker logos are switched to eager (it is a marquee —
+  lazy, each chip slid in blank).
+- **Page textures come in three sizes** (`render-pages.mjs`): `l` 3x, `m` 2x, `s` a 430px
+  preview (~20 KB). Names carry a content hash; `public/pages/meta.json` is the manifest
+  (`textures.ts`). After the first frame every leaf loads its preview; the full size
+  (`l` on a high tier, `m` on mid) loads within 1.6 steps of the reader and is released
+  past 2.6, so at most three leaves of full textures are on the GPU. Decoded off the main
+  thread (`createImageBitmap`).
+- **The pocket snapshots, the 960 label and the live ticker's logos** load after the first
+  frame. **The room clip** loads after that, on an idle callback: 1080p on a high tier
+  with a big screen and a fast link, 720p (`morning-720.mp4`, 250 KB, made by
+  `npm run backdrop:prep -- --renditions`) otherwise, and not at all on Data Saver or a
+  2G link — the poster is its first frame, so the room is still there. **Never from
+  `connection.downlink` alone**: Chrome reports ~1.5 Mbps on a fresh session (round trip
+  0, nothing measured yet) while rating the link "4g", and an "under 2 Mbps → no video"
+  rule silently took the room clip away on a fast laptop.
+
+### Device tiers (`bootScript.ts`, before first paint)
+
+| Tier | When | Gets |
+|---|---|---|
+| low | Data Saver; 2G/3G; ≤2 GB; ≤2 cores; software GL (SwiftShader, llvmpipe, Basic Render); max texture < 4096 | **plain edition** |
+| mid | ≤4 GB; ≤4 cores | DPR ≤1.25, `m` pages, plain kraft (`uDetail` 0), 720p clip |
+| high | otherwise | everything |
+
+Every signal is optional (Safari/Firefox expose no memory or connection) and a missing one
+never lowers a tier. **The machine decides the tier; the connection only decides
+downloads**: a link under 5 Mbps **with** a round trip ≥ 300 ms sets `data-np-net="slow"`
+(2x pages, the light clip) on whatever tier the machine earned. Both conditions, because
+Chrome's speed estimate starts low on a fresh session with a round trip of 0 — on the
+downlink alone a 28-core laptop on good wifi was read as slow. **WebGL2 is required** — three.js is WebGL2-only since r163; the old
+check accepted WebGL1 and would have shown a blank canvas.
+
+### Watchdogs and fallbacks (`NewspaperShell.tsx`, `readingMode.ts` `failScene`)
+
+Anything the scene cannot recover from switches to the plain edition **on the page being
+read**. Only the DETERMINISTIC failures — a render error (`SceneBoundary`), a missing
+manifest or preview (a missing FULL size just keeps the preview) — are remembered in
+`sessionStorage["clubhub:scene-failed"]`, because a reload would only hit them again.
+The rest are **transient** (`TRANSIENT_FAILURES` in `readingMode.ts`) — this page goes
+plain, a reload tries 3D again:
+
+- a lost WebGL context (a driver reset recovers; a new page gets a new context). **Our own
+  teardown is not one**: R3F calls `forceContextLoss()` ~500 ms after the Canvas unmounts,
+  which fires the same event, so `NewspaperScene` removes its listener on unmount;
+- no first frame within 9 s **of visible time** (60 s under `next dev`, which compiles
+  three.js on the first request). A hidden tab draws no frames, so a wall-clock timer
+  failed every page opened in a background tab;
+- the frame rate: measured in 2-second windows; two slow windows (under 28 fps, or over
+  10% hitches) step the scene down to mid at DPR 1. After that it gives way only if the
+  rate is **under 18 fps** (`GIVE_UP_FPS`) — a 30 fps scene beats no scene. Windows are in
+  SECONDS — the first version counted frames and took ~100 s to rescue a 5 fps machine.
+
+Stored transient flags from earlier builds are deleted on sight by the boot script and
+`readingMode.ts`: sessionStorage is copied into tabs opened from a tab, so an old flag
+otherwise followed the reader into every new tab.
+
+**The width gate applies only until the scene has been shown.** `MIN_WIDTH` is a cost
+judgement, and once a desktop has loaded and is running the scene that cost is paid; a
+window narrowing for a moment (DevTools docked to the side, a half-screen snap) used to
+tear the scene down. The lead steps (`lead` in the shell) are therefore not tied to width
+either — when they were, narrowing dropped the shut-folder step and the folder jumped open.
+
+### Testing
+
+`localStorage["clubhub:force-tier"] = "high" | "mid" | "low"` overrides the device check
+and stands the watchdogs down — headless Chrome renders WebGL in software, which is
+(correctly) a low tier, so `scene:shot` and `perf:timeline` set it. Add
+`localStorage["clubhub:watchdog"] = "on"` to test the watchdogs themselves. The page marks
+`performance.mark("np-scene-ready")` when the first frame is up.
+
+### Caching (`public/_headers`)
+
+Hashed files (`/_next/static/*`, `/pages/*.avif`) are immutable for a year; `meta.json` is
+always revalidated; fixed-name assets (`/art`, `/brand`, `/colleges`, `/backdrop`, the
+icons) are fresh for a day and then served stale-while-revalidate for 30 days. HTML keeps
+Pages' default. **Give anything new a hashed name or a rule here** — without one, Pages tells
+browsers to re-check it on every visit.
 
 ## Environment
 

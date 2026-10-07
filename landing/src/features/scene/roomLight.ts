@@ -230,4 +230,7 @@ export const ROOM_LIGHT: RoomLight = {
  * `newspaper.css` paints the same poster and cites this module.
  */
 export const ROOM_VIDEO = "/backdrop/morning.mp4";
+/** The same clip at 720p (`npm run backdrop:prep -- --renditions`), a seventh of the
+ *  size — for ordinary laptops and connections that are not fast. */
+export const ROOM_VIDEO_720 = "/backdrop/morning-720.mp4";
 export const ROOM_POSTER = "/backdrop/morning.avif";

@@ -88,6 +88,9 @@ async function main() {
   await context.addInitScript(() => {
     try {
       localStorage.setItem("clubhub:reading-mode", "paper");
+      // Headless Chrome renders WebGL in software, which the device check (bootScript.ts)
+      // sends to the plain edition. Force the full scene; this also stands the watchdogs down.
+      localStorage.setItem("clubhub:force-tier", "high");
     } catch {}
   });
 

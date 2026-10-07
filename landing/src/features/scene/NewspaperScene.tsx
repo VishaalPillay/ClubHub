@@ -1,11 +1,22 @@
 "use client";
 
-import { Suspense, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import Leaf from "./Leaf";
+import Folder from "./Folder";
+import Leaf, { CARDS } from "./Leaf";
 import { ROOM_LIGHT, type ClipTable, type RoomLight } from "./roomLight";
-import { PAGE_H, PAGE_W, cameraPositionFor, openness } from "./sceneConfig";
+import {
+  FOLDER_H,
+  FOLDER_MARGIN,
+  FOLDER_W,
+  PAGE_W,
+  cameraPositionFor,
+  coverOpenness,
+  openness,
+} from "./sceneConfig";
+import { HIGH_QUALITY, SceneContext, useScene, type SceneCtx, type SceneQuality } from "./sceneContext";
+import { loadManifest, type PagesManifest } from "./textures";
 
 /**
  * The 3D scene: a newspaper on a table, in a room.
@@ -21,11 +32,6 @@ import { PAGE_H, PAGE_W, cameraPositionFor, openness } from "./sceneConfig";
  * second for a value only the render loop consumes. `useFrame` reads it
  * directly, the same reason the CSS version drove everything from MotionValues.
  */
-
-const LEAVES = 4;
-
-/** `public/pages/01.avif` … `08.avif`, produced by `npm run pages:render`. */
-const pageUrl = (page0: number) => `/pages/${String(page0 + 1).padStart(2, "0")}.avif`;
 
 
 
@@ -53,6 +59,84 @@ function CameraRig({ clip }: { clip: ClipTable }) {
 }
 
 /**
+ * Watches the frame rate the machine is actually holding.
+ *
+ * The boot script can only guess from what a browser admits to (memory, cores,
+ * connection); plenty of laptops pass it and still cannot keep this scene smooth — an
+ * old integrated GPU on a 4K panel, a battery saver, a dozen other tabs. So after the
+ * first frame the real rate is measured in WINDOW-second windows, and two slow windows
+ * in a row call `onSlow`. The shell steps the scene down first and only gives up on it
+ * if the lighter scene is slow too.
+ *
+ * Windows are measured in SECONDS, not frames. The first version counted 120 frames per
+ * window — fine at 60 fps, but at 5 fps that is 24 seconds a window, so a machine that
+ * badly needed rescuing waited the better part of two minutes for it.
+ *
+ * Only pauses of over a second are skipped (a tab coming back, the machine waking).
+ * Ordinary hitches — a texture upload, a shader recompiling after a step-down — stay in:
+ * one 300 ms frame inside a two-second window barely moves the average, and skipping
+ * every frame over a quarter-second (the first version) hid a machine at 3 fps entirely.
+ */
+/**
+ * Brings the scroll position into the render loop — read fresh, first thing, every frame.
+ *
+ * It used to arrive the long way round: a scroll event, then framer's useScroll, then a
+ * motion value on framer's NEXT frame, then a ref. Each hop is asynchronous to three's
+ * own requestAnimationFrame, so on some frames the scene saw this frame's position and on
+ * others the previous one — the paper moved two steps' worth, then none, then two. That
+ * is what "uneven" scrolling was. Reading window.scrollY here, at priority -1 (before
+ * every other useFrame in the scene), gives every frame one consistent, current value.
+ */
+function ScrollSync({
+  posRef,
+  readPos,
+}: {
+  posRef: React.RefObject<number>;
+  readPos?: () => number;
+}) {
+  useFrame(() => {
+    if (readPos) posRef.current = readPos();
+  }, -1);
+  return null;
+}
+
+const SLOW_FPS = 28;
+const WINDOW = 2;
+/**
+ * …or this share of frames that are HITCHES (over 50 ms — three missed vsyncs, a jolt
+ * anyone sees) in a window. An average hides stutter: a steady 50 fps with one frame in
+ * seven stalled reads as choppy. It used to be "over 25 ms", which is not a hitch but
+ * merely under 40 fps: at a smooth 37 fps every single frame counted as late, and the
+ * scene was taken away from a machine running it perfectly well (DevTools open was
+ * enough). Slowness only ever LIGHTENS the scene here; giving up is the shell's call.
+ */
+const HITCH_MS = 0.05;
+const HITCH_SHARE = 0.1;
+
+function FrameWatch({ enabled, onSlow }: { enabled: boolean; onSlow: (fps: number) => void }) {
+  const acc = useRef({ n: 0, sum: 0, late: 0, slow: 0 });
+  useFrame((_, dt) => {
+    if (!enabled || document.hidden || dt > 1) return;
+    const a = acc.current;
+    a.n++;
+    a.sum += dt;
+    if (dt > HITCH_MS) a.late++;
+    if (a.sum < WINDOW) return;
+    const fps = a.n / a.sum;
+    const lateShare = a.late / a.n;
+    a.n = 0;
+    a.sum = 0;
+    a.late = 0;
+    a.slow = fps < SLOW_FPS || lateShare > HITCH_SHARE ? a.slow + 1 : 0;
+    if (a.slow >= 2) {
+      a.slow = 0;
+      onSlow(fps);
+    }
+  });
+  return null;
+}
+
+/**
  * Fires once its Suspense boundary has resolved.
  *
  * Which is the only honest signal that the scene has something to show: R3F's
@@ -65,13 +149,12 @@ function SignalReady({ onReady }: { onReady: () => void }) {
 }
 
 /**
- * The bound edition, and the pan that keeps it centred.
+ * The folder and the deck of cards in it, held so the deck is centred.
  *
- * An unturned leaf occupies x ∈ [0, W] and a turned one [−W, 0], so an open
- * spread straddles the spine symmetrically but a CLOSED one — the front and back
- * covers — sits a half-page off to one side. The group slides to compensate, so
- * the paper opens outward from the middle instead of the whole scene appearing
- * to drift.
+ * The deck sits on the right half of the open folder, x ∈ [0, W] from the spine, and
+ * is read one card at a time — so the group is held half a page left, always, and the
+ * card being read is in the middle of the frame. (The two-page spread this used to pan
+ * between is gone with the page turn.)
  */
 function Edition({
   posRef,
@@ -86,43 +169,31 @@ function Edition({
   light: RoomLight;
   onReady: () => void;
 }) {
-  const group = useRef<THREE.Group>(null);
-
-  useFrame(() => {
-    const g = group.current;
-    if (!g) return;
-    /* Everything below is in TURN space — scroll position minus the lead-in.
-       The pan tracks the paper opening, not the camera coming in, so it has to
-       be measured from where the first leaf actually starts to move. */
-    const t = THREE.MathUtils.clamp((posRef.current ?? 0) - lead, 0, turns);
-    const half = PAGE_W / 2;
-
-    g.position.x =
-      t <= 0.5
-        ? THREE.MathUtils.lerp(-half, 0, THREE.MathUtils.clamp(t / 0.5, 0, 1))
-        : t >= turns - 0.5
-          ? THREE.MathUtils.lerp(0, half, THREE.MathUtils.clamp((t - (turns - 0.5)) / 0.5, 0, 1))
-          : 0;
-  });
+  const scene = useScene();
 
   return (
-    <group ref={group}>
-      {/* One boundary PER LEAF, not one around all four. Eight textures in a
-          single boundary means nothing appears until the last of them decodes —
-          and leaves 1-3 are hidden behind leaf 0 at rest anyway, so waiting on
-          them delayed the only page anyone can see. */}
-      {Array.from({ length: LEAVES }, (_, k) => (
-        <Suspense key={k} fallback={null}>
-          <Leaf
-            index={k}
-            frontUrl={pageUrl(k * 2)}
-            backUrl={pageUrl(k * 2 + 1)}
-            posRef={posRef}
-            lead={lead}
-            light={light}
-          />
-          {k === 0 && <SignalReady onReady={onReady} />}
-        </Suspense>
+    <group position={[-PAGE_W / 2, 0, 0]}>
+      {/* The ONLY thing the first frame waits for is the shut folder — its label is
+          the one texture it needs. No page is visible on that frame, so the leaves do
+          not suspend at all: each fetches a preview once the scene is up and its full
+          size when the reader gets near it (Leaf.tsx, textures.ts). */}
+      <Suspense fallback={null}>
+        <Folder posRef={posRef} lead={lead} turns={turns} light={light} />
+        <SignalReady onReady={onReady} />
+      </Suspense>
+      {Array.from({ length: CARDS }, (_, k) => (
+        <Leaf
+          key={k}
+          index={k}
+          manifest={scene.manifest}
+          ready={scene.ready}
+          full={scene.quality.full}
+          onFail={scene.fail}
+          posRef={posRef}
+          lead={lead}
+          turns={turns}
+          light={light}
+        />
       ))}
     </group>
   );
@@ -137,6 +208,27 @@ function Edition({
  * caster's edge falls inside it.
  */
 const SHADOW_QUAD = 1.55;
+
+/** How much smaller than the solved read scales the edition is held, so the folder's
+ *  overhang stays in frame. See FloatingEdition. */
+const READ_FIT = 0.955;
+
+/**
+ * How far the OPEN folder slides right, in page widths, as its cover opens.
+ *
+ * The page is centred on the lens, and the open cover lies to the left of the spine — so
+ * the open folder as a whole sat a full half-page left of centre, its cover running off
+ * the left edge of the screen and empty room on the right. Sliding the whole edition right
+ * by the cover's openness balances the folder in the frame while the PAGE stays the
+ * largest, most central thing on it: this is a little under a third of the way to
+ * centring the folder exactly (that would be ~0.5, and push the page well off to the side).
+ *
+ * Capped by the frame, so a narrow window never pushes the page's edge off screen; at
+ * phone-like aspects the cap is 0 and the page simply stays centred.
+ */
+const READ_SHIFT = 0.3;
+/** The share of the frame's half-width the folder's right edge may reach. */
+const READ_EDGE = 0.96;
 
 /**
  * The variant used when the clip already contains the table.
@@ -171,9 +263,10 @@ function FloatingEdition({
   const group = useRef<THREE.Group>(null);
   const shadow = useRef<THREE.Mesh>(null);
 
-  /** Half-extents of the shadow quad, in world units. */
-  const halfW = (PAGE_W * clip.restScale * SHADOW_QUAD) / 2;
-  const halfH = (PAGE_H * clip.restScale * SHADOW_QUAD) / 2;
+  /** Half-extents of the shadow quad, in world units. What lies on the desk is the
+   *  shut FOLDER, a margin bigger than a page on its three open sides. */
+  const halfW = (FOLDER_W * clip.restScale * SHADOW_QUAD) / 2;
+  const halfH = (FOLDER_H * clip.restScale * SHADOW_QUAD) / 2;
 
   const shadowMaterial = useMemo(
     () =>
@@ -271,7 +364,7 @@ function FloatingEdition({
     };
   }, [light.dir]);
 
-  useFrame(() => {
+  useFrame((state) => {
     const g = group.current;
     const sh = shadow.current;
     if (!g || !sh) return;
@@ -279,10 +372,12 @@ function FloatingEdition({
     const pos = posRef.current ?? 0;
     const open = openness(pos, turns, lead);
 
-    /* A spread is twice the width of a closed cover, so a single read scale
-       would either shrink the front page or run the spread off the sides. */
-    const spread = THREE.MathUtils.clamp(pos - lead, 0, 1);
-    const readScale = THREE.MathUtils.lerp(clip.readScaleClosed, clip.readScaleOpen, spread);
+
+    /* Scaled down a few percent from the solved read scales, which were fitted to a
+       bare sheet: the folder's boards overhang the pages, and that kraft border is
+       the point — it has to stay on screen above and below the spread. */
+    // One card at a time, so always the single-page read scale.
+    const readScale = READ_FIT * clip.readScaleClosed;
 
     const tilt = THREE.MathUtils.degToRad(clip.readTiltDeg) * open;
     const scale = THREE.MathUtils.lerp(clip.restScale, readScale, open);
@@ -297,13 +392,27 @@ function FloatingEdition({
        shadow exists, and the correction is faded out before it matters — the reading
        pose, which was solved against the lens, is untouched. The margin ramps in from
        zero so a sheet at rest still lies ON the table. */
-    const nearDrop = (PAGE_H / 2) * scale * Math.sin(tilt);
+    const nearDrop = (FOLDER_H / 2) * scale * Math.sin(tilt);
     const margin = 0.012 * THREE.MathUtils.smoothstep(open, 0, 0.05);
     const peel = Math.max(0, nearDrop + margin - y) * (1 - THREE.MathUtils.smoothstep(open, 0.12, 0.42));
     y += peel;
 
+    /* READ_SHIFT, capped by how much frame there is to the right of the page. The read
+       pose sits on the view axis, so the half-width of the frame at its depth is
+       distance × tan(fov/2) × aspect; the folder's right edge (half a page plus the
+       board's overhang, from the page centre) has to stay inside it. */
+    const cam = state.camera as THREE.PerspectiveCamera;
+    const depth = Math.hypot(
+      cam.position.x - clip.read[0],
+      cam.position.y - clip.read[1],
+      cam.position.z - clip.read[2],
+    );
+    const halfFrame = depth * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2) * cam.aspect;
+    const room = (halfFrame * READ_EDGE) / readScale - (PAGE_W / 2 + FOLDER_MARGIN);
+    const shift = Math.min(READ_SHIFT, Math.max(room, 0)) * coverOpenness(pos, turns, lead);
+
     g.position.set(
-      THREE.MathUtils.lerp(clip.rest[0], clip.read[0], open),
+      THREE.MathUtils.lerp(clip.rest[0], clip.read[0], open) + shift * scale,
       y,
       THREE.MathUtils.lerp(clip.rest[2], clip.read[2], open),
     );
@@ -335,7 +444,13 @@ function FloatingEdition({
        the fade is: past this it stops being a contact shadow and starts being a
        rectangle on the floor. */
     const grow = 1 + gone * 0.85;
-    sh.position.set(clip.rest[0], 0.002, clip.rest[2]);
+    // Under the shut folder's centre: the edition rests panned half a page left, and
+    // the folder reaches FOLDER_W from the spine.
+    sh.position.set(
+      clip.rest[0] + clip.restScale * (FOLDER_W - PAGE_W) * 0.5,
+      0.002,
+      clip.rest[2],
+    );
     sh.scale.setScalar(grow);
     sh.visible = gone < 1;
 
@@ -375,50 +490,117 @@ export default function NewspaperScene({
   posRef,
   turns,
   lead,
+  quality = HIGH_QUALITY,
+  onReady: onReadyOut,
+  onFail = () => {},
+  watchdog = false,
+  onSlow = () => {},
+  readPos,
 }: {
+  /** The live scroll position in steps, read straight from the page — see ScrollSync. */
+  readPos?: () => number;
+  /** Measure the frame rate once the scene is up. */
+  watchdog?: boolean;
+  /** The frame rate has stayed under SLOW_FPS. */
+  onSlow?: (fps: number) => void;
   posRef: React.RefObject<number>;
   /** Steps that turn a leaf. */
   turns: number;
   /** Steps at each end that only move the camera. */
   lead: number;
+  /** How much the device can take — see sceneContext.ts and the shell's tiering. */
+  quality?: SceneQuality;
+  /** The first frame is on screen. */
+  onReady?: () => void;
+  /** Something the scene cannot recover from. */
+  onFail?: (reason: string) => void;
 }) {
   /* One rig, matched to the one clip RoomBackdrop plays. Neither layer chooses
      it any more, so neither can disagree with the other. */
   const light = ROOM_LIGHT;
 
-  /* Held back until the front page exists. The room is already on screen by
-     now — painted by the boot script before React ran — so fading the canvas up
-     over it is a hand-off rather than an arrival. */
+  /* Held back until the shut folder exists. The room is already on screen by now —
+     painted by the boot script before React ran — so fading the canvas up over it
+     is a hand-off rather than an arrival. */
   const [ready, setReady] = useState(false);
-  const onReady = useCallback(() => setReady(true), []);
+  const onReady = useCallback(() => {
+    setReady(true);
+    onReadyOut?.();
+  }, [onReadyOut]);
+
+  /* The page manifest is fetched straight away (the boot script has usually
+     preloaded it); the pages themselves wait for `ready`. */
+  const [manifest, setManifest] = useState<PagesManifest | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadManifest().then((m) => {
+      if (!live) return;
+      if (m?.pages?.length) setManifest(m);
+      else onFail("manifest");
+    });
+    return () => {
+      live = false;
+    };
+  }, [onFail]);
+
+  const ctx = useMemo<SceneCtx>(
+    () => ({ ready, manifest, quality, fail: onFail }),
+    [ready, manifest, quality, onFail],
+  );
+
+  /* A lost context means the GPU took it away — unless WE are the ones tearing the
+     canvas down. R3F calls forceContextLoss() ~500 ms after the Canvas unmounts, which
+     fires the same event; read as a GPU failure, merely narrowing the window (DevTools
+     docked to the side) switched the scene off for the rest of the session. So the
+     listener is removed the moment this component unmounts, before that timer runs. */
+  const contextLost = useRef<{ el: HTMLCanvasElement; fn: () => void } | null>(null);
+  useEffect(
+    () => () => {
+      const c = contextLost.current;
+      if (c) c.el.removeEventListener("webglcontextlost", c.fn);
+      contextLost.current = null;
+    },
+    [],
+  );
 
   return (
     <div className={ready ? "np-canvas is-ready" : "np-canvas"}>
     <Canvas
-      /* Capped at 2: the pages are the expensive surface and a 3x device would
-         be magnifying texture detail that does not exist in the source. */
-      dpr={[1, 2]}
+      /* Capped at 2 on a capable machine: the pages are the expensive surface and a 3x
+         device would be magnifying texture detail that does not exist in the source.
+         Lower on an ordinary laptop, where fill rate is what runs out first. */
+      dpr={quality.dpr}
+      onCreated={({ gl }) => {
+        /* A GPU reset, a driver crash, too many WebGL contexts in other tabs: the
+           context can be taken away at any time, and the scene cannot draw without it. */
+        const fn = () => onFail("context-lost");
+        gl.domElement.addEventListener("webglcontextlost", fn, { once: true });
+        contextLost.current = { el: gl.domElement, fn };
+      }}
       /* Transparent, because the room is a video BEHIND this canvas rather
          than geometry inside it. Without alpha the clear colour paints over it
          and the whole backdrop disappears. */
       gl={{ antialias: true, alpha: true }}
       camera={{ fov: light.clipTable.fov, near: 0.1, far: 200 }}
     >
-      <CameraRig clip={light.clipTable} />
+      <SceneContext.Provider value={ctx}>
+        <ScrollSync posRef={posRef} readPos={readPos} />
+        <CameraRig clip={light.clipTable} />
+        <FrameWatch enabled={watchdog && ready} onSlow={onSlow} />
 
-      {/* No lights. Every material in this scene is a raw ShaderMaterial with
-          its own lighting model fed from roomLight — scene lights would cost a
-          uniform update per frame and illuminate nothing. */}
+        {/* No lights. Every material in this scene is a raw ShaderMaterial with
+            its own lighting model fed from roomLight — scene lights would cost a
+            uniform update per frame and illuminate nothing. */}
 
-      {/* Suspense lives per leaf, inside Edition. */}
-      <FloatingEdition
-        posRef={posRef}
-        turns={turns}
-        lead={lead}
-        light={light}
-        clip={light.clipTable}
-        onReady={onReady}
-      />
+        <FloatingEdition
+          posRef={posRef}
+          turns={turns}
+          lead={lead}
+          light={light}
+          clip={light.clipTable}
+          onReady={onReady}
+        />
+      </SceneContext.Provider>
     </Canvas>
     </div>
   );
